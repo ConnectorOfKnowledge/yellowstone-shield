@@ -159,14 +159,15 @@ tailwind.config = {
   .rw-chips-row::-webkit-scrollbar { height: 4px; }
   .rw-chips-row::-webkit-scrollbar-thumb { background: #4a4a6a; border-radius: 2px; }
   .rw-chip {
-    flex-shrink: 0; width: 100px; padding: 10px 8px; border-radius: 10px;
-    text-align: center; font-size: 11px; line-height: 1.4;
+    flex-shrink: 0; width: 120px; padding: 10px 8px; border-radius: 10px;
+    text-align: center; font-size: 13px; line-height: 1.4;
   }
   .rw-chip .rw-emoji { font-size: 20px; display: block; margin-bottom: 2px; }
   .rw-chip .rw-time { font-weight: 700; color: #e5e5e5; }
-  .rw-chip .rw-loc { color: #a0a0a0; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rw-chip .rw-loc { color: #a0a0a0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rw-chip .rw-temp { font-weight: 700; color: #e5e5e5; font-size: 13px; }
-  .rw-chip .rw-wind { color: #a0a0a0; font-size: 10px; }
+  .rw-chip .rw-wind { color: #a0a0a0; font-size: 11px; }
+  .rw-rotated { transform: rotate(180deg); }
   .rw-chip { cursor: pointer; position: relative; }
   .rw-chip-detail {
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -484,7 +485,7 @@ tailwind.config = {
       <div class="flex items-center justify-between mb-4">
         <div>
           <h2 class="text-xl font-extrabold text-warm-400">Route Weather Forecast</h2>
-          <p class="text-gray-500 text-xs mt-0.5">Weather along your entire trip route</p>
+          <p class="text-gray-500 text-xs mt-0.5">Live forecast -- refreshed each time you open this</p>
         </div>
         <button onclick="closeRouteWeather()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
       </div>
@@ -3099,11 +3100,7 @@ function openTimePicker(legIdx) {
 
 function openRouteWeather() {
   document.getElementById('route-weather-panel').classList.add('open');
-  if (!rwCache) {
-    fetchRouteWeatherData();
-  } else {
-    renderRouteWeather();
-  }
+  fetchRouteWeatherData();
 }
 
 function closeRouteWeather() {
@@ -3277,6 +3274,42 @@ function rwSeverityExplain(sev) {
   }[sev] || '';
 }
 
+function rwQuickSummary(worstSev, hazards, legPoints, forecasts, points, leg) {
+  // Get temp range from first and last checkpoint
+  let minTemp = Infinity, maxTemp = -Infinity;
+  const [depH, depM] = rwDepartureTimes[RW_LEGS.indexOf(leg)].split(':').map(Number);
+  legPoints.forEach(pt => {
+    const globalIdx = points.indexOf(pt);
+    const forecast = forecasts[globalIdx];
+    if (!forecast || !forecast.hourly) return;
+    const driveHrs = pt.fracAlong * leg.driveHours;
+    const arrH = Math.floor((depH * 60 + depM + driveHrs * 60) / 60) % 24;
+    const hIdx = rwFindHourlyIndex(forecast.hourly.time, leg.date, arrH);
+    if (hIdx < 0) return;
+    const t = Math.round(forecast.hourly.temperature_2m[hIdx]);
+    if (t < minTemp) minTemp = t;
+    if (t > maxTemp) maxTemp = t;
+  });
+  const tempRange = (minTemp === Infinity) ? '' : (minTemp === maxTemp ? `${minTemp}\u00B0F` : `${minTemp}-${maxTemp}\u00B0F`);
+
+  if (worstSev === 'green') {
+    return `Clear and calm, ${tempRange}. Great driving weather.`;
+  } else if (worstSev === 'yellow') {
+    const issue = hazards.length > 0 ? hazards[0].description.split(',')[0].toLowerCase() : 'minor conditions';
+    return `Mostly clear with ${issue}. Perfectly driveable.`;
+  } else if (worstSev === 'orange') {
+    const h = hazards.find(x => x.severity === 'orange') || hazards[0];
+    const desc = h ? h.description.split(',')[0].toLowerCase() : 'changing conditions';
+    const city = h ? h.city : '';
+    return `Watch for ${desc}${city ? ' near ' + city : ''}. ${tempRange}.`;
+  } else {
+    const h = hazards.find(x => x.severity === 'red') || hazards[0];
+    const desc = h ? h.description.split(',')[0] : 'Severe weather';
+    const city = h ? h.city : '';
+    return `${desc} expected${city ? ' near ' + city : ''}. Check conditions before driving.`;
+  }
+}
+
 function renderRouteWeather() {
   const container = document.getElementById('route-weather-content');
   if (!rwCache) {
@@ -3381,9 +3414,7 @@ function renderRouteWeather() {
         <span class="rw-loc" title="${city}">nr. ${city}</span>
         <span class="rw-temp">${temp}°F</span>
         <span class="rw-wind">${wind} mph${gusts > 25 ? ' (G' + gusts + ')' : ''}</span>
-        <span style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:1px;">${desc}${temp <= 32 ? ' \u2022 ' + (temp <= 10 ? '🥶 Extreme cold' : temp <= 20 ? '🧊 Very cold' : '❄️ Below freezing') : ''}</span>
         ${nightBadge}
-        <span style="font-size:8px;color:rgba(245,166,35,0.5);margin-top:2px;">tap for details</span>
       </div>`;
     });
 
@@ -3437,14 +3468,14 @@ function renderRouteWeather() {
           <span style="font-size:20px;">🌙</span>
           <div>
             <span style="font-weight:800;color:#a5b4fc;font-size:13px;">ARRIVING AFTER DARK</span>
-            <p style="font-size:11px;color:#c7d2fe;line-height:1.5;margin-top:2px;">
+            <p style="font-size:13px;color:#c7d2fe;line-height:1.5;margin-top:2px;">
               Sunset at destination is <strong>${destSunsetStr}</strong>. At current departure time, you'll arrive after dark.
             </p>
           </div>
         </div>
         <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:8px 10px;margin-top:6px;">
-          <div style="font-weight:700;color:#fca5a5;font-size:11px;margin-bottom:4px;">⛔ SOLO NIGHT DRIVING IS NOT RECOMMENDED</div>
-          <div style="font-size:11px;color:#d4d4d4;line-height:1.6;">
+          <div style="font-weight:700;color:#fca5a5;font-size:13px;margin-bottom:4px;">⛔ SOLO NIGHT DRIVING IS NOT RECOMMENDED</div>
+          <div style="font-size:13px;color:#d4d4d4;line-height:1.6;">
             Night driving alone significantly increases fatigue, reduces reaction time, and limits visibility of road hazards, wildlife, and changing road conditions.
             ${nightRisks.length > 0 ? '<br><br>' + nightRisks.join('<br>') : ''}
             <br><br><strong>Recommendation:</strong> Consider departing earlier (before ${destSunsetStr} minus ${leg.driveHours}h = adjust departure to arrive by sunset) to ensure you reach your hotel in daylight.
@@ -3456,8 +3487,8 @@ function renderRouteWeather() {
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:18px;">🌅</span>
           <div>
-            <span style="font-weight:700;color:#fcd34d;font-size:12px;">ARRIVING NEAR SUNSET</span>
-            <p style="font-size:11px;color:#fcd34d;line-height:1.5;margin-top:2px;">
+            <span style="font-weight:700;color:#fcd34d;font-size:13px;">ARRIVING NEAR SUNSET</span>
+            <p style="font-size:13px;color:#fcd34d;line-height:1.5;margin-top:2px;">
               Sunset at destination is <strong>${destSunsetStr}</strong>. You're cutting it close. Any delays could push your arrival into darkness. Solo night driving is not recommended -- try to leave on time or slightly earlier.
             </p>
           </div>
@@ -3469,7 +3500,7 @@ function renderRouteWeather() {
       nightWarningHtml += `<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:16px;">🌙</span>
-          <div style="font-size:11px;color:#c7d2fe;line-height:1.5;">
+          <div style="font-size:13px;color:#c7d2fe;line-height:1.5;">
             <strong>${nightChipCount} of ${legPoints.length} route segments</strong> fall during darkness. Solo night driving is strongly discouraged. Consider adjusting your departure time to maximize daylight hours.
           </div>
         </div>
@@ -3490,8 +3521,8 @@ function renderRouteWeather() {
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:18px;">✅</span>
           <div>
-            <span style="font-weight:700;color:#93c5fd;font-size:12px;">LOOKING GOOD!</span>
-            <p style="font-size:11px;color:#93c5fd;line-height:1.4;margin-top:2px;">${sevExplain}</p>
+            <span style="font-weight:700;color:#93c5fd;font-size:13px;">LOOKING GOOD!</span>
+            <p style="font-size:13px;color:#93c5fd;line-height:1.4;margin-top:2px;">${sevExplain}</p>
           </div>
         </div>
       </div>`;
@@ -3500,12 +3531,12 @@ function renderRouteWeather() {
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:18px;">👍</span>
           <div>
-            <span style="font-weight:600;color:#ccc;font-size:12px;">FAIR CONDITIONS</span>
-            <p style="font-size:11px;color:#aaa;line-height:1.4;margin-top:2px;">${sevExplain}</p>
+            <span style="font-weight:600;color:#ccc;font-size:13px;">FAIR CONDITIONS</span>
+            <p style="font-size:13px;color:#aaa;line-height:1.4;margin-top:2px;">${sevExplain}</p>
           </div>
         </div>
         ${hazards.length > 0 ? '<div style="margin-top:6px;">' + hazards.map(h =>
-          `<div style="font-size:11px;color:#aaa;padding:2px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+          `<div style="font-size:13px;color:#aaa;padding:2px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
         ).join('') + '</div>' : ''}
       </div>`;
     } else if (worstSev === 'orange') {
@@ -3514,11 +3545,11 @@ function renderRouteWeather() {
           <span style="font-size:18px;">⚠️</span>
           <div>
             <span style="font-weight:700;color:#fbbf24;font-size:13px;">HEADS UP</span>
-            <p style="font-size:11px;color:#fcd34d;line-height:1.4;margin-top:2px;">${sevExplain}</p>
+            <p style="font-size:13px;color:#fcd34d;line-height:1.4;margin-top:2px;">${sevExplain}</p>
           </div>
         </div>
         ${hazards.filter(h => rwSeverityRank(h.severity) >= 2).map(h =>
-          `<div style="font-size:11px;color:#fbbf24;padding:3px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+          `<div style="font-size:13px;color:#fbbf24;padding:3px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
         ).join('')}
       </div>`;
     } else if (worstSev === 'red') {
@@ -3527,20 +3558,25 @@ function renderRouteWeather() {
           <span style="font-size:22px;">🛑</span>
           <div>
             <span style="font-weight:800;color:#ff6666;font-size:14px;">SEVERE -- CHECK BEFORE DRIVING</span>
-            <p style="font-size:12px;color:#ff8888;line-height:1.5;margin-top:2px;">${sevExplain}</p>
+            <p style="font-size:13px;color:#ff8888;line-height:1.5;margin-top:2px;">${sevExplain}</p>
           </div>
         </div>
         ${hazards.filter(h => h.severity === 'red').map(h =>
-          `<div style="font-size:11px;color:#ff6666;padding:3px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+          `<div style="font-size:13px;color:#ff6666;padding:3px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
         ).join('')}
       </div>`;
     }
 
+    const quickSummary = rwQuickSummary(worstSev, hazards, legPoints, forecasts, points, leg);
+    const hasAlerts = hazards.length > 0 || nightWarningHtml;
+    const alertsExpanded = hasAlerts ? '' : 'hidden';
+    const alertsChevronRotated = hasAlerts ? 'rw-rotated' : '';
+
     html += `<div class="rw-leg-card" style="border-color:${borderColor};${bgGlow}">
       <div class="flex items-center justify-between mb-2">
         <div style="flex:1;min-width:0;">
-          <h3 class="font-bold text-sm text-warm-400">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
-          <p class="text-xs text-gray-500">~${leg.driveHours}h drive</p>
+          <h3 style="font-weight:700;font-size:15px;color:#f5a623;">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
+          <p style="font-size:12px;color:#888;">~${leg.driveHours}h drive</p>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           <span style="font-size:12px;font-weight:700;color:${borderColor};background:${borderColor}22;padding:3px 10px;border-radius:6px;border:1px solid ${borderColor}55;">${sevEmoji} ${sevLabel.toUpperCase()}</span>
@@ -3552,10 +3588,27 @@ function renderRouteWeather() {
           </button>
         </div>
       </div>
-      ${leg.roadNote ? `<div style="font-size:11px;color:#9ca3af;padding:6px 10px;margin-bottom:6px;background:#0f0f1a;border-radius:8px;border-left:3px solid #3a3a4a;line-height:1.5;">${leg.roadNote}</div>` : ''}
-      ${bannerHtml}
-      ${nightWarningHtml}
-      <div class="rw-chips-row">${chipsHtml || '<span class="text-gray-500 text-xs py-4">No forecast data available for this leg</span>'}</div>
+      <p style="font-size:14px;color:#d4d4d4;line-height:1.5;margin-bottom:8px;">${quickSummary}</p>
+      ${leg.roadNote ? `<div style="font-size:13px;color:#9ca3af;padding:6px 10px;margin-bottom:8px;background:#0f0f1a;border-radius:8px;border-left:3px solid #3a3a4a;line-height:1.5;">${leg.roadNote}</div>` : ''}
+      <div onclick="this.querySelector('.rw-collapse-content').classList.toggle('hidden');this.querySelector('.rw-collapse-chevron').classList.toggle('rw-rotated');" style="cursor:pointer;border-top:1px solid #24243a;margin-top:4px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+          <span style="font-size:14px;font-weight:700;color:#ccc;">📊 Hourly Forecast</span>
+          <span class="rw-collapse-chevron" style="color:#666;transition:transform 0.2s;">▼</span>
+        </div>
+        <div class="rw-collapse-content hidden">
+          <div class="rw-chips-row">${chipsHtml || '<span class="text-gray-500 text-sm py-4">No forecast data available for this leg</span>'}</div>
+        </div>
+      </div>
+      ${(bannerHtml || nightWarningHtml) ? `<div onclick="this.querySelector('.rw-collapse-content').classList.toggle('hidden');this.querySelector('.rw-collapse-chevron').classList.toggle('rw-rotated');" style="cursor:pointer;border-top:1px solid #24243a;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+          <span style="font-size:14px;font-weight:700;color:#ccc;">⚠️ Alerts & Warnings</span>
+          <span class="rw-collapse-chevron ${alertsChevronRotated}" style="color:#666;transition:transform 0.2s;">▼</span>
+        </div>
+        <div class="rw-collapse-content ${alertsExpanded}">
+          ${bannerHtml}
+          ${nightWarningHtml}
+        </div>
+      </div>` : ''}
     </div>`;
   });
 
@@ -3587,16 +3640,16 @@ function renderRouteWeather() {
   const attentionDays = overviewData.filter(d => rwSeverityRank(d.worstSev) >= 2);
   if (attentionDays.length > 0) {
     html += `<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-      <p style="font-weight:700;color:#fbbf24;font-size:12px;margin-bottom:6px;">📋 Days to watch:</p>`;
+      <p style="font-weight:700;color:#fbbf24;font-size:13px;margin-bottom:6px;">📋 Days to watch:</p>`;
     attentionDays.forEach(d => {
       const worst = d.hazards.length > 0 ? d.hazards[0] : null;
       const emoji = rwSeverityEmoji(d.worstSev);
-      html += `<div style="font-size:11px;color:#fcd34d;padding:2px 0;">${emoji} <strong>Day ${d.day} (${d.dateLabel})</strong>: ${rwSeverityLabel(d.worstSev)}${worst ? ' -- ' + worst.description + ' near ' + worst.city : ''}</div>`;
+      html += `<div style="font-size:13px;color:#fcd34d;padding:2px 0;">${emoji} <strong>Day ${d.day} (${d.dateLabel})</strong>: ${rwSeverityLabel(d.worstSev)}${worst ? ' -- ' + worst.description + ' near ' + worst.city : ''}</div>`;
     });
     html += `</div>`;
   } else {
     html += `<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-      <p style="font-size:12px;color:#93c5fd;">🎉 <strong>All clear!</strong> No severe weather expected on any day. You've got a great window for this trip.</p>
+      <p style="font-size:13px;color:#93c5fd;">🎉 <strong>All clear!</strong> No severe weather expected on any day. You've got a great window for this trip.</p>
     </div>`;
   }
 
@@ -3605,18 +3658,18 @@ function renderRouteWeather() {
   const nearSunsetDays = overviewData.filter(d => d.arrivingNearDark);
   if (nightArrivalDays.length > 0 || nearSunsetDays.length > 0) {
     html += `<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-      <p style="font-weight:700;color:#a5b4fc;font-size:12px;margin-bottom:6px;">🌙 Night Driving Alert</p>
-      <p style="font-size:11px;color:#c7d2fe;line-height:1.6;margin-bottom:6px;">Solo night driving is not recommended, especially on unfamiliar roads in March when wildlife is active and road conditions can change rapidly after sunset.</p>`;
+      <p style="font-weight:700;color:#a5b4fc;font-size:13px;margin-bottom:6px;">🌙 Night Driving Alert</p>
+      <p style="font-size:13px;color:#c7d2fe;line-height:1.6;margin-bottom:6px;">Solo night driving is not recommended, especially on unfamiliar roads in March when wildlife is active and road conditions can change rapidly after sunset.</p>`;
     nightArrivalDays.forEach(d => {
-      html += `<div style="font-size:11px;color:#a5b4fc;padding:2px 0;">🌙 <strong>Day ${d.day} (${d.dateLabel})</strong>: Arriving after dark. Adjust departure time to arrive before sunset.</div>`;
+      html += `<div style="font-size:13px;color:#a5b4fc;padding:2px 0;">🌙 <strong>Day ${d.day} (${d.dateLabel})</strong>: Arriving after dark. Adjust departure time to arrive before sunset.</div>`;
     });
     nearSunsetDays.forEach(d => {
-      html += `<div style="font-size:11px;color:#fcd34d;padding:2px 0;">🌅 <strong>Day ${d.day} (${d.dateLabel})</strong>: Cutting it close to sunset. Leave on time.</div>`;
+      html += `<div style="font-size:13px;color:#fcd34d;padding:2px 0;">🌅 <strong>Day ${d.day} (${d.dateLabel})</strong>: Cutting it close to sunset. Leave on time.</div>`;
     });
     html += `</div>`;
   }
 
-  html += `<div class="mt-3 text-xs text-gray-500 space-y-1.5">
+  html += `<div class="mt-3 text-gray-500 space-y-1.5" style="font-size:13px;">
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#1a3a5c;border:1px solid #3b82f6;"></span> ✅ Good -- Clear roads, smooth sailing</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#2a2a3a;border:1px solid #888;"></span> 👍 Fair -- Minor stuff, totally driveable</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#3d2800;border:1px solid #f59e0b;"></span> ⚠️ Caution -- Slow down, stay sharp</div>
