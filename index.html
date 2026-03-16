@@ -1070,12 +1070,22 @@ function closeEmergencyModal() {
 function findEmergencyServices() {
   const container = document.getElementById('emergency-results');
 
-  if (!placesService || !userPosition) {
+  if (!placesService) {
     container.innerHTML = `<div class="text-center text-gray-500 py-4">
-      <p class="text-sm">${!userPosition ? 'Location not available. Enable GPS.' : 'Map services loading...'}</p>
+      <p class="text-sm">Map services loading...</p>
       <p class="text-xs mt-2">If you need immediate help, call 911 above.</p>
     </div>`;
     return;
+  }
+
+  // Use GPS position if available, otherwise fall back to map center
+  const searchLocation = userPosition ||
+    { lat: map.getCenter().lat(), lng: map.getCenter().lng() };
+
+  if (!userPosition) {
+    container.innerHTML = `<div class="text-center text-yellow-400 py-2 text-xs mb-2">
+      ⚠️ GPS unavailable. Showing results near map center. Pan the map to your area and try again.
+    </div>`;
   }
 
   container.innerHTML = '<div class="text-center text-gray-500 py-4"><div class="loader mx-auto mb-2" style="width:28px;height:28px;border-width:3px;"></div>Searching nearby...</div>';
@@ -1092,7 +1102,7 @@ function findEmergencyServices() {
 
   types.forEach(t => {
     placesService.nearbySearch({
-      location: userPosition,
+      location: searchLocation,
       rankBy: google.maps.places.RankBy.DISTANCE,
       type: t.type
     }, (places, status) => {
