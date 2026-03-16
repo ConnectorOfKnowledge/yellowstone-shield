@@ -599,11 +599,7 @@ tailwind.config = {
           <button onclick="closeStopPicker()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
         </div>
       </div>
-      <div id="stop-picker-list" class="space-y-2 mb-4"></div>
-      <div class="space-y-3">
-        <button onclick="addNewStop()" class="w-full py-3 rounded-xl font-semibold text-sm bg-dark-700 border border-dashed border-gray-600 text-gray-400 hover:border-road-green hover:text-road-green transition-all">
-          + Add a Stop
-        </button>
+      <div class="space-y-3 mb-4">
         <button id="save-route-btn" onclick="saveAndUpdateRoute()" class="w-full py-3.5 rounded-xl font-bold text-base text-white shadow-lg active:scale-[0.98] transition-all"
           style="background:linear-gradient(135deg,#f5a623,#e08e0b);box-shadow:0 4px 16px rgba(245,166,35,0.3);">
           ✅ Save & Update Route
@@ -611,7 +607,11 @@ tailwind.config = {
         <button onclick="sendToGoogleMaps()" class="w-full py-3.5 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-900/40 active:scale-[0.98] transition-all">
           📍 Open Full Route in Google Maps
         </button>
+        <button onclick="addNewStop()" class="w-full py-3 rounded-xl font-semibold text-sm bg-dark-700 border border-dashed border-gray-600 text-gray-400 hover:border-road-green hover:text-road-green transition-all">
+          + Add a Stop
+        </button>
       </div>
+      <div id="stop-picker-list" class="space-y-2 mb-4"></div>
     </div>
   </div>
 
