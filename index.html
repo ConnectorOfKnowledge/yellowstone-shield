@@ -924,13 +924,15 @@ function clearPOIMarkers(type) {
 // WEATHER
 // ============================================================
 async function fetchWeather() {
-  // Determine the next leg based on current date
+  // Use user's actual GPS position if available, otherwise estimate from trip dates
+  let currentLat, currentLng, fromLabel;
   const today = new Date();
   const tripDates = [
     new Date('2026-03-17'), new Date('2026-03-18'),
     new Date('2026-03-19'), new Date('2026-03-20')
   ];
 
+  // Determine which leg we're on
   let nextLegIndex = 0;
   for (let i = 0; i < tripDates.length; i++) {
     if (today <= tripDates[i]) { nextLegIndex = i; break; }
@@ -943,30 +945,65 @@ async function fetchWeather() {
     return;
   }
 
+  // Use live GPS if available, otherwise use last known stop
+  if (userPosition) {
+    currentLat = userPosition.lat;
+    currentLng = userPosition.lng;
+    fromLabel = 'Your location';
+  } else if (nextLegIndex === 0) {
+    currentLat = ORIGIN_LATLNG.lat;
+    currentLng = ORIGIN_LATLNG.lng;
+    fromLabel = ORIGIN.split(',')[0];
+  } else {
+    currentLat = HOTELS[nextLegIndex - 1].lat;
+    currentLng = HOTELS[nextLegIndex - 1].lng;
+    fromLabel = HOTELS[nextLegIndex - 1].name;
+  }
+
   document.getElementById('weather-leg-info').textContent =
-    `Next leg: ${nextLegIndex === 0 ? ORIGIN.split(',')[0] : HOTELS[nextLegIndex - 1].name} → ${nextHotel.name}`;
+    `Next leg: ${fromLabel} → ${nextHotel.name}`;
+
+  // Estimated drive hours per leg (more accurate than flat 6.5)
+  const legDistances = [350, 480, 430, 350, 450]; // approx miles per leg
+  const estDriveHours = Math.round(((legDistances[nextLegIndex] || 400) / 60) * 10) / 10 + 0.5; // buffer
 
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${nextHotel.lat}&longitude=${nextHotel.lng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=1`;
-    const resp = await fetch(url);
-    const data = await resp.json();
+    // Fetch weather at BOTH current location and destination
+    const [hereResp, destResp] = await Promise.all([
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=1`),
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${nextHotel.lat}&longitude=${nextHotel.lng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&hourly=temperature_2m,weather_code,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=2`)
+    ]);
+    const hereData = await hereResp.json();
+    const destData = await destResp.json();
 
-    if (data.current) {
-      const temp = Math.round(data.current.temperature_2m);
-      const wind = Math.round(data.current.wind_speed_10m);
-      const gusts = Math.round(data.current.wind_gusts_10m || 0);
-      const code = data.current.weather_code;
+    if (hereData.current) {
+      const temp = Math.round(hereData.current.temperature_2m);
+      const wind = Math.round(hereData.current.wind_speed_10m);
+      const gusts = Math.round(hereData.current.wind_gusts_10m || 0);
+      const code = hereData.current.weather_code;
 
       document.getElementById('weather-temp').textContent = `${temp}°F`;
       document.getElementById('weather-icon').textContent = getWeatherEmoji(code);
       document.getElementById('weather-desc').textContent = getWeatherDescription(code);
       document.getElementById('weather-wind').textContent = `Wind: ${wind} mph (gusts ${gusts} mph)`;
 
-      // Calculate departure time
-      // Estimate drive time: ~5-7 hours per leg, use 6 hours avg + 30 min buffer
-      const driveHours = 6.5;
+      // Show destination weather too
+      if (destData.current) {
+        const destTemp = Math.round(destData.current.temperature_2m);
+        const destCode = destData.current.weather_code;
+        const destGusts = Math.round(destData.current.wind_gusts_10m || 0);
+        document.getElementById('weather-leg-info').textContent =
+          `Now: ${temp}°F ${getWeatherEmoji(code)} | ${nextHotel.name}: ${destTemp}°F ${getWeatherEmoji(destCode)}`;
+
+        // Check gusts at both locations
+        if (gusts > 50 || destGusts > 50) {
+          document.getElementById('wind-warning').classList.remove('hidden');
+        }
+      }
+
+      // Calculate departure time based on actual leg distance
       const arriveBy = 17; // 5 PM
-      const leaveByHour = arriveBy - driveHours;
+      const leaveByHour = arriveBy - estDriveHours;
       const leaveHour = Math.floor(leaveByHour);
       const leaveMin = Math.round((leaveByHour - leaveHour) * 60);
       const ampm = leaveHour >= 12 ? 'PM' : 'AM';
@@ -974,7 +1011,7 @@ async function fetchWeather() {
       document.getElementById('weather-depart').textContent =
         `Leave by: ${displayHour}:${String(leaveMin).padStart(2, '0')} ${ampm}`;
 
-      // High wind warning
+      // High wind warning from current location
       if (gusts > 50) {
         document.getElementById('wind-warning').classList.remove('hidden');
       }
