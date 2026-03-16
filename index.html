@@ -829,6 +829,8 @@ function initSidebarToggle() {
 
 let searchAreaBtn = null;
 let mapIdleListener = null;
+let searchRadiusCircle = null;
+let hasSeenSearchExplanation = localStorage.getItem('ys_search_explained') === 'true';
 
 function searchPOIsInView(type) {
   if (!placesService) return;
@@ -885,12 +887,24 @@ function searchPOIsInView(type) {
           }
         });
 
+        const placeAddr = place.vicinity || place.name;
+        const placeLat = place.geometry.location.lat();
+        const placeLng = place.geometry.location.lng();
+        const placeIdStr = place.place_id;
         const info = new google.maps.InfoWindow({
-          content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:220px;">
-            <strong>${place.name}</strong><br>
-            <span style="font-size:12px;">${place.vicinity || ''}</span>
-            ${place.rating ? `<br><span style="font-size:11px;">Rating: ${place.rating} ⭐</span>` : ''}
-            <br><a href="https://www.google.com/maps/dir/?api=1&destination=${place.geometry.location.lat()},${place.geometry.location.lng()}&destination_place_id=${place.place_id}" target="_blank" style="font-size:12px;color:#3b82f6;">Get Directions</a>
+          content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:240px;">
+            <strong style="font-size:14px;">${place.name}</strong><br>
+            <span style="font-size:12px;color:#555;">${placeAddr}</span>
+            ${place.rating ? `<br><span style="font-size:11px;">⭐ ${place.rating} (${place.user_ratings_total || '?'} reviews)</span>` : ''}
+            ${place.opening_hours ? `<br><span style="font-size:11px;color:${place.opening_hours.isOpen() ? '#16a34a' : '#dc2626'};">${place.opening_hours.isOpen() ? '✓ Open now' : '✗ Closed'}</span>` : ''}
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <a href="https://www.google.com/maps/dir/?api=1&destination=${placeLat},${placeLng}&destination_place_id=${placeIdStr}" target="_blank"
+                style="flex:1;text-align:center;font-size:11px;color:#3b82f6;background:#eff6ff;padding:5px 4px;border-radius:6px;text-decoration:none;">📍 Directions</a>
+              <a href="https://www.google.com/maps/place/?q=place_id:${placeIdStr}" target="_blank"
+                style="flex:1;text-align:center;font-size:11px;color:#7c3aed;background:#f5f3ff;padding:5px 4px;border-radius:6px;text-decoration:none;">🔍 Verify</a>
+              <button onclick="navigator.clipboard.writeText('${placeAddr.replace(/'/g, "\\'")}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='📋 Copy',1500);"
+                style="flex:1;text-align:center;font-size:11px;color:#0d9488;background:#f0fdfa;padding:5px 4px;border-radius:6px;border:none;cursor:pointer;">📋 Copy</button>
+            </div>
           </div>`
         });
         marker.addListener('click', () => info.open(map, marker));
@@ -919,7 +933,18 @@ function setupSearchAreaButton() {
   document.getElementById('map').appendChild(searchAreaBtn);
 
   searchAreaBtn.addEventListener('click', () => {
+    // Show first-time explanation
+    if (!hasSeenSearchExplanation) {
+      hasSeenSearchExplanation = true;
+      localStorage.setItem('ys_search_explained', 'true');
+      showSearchExplanation();
+    }
+
     searchAreaBtn.style.display = 'none';
+
+    // Flash the search radius circle
+    flashSearchRadius();
+
     // Re-search all active POI types in the new view
     activePOIs.forEach(type => {
       if (type !== 'sightseeing') {
@@ -937,6 +962,69 @@ function setupSearchAreaButton() {
       }
     });
   }
+}
+
+function showSearchExplanation() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#1e1e2e;border:1px solid #f5a623;border-radius:16px;padding:24px;max-width:320px;text-align:center;color:#e5e5e5;">
+      <div style="font-size:32px;margin-bottom:12px;">🔍</div>
+      <h3 style="font-size:16px;font-weight:700;color:#f5a623;margin-bottom:8px;">How Search Works</h3>
+      <p style="font-size:13px;line-height:1.5;color:#a0a0a0;margin-bottom:12px;">
+        Results are found from the <strong style="color:#e5e5e5;">center of your screen</strong> outward.
+        The search area is shown as a circle on the map.
+      </p>
+      <p style="font-size:13px;line-height:1.5;color:#a0a0a0;margin-bottom:16px;">
+        <strong style="color:#e5e5e5;">Zoom in</strong> to search a smaller area with more detail, or
+        <strong style="color:#e5e5e5;">zoom out</strong> to search a wider area.
+        Pan the map and tap "Search this area" again to search somewhere new.
+      </p>
+      <button onclick="this.parentElement.parentElement.remove()" style="background:#f5a623;color:#0f0f14;border:none;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Got it!</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
+function flashSearchRadius() {
+  // Remove previous circle if any
+  if (searchRadiusCircle) searchRadiusCircle.setMap(null);
+
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+
+  // Match the radius logic from searchPOIsInView
+  let radius = 50000;
+  if (zoom >= 12) radius = 8000;
+  else if (zoom >= 10) radius = 16000;
+  else if (zoom >= 8) radius = 32000;
+  else if (zoom >= 6) radius = 50000;
+
+  searchRadiusCircle = new google.maps.Circle({
+    map: map,
+    center: { lat: center.lat(), lng: center.lng() },
+    radius: radius,
+    fillColor: '#f5a623',
+    fillOpacity: 0.12,
+    strokeColor: '#f5a623',
+    strokeOpacity: 0.6,
+    strokeWeight: 2,
+    clickable: false
+  });
+
+  // Fade out after 2 seconds
+  setTimeout(() => {
+    if (searchRadiusCircle) {
+      searchRadiusCircle.setOptions({ fillOpacity: 0.05, strokeOpacity: 0.2 });
+    }
+  }, 1500);
+  setTimeout(() => {
+    if (searchRadiusCircle) {
+      searchRadiusCircle.setMap(null);
+      searchRadiusCircle = null;
+    }
+  }, 3000);
 }
 
 function showSightseeingMarkers() {
