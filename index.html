@@ -221,6 +221,19 @@ tailwind.config = {
   <!-- Map -->
   <div id="map"></div>
 
+  <!-- Map Search Bar -->
+  <div id="map-search-container" style="position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:90;width:calc(100% - 120px);max-width:480px;">
+    <div style="position:relative;">
+      <input id="map-search-input" type="text" placeholder="Search hotels, gas stations, food..."
+        style="width:100%;padding:10px 40px 10px 36px;background:#1e1e2e;border:1px solid #3a3a4a;border-radius:12px;color:#e5e5e5;font-size:14px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.4);"
+        onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#3a3a4a'">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:#888;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <button id="map-search-clear" onclick="clearMapSearch()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#888;font-size:18px;cursor:pointer;padding:4px;">✕</button>
+    </div>
+  </div>
+
   <!-- Top Left Controls -->
   <div style="position:fixed;top:80px;left:8px;z-index:85;display:flex;gap:4px;align-items:center;transition:left 0.3s ease;" id="top-left-controls">
     <!-- Back Button -->
@@ -556,6 +569,7 @@ function showMainApp() {
   initHotelPanel();
   renderCustomStops();
   initSidebarToggle();
+  initMapSearch();
   startLocationWatch();
   fetchWeather();
 }
@@ -1783,6 +1797,134 @@ function sendSOS() {
   } else {
     window.location.href = `sms:2232549070?body=${encodeURIComponent("Dad, I need help. Can you call me when you see this?")}`;
   }
+}
+
+// ============================================================
+// MAP SEARCH
+// ============================================================
+let searchMarkers = [];
+
+function initMapSearch() {
+  const input = document.getElementById('map-search-input');
+  const clearBtn = document.getElementById('map-search-clear');
+  if (!input) return;
+
+  // Use Google Places Autocomplete
+  const autocomplete = new google.maps.places.Autocomplete(input, {
+    fields: ['place_id', 'geometry', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'opening_hours', 'vicinity']
+  });
+
+  // Bias results to current map view
+  autocomplete.bindTo('bounds', map);
+
+  // Also handle manual search (Enter key)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const query = input.value.trim();
+      if (query) {
+        textSearchMap(query);
+        clearBtn.style.display = 'block';
+      }
+    }
+  });
+
+  // Handle autocomplete selection
+  autocomplete.addListener('place_changed', () => {
+    const place = autocomplete.getPlace();
+    if (!place.geometry) return;
+
+    clearSearchMarkers();
+    clearBtn.style.display = 'block';
+
+    map.setCenter(place.geometry.location);
+    map.setZoom(14);
+
+    addSearchResultMarker(place);
+  });
+}
+
+function textSearchMap(query) {
+  clearSearchMarkers();
+
+  const center = map.getCenter();
+  const request = {
+    query: query,
+    location: { lat: center.lat(), lng: center.lng() },
+    radius: 50000
+  };
+
+  placesService.textSearch(request, (results, status) => {
+    if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
+      // Fit map to show all results
+      const bounds = new google.maps.LatLngBounds();
+      results.slice(0, 10).forEach(place => {
+        addSearchResultMarker(place);
+        bounds.extend(place.geometry.location);
+      });
+      map.fitBounds(bounds);
+    }
+  });
+}
+
+function addSearchResultMarker(place) {
+  const marker = new google.maps.Marker({
+    position: place.geometry.location,
+    map: map,
+    title: place.name,
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 12,
+      fillColor: '#6366f1',
+      fillOpacity: 0.9,
+      strokeColor: '#c7d2fe',
+      strokeWeight: 2
+    },
+    animation: google.maps.Animation.DROP
+  });
+
+  const addr = (place.formatted_address || place.vicinity || '').replace(/'/g, "\\'");
+  const lat = place.geometry.location.lat();
+  const lng = place.geometry.location.lng();
+  const pid = place.place_id;
+  const isOnRoute = typeof customWaypoints !== 'undefined' && customWaypoints.some(w => w.placeId === pid);
+
+  const info = new google.maps.InfoWindow({
+    content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:260px;">
+      <strong style="font-size:14px;">${place.name}</strong><br>
+      <span style="font-size:12px;color:#555;">${place.formatted_address || place.vicinity || ''}</span>
+      ${place.rating ? `<br><span style="font-size:11px;">⭐ ${place.rating} (${place.user_ratings_total || '?'} reviews)</span>` : ''}
+      ${place.opening_hours ? `<br><span style="font-size:11px;color:${place.opening_hours.isOpen() ? '#16a34a' : '#dc2626'};">${place.opening_hours.isOpen() ? '✓ Open now' : '✗ Closed'}</span>` : ''}
+      <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
+        <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${pid}" target="_blank"
+          style="flex:1;text-align:center;font-size:11px;color:#3b82f6;background:#eff6ff;padding:5px 4px;border-radius:6px;text-decoration:none;min-width:60px;">📍 Directions</a>
+        <a href="https://www.google.com/maps/place/?q=place_id:${pid}" target="_blank"
+          style="flex:1;text-align:center;font-size:11px;color:#7c3aed;background:#f5f3ff;padding:5px 4px;border-radius:6px;text-decoration:none;min-width:50px;">🔍 Verify</a>
+        <button onclick="navigator.clipboard.writeText('${addr}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='📋 Copy',1500);"
+          style="flex:1;text-align:center;font-size:11px;color:#0d9488;background:#f0fdfa;padding:5px 4px;border-radius:6px;border:none;cursor:pointer;min-width:50px;">📋 Copy</button>
+      </div>
+      <button onclick="toggleCustomWaypoint('${place.name.replace(/'/g, "\\'")}','${addr}',${lat},${lng},'${pid}',this)"
+        style="width:100%;margin-top:6px;text-align:center;font-size:11px;color:${isOnRoute ? '#dc2626' : '#16a34a'};background:${isOnRoute ? '#fef2f2' : '#f0fdf4'};padding:6px 4px;border-radius:6px;border:none;cursor:pointer;font-weight:600;">
+        ${isOnRoute ? '✕ Remove from route' : '+ Add to my route'}
+      </button>
+    </div>`
+  });
+
+  marker.addListener('click', () => info.open(map, marker));
+  searchMarkers.push(marker);
+}
+
+function clearSearchMarkers() {
+  searchMarkers.forEach(m => m.setMap(null));
+  searchMarkers = [];
+}
+
+function clearMapSearch() {
+  const input = document.getElementById('map-search-input');
+  const clearBtn = document.getElementById('map-search-clear');
+  input.value = '';
+  clearBtn.style.display = 'none';
+  clearSearchMarkers();
 }
 
 // ============================================================
