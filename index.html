@@ -287,8 +287,11 @@ tailwind.config = {
       <div class="flex items-center gap-3">
         <span id="weather-icon" class="text-xl">--</span>
         <div>
-          <span id="weather-temp" class="font-bold text-warm-400">--</span>
-          <span id="weather-desc" class="text-gray-400 ml-2 text-xs">Loading weather...</span>
+          <div style="display:flex;align-items:baseline;gap:6px;">
+            <span id="weather-temp" class="font-bold text-warm-400">--</span>
+            <span id="weather-desc" class="text-gray-400 text-xs">Loading weather...</span>
+          </div>
+          <div id="weather-location" style="font-size:10px;color:#6b7280;margin-top:1px;">📍 Locating...</div>
         </div>
       </div>
       <div class="text-right">
@@ -301,7 +304,10 @@ tailwind.config = {
     </div>
     <div class="flex items-center justify-between mt-0.5">
       <div id="weather-leg-info" class="text-xs text-gray-500">Next leg: --</div>
-      <div class="text-xs text-warm-400/60 font-medium">Tap for full forecast ›</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="weather-updated" style="font-size:9px;color:#555;">--</span>
+        <span class="text-xs text-warm-400/60 font-medium">Tap for forecast ›</span>
+      </div>
     </div>
   </div>
 
@@ -826,8 +832,8 @@ function showMainApp() {
   initMapSearch();
   startLocationWatch();
   fetchWeather();
-  // Refresh weather every 30 minutes (only after map is initialized)
-  setInterval(() => { fetchWeather(); }, 30 * 60 * 1000);
+  // Refresh weather every 60 seconds for up-to-date conditions while traveling
+  setInterval(() => { fetchWeather(); }, 60 * 1000);
 }
 
 // ============================================================
@@ -2117,10 +2123,12 @@ async function fetchWeather() {
   }
 
   // Use live GPS if available, otherwise use last known stop
+  let usingGPS = false;
   if (userPosition) {
     currentLat = userPosition.lat;
     currentLng = userPosition.lng;
     fromLabel = 'Your location';
+    usingGPS = true;
   } else if (nextLegIndex === 0) {
     currentLat = ORIGIN_LATLNG.lat;
     currentLng = ORIGIN_LATLNG.lng;
@@ -2133,6 +2141,39 @@ async function fetchWeather() {
 
   document.getElementById('weather-leg-info').textContent =
     `Next leg: ${fromLabel} → ${nextHotel.name}`;
+
+  // Reverse geocode to get city name for the weather location
+  if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
+    try {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ location: { lat: currentLat, lng: currentLng } }, (results, status) => {
+        if (status === 'OK' && results && results.length > 0) {
+          // Find the locality (city) from address components
+          let city = '', state = '';
+          for (const result of results) {
+            for (const comp of result.address_components) {
+              if (comp.types.includes('locality') && !city) city = comp.short_name;
+              if (comp.types.includes('administrative_area_level_1') && !state) state = comp.short_name;
+            }
+            if (city && state) break;
+          }
+          const locEl = document.getElementById('weather-location');
+          if (locEl) {
+            locEl.textContent = city && state
+              ? `📍 ${city}, ${state}${usingGPS ? ' (GPS)' : ''}`
+              : `📍 ${fromLabel}`;
+          }
+        }
+      });
+    } catch(e) {
+      // Geocoding failed silently -- show fallback label
+      const locEl = document.getElementById('weather-location');
+      if (locEl) locEl.textContent = `📍 ${fromLabel}`;
+    }
+  } else {
+    const locEl = document.getElementById('weather-location');
+    if (locEl) locEl.textContent = `📍 ${fromLabel}`;
+  }
 
   // Estimated drive hours per leg (more accurate than flat 6.5)
   const legDistances = [350, 480, 430, 350, 175]; // approx miles per leg (last leg is Billings to Gardiner)
@@ -2189,10 +2230,20 @@ async function fetchWeather() {
       if (gusts > 50) {
         document.getElementById('wind-warning').classList.remove('hidden');
       }
+
+      // Show last updated timestamp
+      const now = new Date();
+      const h = now.getHours() % 12 || 12;
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const ap = now.getHours() >= 12 ? 'PM' : 'AM';
+      const updatedEl = document.getElementById('weather-updated');
+      if (updatedEl) updatedEl.textContent = `Updated ${h}:${m} ${ap}`;
     }
   } catch (e) {
     document.getElementById('weather-desc').textContent = 'Weather unavailable';
     console.log('Weather fetch error:', e);
+    const updatedEl = document.getElementById('weather-updated');
+    if (updatedEl) updatedEl.textContent = 'Update failed';
   }
 }
 
