@@ -430,8 +430,8 @@ tailwind.config = {
       <div class="w-10 h-1 bg-gray-600 rounded-full"></div>
     </div>
     <div class="flex items-center justify-between px-4 pb-2">
-      <h3 class="text-sm font-bold text-warm-400">Hotel Stops</h3>
-      <span id="hotel-count" class="text-xs text-gray-500">4 stops</span>
+      <h3 class="text-sm font-bold text-warm-400">Trip Stops</h3>
+      <span id="hotel-count" class="text-xs text-gray-500"></span>
     </div>
     <div id="hotel-cards" class="px-4 pb-6 space-y-3"></div>
   </div>
@@ -1167,20 +1167,47 @@ function initHotelPanel() {
   });
 
   const container = document.getElementById('hotel-cards');
+  const legs = getRWLegs();
   let html = '';
 
+  // Update count
+  document.getElementById('hotel-count').textContent = `${HOTELS.length + 2} stops`;
+
+  // Origin card
+  html += `<div class="hotel-card bg-dark-700 rounded-xl border border-dark-600 overflow-hidden" id="hotel-card-origin">
+    <div class="flex items-center gap-3 p-3 cursor-pointer" onclick="toggleHotelCard('origin')">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 bg-road-green/20 text-road-green">🏠</div>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-sm text-gray-200 truncate">Seven Valleys, PA</div>
+        <div class="text-xs text-gray-500">Start &middot; ${legs[0] ? legs[0].dateLabel : 'Mar 17'}</div>
+      </div>
+      <svg class="w-4 h-4 text-gray-500 transform transition-transform hotel-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+    <div class="hotel-details hidden px-3 pb-3">
+      <div class="text-xs text-gray-400 mb-2">Home base. Trip begins here.</div>
+      <div class="flex gap-2">
+        <button class="flex-1 py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
+          onclick="getDirectionsTo(${ORIGIN_LATLNG.lat}, ${ORIGIN_LATLNG.lng})">📍 Directions</button>
+      </div>
+    </div>
+  </div>`;
+
+  // Hotel cards
   HOTELS.forEach((hotel, i) => {
     const booked = hotel.confirmation !== '--';
-    const isTBD = !hotel.lat;
+    const legDate = legs[i] ? legs[i].dateLabel : hotel.date;
+    const driveInfo = legs[i] ? `~${legs[i].driveHours}h drive` : '';
 
     html += `<div class="hotel-card bg-dark-700 rounded-xl border border-dark-600 overflow-hidden" id="hotel-card-${i}">
       <div class="flex items-center gap-3 p-3 cursor-pointer" onclick="toggleHotelCard(${i})">
-        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${booked ? 'bg-road-green/20 text-road-green' : 'bg-dark-600 text-gray-500'}">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${booked ? 'bg-road-green/20 text-road-green' : 'bg-warm-400/20 text-warm-400'}">
           ${booked ? '✓' : hotel.night}
         </div>
         <div class="flex-1 min-w-0">
           <div class="font-semibold text-sm text-gray-200 truncate">${hotel.name}</div>
-          <div class="text-xs text-gray-500">Night ${hotel.night} - ${hotel.date}</div>
+          <div class="text-xs text-gray-500">Night ${hotel.night} &middot; ${legDate}${driveInfo ? ' &middot; ' + driveInfo : ''}</div>
         </div>
         <svg class="w-4 h-4 text-gray-500 transform transition-transform hotel-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -1189,27 +1216,56 @@ function initHotelPanel() {
       <div class="hotel-details hidden px-3 pb-3">
         <div class="flex items-center gap-2 mb-1">
           <div class="text-xs text-gray-400 flex-1">${hotel.address}</div>
-          ${!isTBD ? `<button class="text-xs text-road-teal hover:text-white px-2 py-1 bg-dark-600 rounded flex-shrink-0 transition-all"
-            onclick="event.stopPropagation(); navigator.clipboard.writeText('${hotel.address.replace(/'/g, "\\'")}').then(() => { this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500); })">Copy</button>` : ''}
+          <button class="text-xs text-road-teal hover:text-white px-2 py-1 bg-dark-600 rounded flex-shrink-0 transition-all"
+            onclick="event.stopPropagation(); navigator.clipboard.writeText('${hotel.address.replace(/'/g, "\\'")}').then(() => { this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500); })">Copy</button>
         </div>
-        ${hotel.confirmation !== '--' ? `<div class="text-xs text-road-teal mb-2">Confirmation: ${hotel.confirmation}</div>` : '<div class="text-xs text-gray-600 mb-2">Not yet booked</div>'}
+        ${booked ? `<div class="text-xs text-road-teal mb-2">Confirmation: ${hotel.confirmation}</div>` : '<div class="text-xs text-warm-400 mb-2">⚠ Not yet booked</div>'}
+        ${legs[i] && legs[i].roadNote ? `<div style="font-size:10px;color:#888;padding:4px 8px;background:#0f0f1a;border-radius:6px;border-left:2px solid #3a3a4a;margin-bottom:6px;line-height:1.4;">${legs[i].roadNote}</div>` : ''}
         <textarea class="w-full bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-xs text-gray-300 placeholder-gray-600 resize-none" rows="2"
           placeholder="Add notes..." oninput="saveHotelNote(${i}, this.value)">${hotel.notes || ''}</textarea>
-        ${!isTBD ? `<div class="flex gap-2 mt-2">
+        <div class="flex gap-2 mt-2">
           <button class="flex-1 py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
             onclick="getDirectionsTo(${hotel.lat}, ${hotel.lng})">📍 Directions</button>
           <button class="flex-1 py-2 bg-dark-600 text-gray-300 border border-dark-500 rounded-lg text-xs font-semibold hover:text-white transition-all"
             onclick="window.open('https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + ' ' + hotel.address)}','_blank')">🔍 View on Maps</button>
-        </div>` : ''}
+        </div>
       </div>
     </div>`;
   });
+
+  // Destination card
+  const lastLeg = legs[legs.length - 1];
+  const destDate = lastLeg ? lastLeg.dateLabel : 'Mar 22';
+
+  html += `<div class="hotel-card bg-dark-700 rounded-xl border border-warm-400/30 overflow-hidden" id="hotel-card-dest">
+    <div class="flex items-center gap-3 p-3 cursor-pointer" onclick="toggleHotelCard('dest')">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 bg-warm-400/20 text-warm-400">🏔️</div>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-sm text-warm-400 truncate">Gardiner, MT - Yellowstone!</div>
+        <div class="text-xs text-gray-500">Arrival &middot; ${destDate}${lastLeg ? ' &middot; ~' + lastLeg.driveHours + 'h drive' : ''}</div>
+      </div>
+      <svg class="w-4 h-4 text-gray-500 transform transition-transform hotel-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+      </svg>
+    </div>
+    <div class="hotel-details hidden px-3 pb-3">
+      <div class="text-xs text-gray-400 mb-2">North Entrance, Yellowstone National Park</div>
+      <div class="text-xs text-warm-400 mb-2">🎉 You made it! Check in with your employer.</div>
+      <div class="flex gap-2">
+        <button class="flex-1 py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
+          onclick="getDirectionsTo(45.0328, -110.7059)">📍 Directions</button>
+        <button class="flex-1 py-2 bg-dark-600 text-gray-300 border border-dark-500 rounded-lg text-xs font-semibold hover:text-white transition-all"
+          onclick="window.open('https://www.google.com/maps/search/?api=1&query=Gardiner+MT+Yellowstone+North+Entrance','_blank')">🔍 View on Maps</button>
+      </div>
+    </div>
+  </div>`;
 
   container.innerHTML = html;
 }
 
 function toggleHotelCard(index) {
   const card = document.getElementById(`hotel-card-${index}`);
+  if (!card) return;
   const details = card.querySelector('.hotel-details');
   const chevron = card.querySelector('.hotel-chevron');
   details.classList.toggle('hidden');
