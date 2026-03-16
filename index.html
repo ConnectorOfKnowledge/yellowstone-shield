@@ -2237,7 +2237,7 @@ async function fetchRouteWeatherData() {
   }
 }
 
-function rwGetSeverity(weatherCode, gustsMph, precipMm) {
+function rwGetSeverity(weatherCode, gustsMph, precipMm, tempF) {
   // SEVERE (red): truly dangerous conditions that warrant stopping or rerouting
   if (weatherCode >= 75 && weatherCode <= 77) return 'red';   // heavy snow / snow grains
   if (weatherCode === 86) return 'red';                        // heavy snow showers
@@ -2245,6 +2245,8 @@ function rwGetSeverity(weatherCode, gustsMph, precipMm) {
   if (weatherCode === 57) return 'red';                        // heavy freezing drizzle
   if (weatherCode >= 96) return 'red';                         // thunderstorm with hail
   if (gustsMph > 50) return 'red';
+  // Extreme cold is severe -- black ice is invisible and cars can fail
+  if (tempF !== undefined && tempF <= 10) return 'red';
 
   // CAUTION (orange): drive carefully, reduce speed, but manageable
   if (weatherCode >= 71 && weatherCode <= 73) return 'orange'; // light-moderate snow
@@ -2254,12 +2256,18 @@ function rwGetSeverity(weatherCode, gustsMph, precipMm) {
   if (weatherCode === 65 || weatherCode === 82) return 'orange'; // heavy rain/showers
   if (gustsMph > 40) return 'orange';
   if (precipMm > 5) return 'orange';
+  // Below freezing with any precipitation = icy roads
+  if (tempF !== undefined && tempF <= 32 && precipMm > 0) return 'orange';
 
   // FAIR (yellow): minor nuisances, totally driveable, just be aware
   if (weatherCode === 63) return 'yellow';                     // moderate rain
   if (weatherCode === 81) return 'yellow';                     // moderate showers
   if (gustsMph > 30) return 'yellow';
   if (weatherCode >= 45 && weatherCode <= 48) return 'yellow'; // fog (genuinely reduces vis)
+  // Below freezing = potential black ice on bridges, worth noting
+  if (tempF !== undefined && tempF <= 32) return 'yellow';
+  // Very cold (below 20) even without precipitation -- road surface risks
+  if (tempF !== undefined && tempF <= 20) return 'yellow';
 
   // GOOD (green): everything else including overcast, partly cloudy,
   // light drizzle, light rain, light showers -- all perfectly fine to drive in
@@ -2403,7 +2411,7 @@ function renderRouteWeather() {
       const dewPoint = forecast.hourly.dew_point_2m ? Math.round(forecast.hourly.dew_point_2m[hIdx]) : null;
       const cloudCover = forecast.hourly.cloud_cover ? forecast.hourly.cloud_cover[hIdx] : null;
       const emoji = getWeatherEmoji(code);
-      const severity = rwGetSeverity(code, gusts, precip);
+      const severity = rwGetSeverity(code, gusts, precip, temp);
       const desc = getWeatherDescription(code);
 
       if (rwSeverityRank(severity) > rwSeverityRank(worstSev)) worstSev = severity;
@@ -2454,7 +2462,7 @@ function renderRouteWeather() {
         <span class="rw-loc" title="${city}">nr. ${city}</span>
         <span class="rw-temp">${temp}°F</span>
         <span class="rw-wind">${wind} mph${gusts > 25 ? ' (G' + gusts + ')' : ''}</span>
-        <span style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:1px;">${desc}</span>
+        <span style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:1px;">${desc}${temp <= 32 ? ' \u2022 ' + (temp <= 10 ? '🥶 Extreme cold' : temp <= 20 ? '🧊 Very cold' : '❄️ Below freezing') : ''}</span>
         ${nightBadge}
         <span style="font-size:8px;color:rgba(245,166,35,0.5);margin-top:2px;">tap for details</span>
       </div>`;
