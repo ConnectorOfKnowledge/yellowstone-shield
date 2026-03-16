@@ -141,6 +141,46 @@ tailwind.config = {
     z-index: 95; display: none;
   }
 
+  /* Route Weather Panel */
+  #route-weather-panel {
+    position: fixed; inset: 0; z-index: 9998;
+    background: rgba(15,15,20,0.97); backdrop-filter: blur(12px);
+    overflow-y: auto; display: none;
+  }
+  #route-weather-panel.open { display: block; }
+  .rw-leg-card {
+    background: #1e1e2e; border: 1px solid #24243a; border-radius: 12px;
+    padding: 16px; margin-bottom: 12px;
+  }
+  .rw-chips-row {
+    display: flex; gap: 8px; overflow-x: auto; padding: 8px 0;
+    scrollbar-width: thin;
+  }
+  .rw-chips-row::-webkit-scrollbar { height: 4px; }
+  .rw-chips-row::-webkit-scrollbar-thumb { background: #4a4a6a; border-radius: 2px; }
+  .rw-chip {
+    flex-shrink: 0; width: 100px; padding: 10px 8px; border-radius: 10px;
+    text-align: center; font-size: 11px; line-height: 1.4;
+  }
+  .rw-chip .rw-emoji { font-size: 20px; display: block; margin-bottom: 2px; }
+  .rw-chip .rw-time { font-weight: 700; color: #e5e5e5; }
+  .rw-chip .rw-loc { color: #a0a0a0; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rw-chip .rw-temp { font-weight: 700; color: #e5e5e5; font-size: 13px; }
+  .rw-chip .rw-wind { color: #a0a0a0; font-size: 10px; }
+  .rw-severity-green { background: #064e3b; }
+  .rw-severity-yellow { background: #713f12; }
+  .rw-severity-orange { background: #7c2d12; }
+  .rw-severity-red { background: #7f1d1d; }
+  .rw-overview-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  }
+  .rw-spinner {
+    width: 36px; height: 36px; border: 3px solid #24243a;
+    border-top-color: #f5a623; border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 40px auto;
+  }
+
   /* Responsive */
   @media (min-width: 768px) {
     #hotel-panel { left: auto; width: 400px; right: 0; border-radius: 16px 0 0 0; }
@@ -244,6 +284,12 @@ tailwind.config = {
     <button onclick="window.history.forward()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Forward">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     </button>
+    <!-- Route Weather Button -->
+    <button onclick="openRouteWeather()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Route Weather">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+      </svg>
+    </button>
     <!-- Toggle Sidebar Button -->
     <button id="toggle-sidebar-btn" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all">
       <svg id="sidebar-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -255,6 +301,15 @@ tailwind.config = {
   <div id="poi-sidebar" class="collapsed">
     <div class="px-3 py-2">
       <h3 class="text-xs font-bold text-warm-400 uppercase tracking-wider mb-3 px-1">Points of Interest</h3>
+
+      <!-- Open Places Only Toggle -->
+      <div class="flex items-center justify-between px-1 mb-3 pb-2 border-b border-dark-600">
+        <span class="text-xs text-gray-400">Only show open places</span>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="open-only-toggle" class="sr-only peer" onchange="toggleOpenOnly(this.checked)">
+          <div class="w-9 h-5 bg-dark-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-road-green peer-checked:after:bg-white"></div>
+        </label>
+      </div>
 
       <div class="mb-3">
         <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Essentials</p>
@@ -339,6 +394,23 @@ tailwind.config = {
       <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
     </svg>
   </button>
+
+  <!-- Route Weather Panel -->
+  <div id="route-weather-panel" onclick="if(event.target===this)closeRouteWeather()">
+    <div class="max-w-lg mx-auto px-4 py-6 pb-24">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-xl font-extrabold text-warm-400">Route Weather Forecast</h2>
+          <p class="text-gray-500 text-xs mt-0.5">Weather along your entire trip route</p>
+        </div>
+        <button onclick="closeRouteWeather()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
+      </div>
+      <div id="route-weather-content">
+        <div class="rw-spinner"></div>
+        <p class="text-center text-gray-500 text-sm">Loading route weather...</p>
+      </div>
+    </div>
+  </div>
 
   <!-- Emergency Modal -->
   <div id="emergency-modal" onclick="if(event.target===this)closeEmergencyModal()">
@@ -960,6 +1032,29 @@ function initSidebarToggle() {
 let searchAreaBtn = null;
 let mapIdleListener = null;
 let searchRadiusCircle = null;
+let showOnlyOpen = localStorage.getItem('ys_open_only') === 'true';
+
+function toggleOpenOnly(checked) {
+  showOnlyOpen = checked;
+  localStorage.setItem('ys_open_only', checked);
+  // Re-search all active POIs with the new filter
+  activePOIs.forEach(type => {
+    if (type !== 'sightseeing') {
+      clearPOIMarkers(type);
+      if (isEssentialType(type)) {
+        searchPOIsAlongRouteEssentials(type);
+      } else {
+        searchPOIsInView(type);
+      }
+    }
+  });
+}
+
+// Initialize the toggle state on load
+document.addEventListener('DOMContentLoaded', () => {
+  const toggle = document.getElementById('open-only-toggle');
+  if (toggle) toggle.checked = showOnlyOpen;
+});
 let hasSeenSearchExplanation = localStorage.getItem('ys_search_explained') === 'true';
 let customWaypoints = JSON.parse(localStorage.getItem('ys_custom_waypoints') || '[]');
 
@@ -1112,6 +1207,7 @@ function searchPOIsInView(type) {
       poiMarkers[type] = poiMarkers[type] || [];
       results.slice(0, 20).forEach(place => {
         if (!bounds.contains(place.geometry.location)) return;
+        if (showOnlyOpen && place.opening_hours && !place.opening_hours.isOpen()) return;
         const marker = createPOIMarker(place, type);
         poiMarkers[type].push(marker);
       });
@@ -1160,6 +1256,8 @@ function searchPOIsAlongRouteEssentials(type) {
             // Deduplicate by place_id
             if (seenPlaceIds.has(place.place_id)) return;
             seenPlaceIds.add(place.place_id);
+            // Filter closed places if toggle is on
+            if (showOnlyOpen && place.opening_hours && !place.opening_hours.isOpen()) return;
 
             const marker = createPOIMarker(place, type);
             poiMarkers[type].push(marker);
@@ -1506,8 +1604,8 @@ async function fetchWeather() {
   try {
     // Fetch weather at BOTH current location and destination
     const [hereResp, destResp] = await Promise.all([
-      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=1`),
-      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${nextHotel.lat}&longitude=${nextHotel.lng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&hourly=temperature_2m,weather_code,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=2`)
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`),
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${nextHotel.lat}&longitude=${nextHotel.lng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&hourly=temperature_2m,weather_code,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`)
     ]);
     const hereData = await hereResp.json();
     const destData = await destResp.json();
@@ -1925,6 +2023,286 @@ function clearMapSearch() {
   input.value = '';
   clearBtn.style.display = 'none';
   clearSearchMarkers();
+}
+
+// ============================================================
+// ROUTE WEATHER
+// ============================================================
+let rwCache = null; // cached hourly weather data
+let rwDepartureTimes = JSON.parse(localStorage.getItem('ys_departure_times') || 'null') || [
+  '08:00', '08:00', '08:00', '08:00', '05:00'
+];
+
+const RW_LEGS = [
+  { day: 1, date: '2026-03-17', dateLabel: 'Mar 17', driveHours: 5.5,
+    fromLabel: 'Seven Valleys, PA', toLabel: 'Comfort Inn, Maumee, OH',
+    startLat: 39.8473, startLng: -76.7619, endLat: 41.5710, endLng: -83.6740 },
+  { day: 2, date: '2026-03-18', dateLabel: 'Mar 18', driveHours: 7.5,
+    fromLabel: 'Maumee, OH', toLabel: 'Drury Inn, Coralville, IA',
+    startLat: 41.5710, startLng: -83.6740, endLat: 41.6764, endLng: -91.5642 },
+  { day: 3, date: '2026-03-19', dateLabel: 'Mar 19', driveHours: 6.5,
+    fromLabel: 'Coralville, IA', toLabel: 'Holiday Inn, Brandon, SD',
+    startLat: 41.6764, startLng: -91.5642, endLat: 43.5947, endLng: -96.5717 },
+  { day: 4, date: '2026-03-20', dateLabel: 'Mar 20', driveHours: 5.5,
+    fromLabel: 'Brandon, SD', toLabel: 'Baymont, Rapid City, SD',
+    startLat: 43.5947, startLng: -96.5717, endLat: 44.0581, endLng: -103.1994 },
+  { day: 5, date: '2026-03-21', dateLabel: 'Mar 21', driveHours: 5,
+    fromLabel: 'Rapid City, SD', toLabel: 'Gardiner, Yellowstone',
+    startLat: 44.0581, startLng: -103.1994, endLat: 45.0328, endLng: -110.7059 }
+];
+
+function openRouteWeather() {
+  document.getElementById('route-weather-panel').classList.add('open');
+  if (!rwCache) {
+    fetchRouteWeatherData();
+  } else {
+    renderRouteWeather();
+  }
+}
+
+function closeRouteWeather() {
+  document.getElementById('route-weather-panel').classList.remove('open');
+}
+
+function getRWSamplePoints(leg) {
+  const points = [];
+  const numPoints = 6;
+  for (let i = 0; i < numPoints; i++) {
+    const frac = i / (numPoints - 1);
+    points.push({
+      lat: leg.startLat + (leg.endLat - leg.startLat) * frac,
+      lng: leg.startLng + (leg.endLng - leg.startLng) * frac,
+      fracAlong: frac
+    });
+  }
+  return points;
+}
+
+async function fetchRouteWeatherData() {
+  const container = document.getElementById('route-weather-content');
+  container.innerHTML = '<div class="rw-spinner"></div><p class="text-center text-gray-500 text-sm">Fetching weather for all legs...</p>';
+
+  // Collect ALL sample points across all legs
+  const allPoints = [];
+  RW_LEGS.forEach((leg, legIdx) => {
+    const pts = getRWSamplePoints(leg);
+    pts.forEach(pt => {
+      allPoints.push({ ...pt, legIdx });
+    });
+  });
+
+  // Open-Meteo supports multiple locations via comma-separated values
+  const lats = allPoints.map(p => p.lat.toFixed(4)).join(',');
+  const lngs = allPoints.map(p => p.lng.toFixed(4)).join(',');
+
+  try {
+    const resp = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m,precipitation_probability,precipitation&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`
+    );
+    const data = await resp.json();
+
+    // Open-Meteo returns an array when multiple locations are given
+    // Each element has .hourly with the forecast
+    rwCache = { points: allPoints, forecasts: Array.isArray(data) ? data : [data] };
+    renderRouteWeather();
+  } catch (err) {
+    console.error('Route weather fetch error:', err);
+    container.innerHTML = '<p class="text-center text-red-400 text-sm py-8">Failed to load weather data. Check your connection and try again.</p>';
+  }
+}
+
+function rwGetSeverity(weatherCode, gustsMph, precipMm) {
+  // Red: snow, ice, high wind, severe
+  if (weatherCode >= 71 && weatherCode <= 77) return 'red';   // snow
+  if (weatherCode >= 85 && weatherCode <= 86) return 'red';   // snow showers
+  if (weatherCode >= 56 && weatherCode <= 57) return 'red';   // freezing drizzle
+  if (weatherCode >= 66 && weatherCode <= 67) return 'red';   // freezing rain
+  if (weatherCode >= 95) return 'red';                         // thunderstorm
+  if (gustsMph > 40) return 'red';
+  // Orange: heavy rain, moderate wind
+  if (weatherCode === 65 || weatherCode === 82) return 'orange'; // heavy rain/showers
+  if (gustsMph > 30) return 'orange';
+  if (precipMm > 2) return 'orange';
+  // Yellow: cloudy, light rain
+  if (weatherCode >= 51 && weatherCode <= 55) return 'yellow'; // drizzle
+  if (weatherCode === 61 || weatherCode === 63) return 'yellow'; // light/mod rain
+  if (weatherCode === 80 || weatherCode === 81) return 'yellow'; // showers
+  if (weatherCode === 3) return 'yellow'; // overcast
+  if (weatherCode >= 45 && weatherCode <= 48) return 'yellow'; // fog
+  // Green: clear, good
+  return 'green';
+}
+
+function rwSeverityRank(sev) {
+  return { green: 0, yellow: 1, orange: 2, red: 3 }[sev] || 0;
+}
+
+function rwTimeToHourIndex(timeStr, dateStr) {
+  // timeStr is "HH:MM", dateStr is "2026-03-17"
+  // Open-Meteo hourly time format: "2026-03-17T08:00"
+  const [h, m] = timeStr.split(':').map(Number);
+  return { dateStr, hour: h, minute: m };
+}
+
+function rwFindHourlyIndex(hourlyTimes, targetDateStr, targetHour) {
+  // Find the index in the hourly array that matches date + hour
+  const target = `${targetDateStr}T${String(targetHour).padStart(2, '0')}:00`;
+  return hourlyTimes.indexOf(target);
+}
+
+function rwGetNearestCity(lat, lng) {
+  // Simple lookup of major cities along the route for location hints
+  const cities = [
+    { lat: 39.85, lng: -76.76, name: 'Seven Valleys' },
+    { lat: 40.05, lng: -77.50, name: 'Chambersburg' },
+    { lat: 40.44, lng: -79.99, name: 'Pittsburgh' },
+    { lat: 40.80, lng: -81.38, name: 'Canton, OH' },
+    { lat: 41.08, lng: -81.52, name: 'Akron, OH' },
+    { lat: 41.50, lng: -81.69, name: 'Cleveland, OH' },
+    { lat: 41.57, lng: -83.67, name: 'Maumee, OH' },
+    { lat: 41.65, lng: -83.54, name: 'Toledo, OH' },
+    { lat: 41.60, lng: -85.14, name: 'Fort Wayne, IN' },
+    { lat: 41.68, lng: -86.25, name: 'South Bend, IN' },
+    { lat: 41.85, lng: -87.65, name: 'Chicago, IL' },
+    { lat: 41.68, lng: -88.32, name: 'Naperville, IL' },
+    { lat: 41.67, lng: -91.56, name: 'Coralville, IA' },
+    { lat: 41.98, lng: -91.67, name: 'Cedar Rapids, IA' },
+    { lat: 42.03, lng: -93.62, name: 'Ames, IA' },
+    { lat: 42.50, lng: -94.17, name: 'Fort Dodge, IA' },
+    { lat: 43.18, lng: -95.86, name: 'Spencer, IA' },
+    { lat: 43.55, lng: -96.73, name: 'Sioux Falls, SD' },
+    { lat: 43.59, lng: -96.57, name: 'Brandon, SD' },
+    { lat: 43.71, lng: -98.03, name: 'Mitchell, SD' },
+    { lat: 43.81, lng: -99.33, name: 'Chamberlain, SD' },
+    { lat: 44.08, lng: -103.23, name: 'Rapid City, SD' },
+    { lat: 44.37, lng: -103.77, name: 'Sturgis, SD' },
+    { lat: 44.80, lng: -106.96, name: 'Sheridan, WY' },
+    { lat: 45.60, lng: -108.04, name: 'Hardin, MT' },
+    { lat: 45.78, lng: -108.50, name: 'Billings, MT' },
+    { lat: 45.60, lng: -109.25, name: 'Columbus, MT' },
+    { lat: 45.35, lng: -109.95, name: 'Livingston, MT' },
+    { lat: 45.03, lng: -110.71, name: 'Gardiner, MT' }
+  ];
+  let closest = cities[0];
+  let minDist = Infinity;
+  for (const c of cities) {
+    const d = (c.lat - lat) ** 2 + (c.lng - lng) ** 2;
+    if (d < minDist) { minDist = d; closest = c; }
+  }
+  return closest.name;
+}
+
+function renderRouteWeather() {
+  const container = document.getElementById('route-weather-content');
+  if (!rwCache) {
+    container.innerHTML = '<p class="text-center text-gray-500">No data loaded.</p>';
+    return;
+  }
+
+  const { points, forecasts } = rwCache;
+  let html = '';
+  let overviewData = []; // worst severity per day
+
+  RW_LEGS.forEach((leg, legIdx) => {
+    const departTime = rwDepartureTimes[legIdx];
+    const [depH, depM] = departTime.split(':').map(Number);
+    const legPoints = points.filter(p => p.legIdx === legIdx);
+
+    // Build chips for this leg
+    let chipsHtml = '';
+    let worstSev = 'green';
+
+    legPoints.forEach((pt, ptIdx) => {
+      // Find the forecast data for this point
+      const globalIdx = points.indexOf(pt);
+      const forecast = forecasts[globalIdx];
+      if (!forecast || !forecast.hourly) return;
+
+      // Calculate arrival hour at this point
+      const driveHoursToPoint = pt.fracAlong * leg.driveHours;
+      const arrivalTotalMinutes = depH * 60 + depM + driveHoursToPoint * 60;
+      const arrivalHour = Math.floor(arrivalTotalMinutes / 60) % 24;
+      const arrivalMinute = Math.round(arrivalTotalMinutes % 60);
+
+      // Format arrival time
+      const ampm = arrivalHour >= 12 ? 'PM' : 'AM';
+      const displayHour = arrivalHour > 12 ? arrivalHour - 12 : (arrivalHour === 0 ? 12 : arrivalHour);
+      const timeStr = `${displayHour}:${String(arrivalMinute).padStart(2, '0')} ${ampm}`;
+
+      // Find matching hourly index
+      const hIdx = rwFindHourlyIndex(forecast.hourly.time, leg.date, arrivalHour);
+      if (hIdx < 0) return;
+
+      const temp = Math.round(forecast.hourly.temperature_2m[hIdx]);
+      const code = forecast.hourly.weather_code[hIdx];
+      const wind = Math.round(forecast.hourly.wind_speed_10m[hIdx]);
+      const gusts = Math.round(forecast.hourly.wind_gusts_10m[hIdx] || 0);
+      const precip = forecast.hourly.precipitation[hIdx] || 0;
+      const emoji = getWeatherEmoji(code);
+      const severity = rwGetSeverity(code, gusts, precip);
+
+      if (rwSeverityRank(severity) > rwSeverityRank(worstSev)) worstSev = severity;
+
+      const city = rwGetNearestCity(pt.lat, pt.lng);
+
+      chipsHtml += `<div class="rw-chip rw-severity-${severity}">
+        <span class="rw-emoji">${emoji}</span>
+        <span class="rw-time">${timeStr}</span>
+        <span class="rw-loc" title="${city}">nr. ${city}</span>
+        <span class="rw-temp">${temp}°F</span>
+        <span class="rw-wind">${wind} mph${gusts > 25 ? ' (G' + gusts + ')' : ''}</span>
+      </div>`;
+    });
+
+    overviewData.push({ day: leg.day, dateLabel: leg.dateLabel, worstSev, emoji: '?' });
+
+    html += `<div class="rw-leg-card">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <h3 class="font-bold text-sm text-warm-400">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
+          <p class="text-xs text-gray-500">${leg.dateLabel} &middot; ~${leg.driveHours}h drive</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-500">Depart:</label>
+          <input type="time" value="${departTime}" onchange="rwUpdateDeparture(${legIdx}, this.value)"
+            style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:6px;padding:4px 6px;color:#e5e5e5;font-size:12px;font-family:Inter,sans-serif;">
+        </div>
+      </div>
+      <div class="rw-chips-row">${chipsHtml || '<span class="text-gray-500 text-xs py-4">No forecast data available for this leg</span>'}</div>
+    </div>`;
+  });
+
+  // Trip overview
+  html += `<div class="rw-leg-card" style="border-color:#f5a623;">
+    <h3 class="font-bold text-sm text-warm-400 mb-3">Trip Overview -- Worst Conditions Per Day</h3>
+    <div class="flex flex-wrap gap-2">`;
+
+  overviewData.forEach(d => {
+    const sevLabel = { green: 'Clear', yellow: 'Caution', orange: 'Poor', red: 'Severe' }[d.worstSev];
+    html += `<div class="rw-overview-chip rw-severity-${d.worstSev}">
+      <span class="text-white font-bold">Day ${d.day}</span>
+      <span style="color:rgba(255,255,255,0.7);">${d.dateLabel}</span>
+      <span class="text-white">${sevLabel}</span>
+    </div>`;
+  });
+
+  html += `</div>
+    <div class="mt-3 text-xs text-gray-500 space-y-1">
+      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded rw-severity-green"></span> Clear / Good driving</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded rw-severity-yellow"></span> Cloudy / Light rain / Fog</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded rw-severity-orange"></span> Heavy rain / Moderate wind</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded rw-severity-red"></span> Snow / Ice / High wind (&gt;40mph) / Severe</div>
+    </div>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+function rwUpdateDeparture(legIdx, newTime) {
+  rwDepartureTimes[legIdx] = newTime;
+  localStorage.setItem('ys_departure_times', JSON.stringify(rwDepartureTimes));
+  // Re-render with cached data (no re-fetch)
+  renderRouteWeather();
 }
 
 // ============================================================
