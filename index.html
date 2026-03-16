@@ -857,6 +857,7 @@ let watchId = null;
 let poiMarkers = {};
 let activePOIs = new Set();
 let routeWaypoints = [];
+let routeLegDurations = []; // Actual drive hours per leg from Google Directions API
 let mapInitialized = false;
 let customWaypoints = JSON.parse(localStorage.getItem('ys_custom_waypoints') || '[]');
 
@@ -1056,6 +1057,23 @@ function initMap() {
   addHotelMarkers();
 }
 
+function extractRouteData(result) {
+  // Extract waypoints and actual drive durations from Directions API result
+  const legs = result.routes[0].legs;
+  routeWaypoints = [];
+  routeLegDurations = [];
+  for (const leg of legs) {
+    routeWaypoints.push(leg.start_location);
+    // Actual drive time in hours from Google
+    routeLegDurations.push(Math.round(leg.duration.value / 3600 * 10) / 10);
+    const steps = leg.steps;
+    for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
+      routeWaypoints.push(steps[i].start_location);
+    }
+  }
+  routeWaypoints.push(legs[legs.length - 1].end_location);
+}
+
 function drawRoute() {
   const orderedStops = getRouteStops();
   const allWaypoints = orderedStops
@@ -1068,18 +1086,10 @@ function drawRoute() {
   directionsService.route(buildDirectionsRequest(ORIGIN, DESTINATION, allWaypoints), (result, status) => {
     if (status === 'OK') {
       directionsRenderer.setDirections(result);
-      // Store route waypoints for POI search
-      const legs = result.routes[0].legs;
-      routeWaypoints = [];
-      for (const leg of legs) {
-        routeWaypoints.push(leg.start_location);
-        // Sample along each leg
-        const steps = leg.steps;
-        for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
-          routeWaypoints.push(steps[i].start_location);
-        }
-      }
-      routeWaypoints.push(legs[legs.length - 1].end_location);
+      extractRouteData(result);
+
+      // Rebuild weather legs with actual Google drive times
+      rebuildRWLegsFromStops(orderedStops);
 
       // Auto-enable crime zones on first load
       if (!activePOIs.has('crime_zones')) {
@@ -2999,10 +3009,14 @@ function rebuildRWLegsFromStops(orderedStops) {
       Math.abs(o.endLat - chain[i + 1].lat) < 0.01
     );
 
+    // Drive hours: use actual Google Directions data first, fall back to original leg match, then estimate
+    const googleHours = routeLegDurations[i]; // from latest Directions API response
+    const driveHours = googleHours || (origLeg ? origLeg.driveHours : 5);
+
     RW_LEGS_BASE.push({
       day: i + 1,
       baseDate: formatDateStr(new Date(new Date('2026-03-17T12:00:00').getTime() + i * 86400000)),
-      driveHours: origLeg ? origLeg.driveHours : 5,
+      driveHours,
       fromLabel: chain[i].label,
       toLabel: chain[i + 1].label,
       startLat: chain[i].lat,
@@ -4493,26 +4507,39 @@ function saveAndUpdateRoute() {
   parkedStops = [];
 
   saveRouteStopsOrder(currentRouteStops);
-  applyRouteStopsToMap();
 
-  // Rebuild Drive Weather legs to match new stop order
-  rebuildRWLegsFromStops(currentRouteStops);
+  // Apply to map -- the callback will rebuild weather legs with actual drive times
+  const stopsForWeather = [...currentRouteStops]; // snapshot for async callback
+  const allWaypoints = currentRouteStops
+    .filter(s => s.lat && s.lng)
+    .map(s => ({ location: new google.maps.LatLng(s.lat, s.lng), stopover: true }));
 
-  // Invalidate weather cache and force re-fetch for new route geometry
-  rwCache = null;
-  // Also clear weather overlay markers (they're based on old route)
-  clearPOIMarkers('weather_overlay');
-  if (activePOIs.has('weather_overlay')) {
-    // Re-fetch weather overlay after route updates
-    setTimeout(() => { showWeatherOverlay(); }, 2000);
-  }
-  // If Drive Weather panel is currently open, re-fetch immediately
-  const rwPanel = document.getElementById('route-weather-panel');
-  if (rwPanel && rwPanel.classList.contains('open')) {
-    fetchRouteWeatherData();
-  }
+  directionsService.route(buildDirectionsRequest(ORIGIN, DESTINATION, allWaypoints), (result, status) => {
+    if (status === 'OK') {
+      directionsRenderer.setDirections(result);
+      extractRouteData(result); // populates routeLegDurations with actual Google times
+
+      // NOW rebuild weather legs -- routeLegDurations is fresh
+      rebuildRWLegsFromStops(stopsForWeather);
+
+      // Invalidate weather cache and force re-fetch for new route geometry
+      rwCache = null;
+      clearPOIMarkers('weather_overlay');
+      if (activePOIs.has('weather_overlay')) {
+        setTimeout(() => { showWeatherOverlay(); }, 2000);
+      }
+      // If Drive Weather panel is currently open, re-fetch immediately
+      const rwPanel = document.getElementById('route-weather-panel');
+      if (rwPanel && rwPanel.classList.contains('open')) {
+        fetchRouteWeatherData();
+      }
+    } else {
+      showToast('⚠️ Route update failed: ' + status);
+    }
+  });
+
   closeStopPicker();
-  showToast('✅ Route updated! Map and weather forecast synced.');
+  showToast('✅ Route updated! Map and weather forecast syncing...');
 }
 
 function applyRouteStopsToMap() {
@@ -4527,16 +4554,7 @@ function applyRouteStopsToMap() {
   directionsService.route(buildDirectionsRequest(ORIGIN, DESTINATION, allWaypoints), (result, status) => {
     if (status === 'OK') {
       directionsRenderer.setDirections(result);
-      routeWaypoints = [];
-      const legs = result.routes[0].legs;
-      for (const leg of legs) {
-        routeWaypoints.push(leg.start_location);
-        const steps = leg.steps;
-        for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
-          routeWaypoints.push(steps[i].start_location);
-        }
-      }
-      routeWaypoints.push(legs[legs.length - 1].end_location);
+      extractRouteData(result);
     } else {
       console.error('Route update failed:', status);
       showToast('⚠️ Route update failed: ' + status);
