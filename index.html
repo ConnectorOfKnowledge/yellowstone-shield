@@ -299,10 +299,10 @@ tailwind.config = {
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
       </svg>
     </button>
-    <!-- Stop Picker Button -->
+    <!-- Stop Picker Button (route/road icon) -->
     <button onclick="openStopPicker()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Manage Stops" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
       </svg>
     </button>
     <!-- Toggle Sidebar / Filters Button -->
@@ -741,19 +741,13 @@ function initMap() {
 }
 
 function drawRoute() {
-  const hotelWaypoints = HOTELS
-    .filter(h => h.lat && h.lng)
-    .map(h => ({
-      location: new google.maps.LatLng(h.lat, h.lng),
+  const orderedStops = getRouteStops();
+  const allWaypoints = orderedStops
+    .filter(s => s.lat && s.lng)
+    .map(s => ({
+      location: new google.maps.LatLng(s.lat, s.lng),
       stopover: true
     }));
-
-  const customWps = customWaypoints.map(cw => ({
-    location: new google.maps.LatLng(cw.lat, cw.lng),
-    stopover: true
-  }));
-
-  const allWaypoints = [...hotelWaypoints, ...customWps];
 
   directionsService.route({
     origin: ORIGIN,
@@ -1095,11 +1089,7 @@ function toggleOpenOnly(checked) {
   activePOIs.forEach(type => {
     if (type !== 'sightseeing') {
       clearPOIMarkers(type);
-      if (isEssentialType(type)) {
-        searchPOIsAlongRouteEssentials(type);
-      } else {
-        searchPOIsInView(type);
-      }
+      searchPOIsAlongRouteEssentials(type);
     }
   });
 }
@@ -1322,11 +1312,8 @@ function searchPOIsAlongRouteEssentials(type) {
 }
 
 function searchPOIsAlongRoute(type) {
-  if (isEssentialType(type)) {
-    searchPOIsAlongRouteEssentials(type);
-  } else {
-    searchPOIsInView(type);
-  }
+  // ALL types search along the route now -- no more small circle search
+  searchPOIsAlongRouteEssentials(type);
   setupSearchAreaButton();
 }
 
@@ -1353,11 +1340,7 @@ function setupSearchAreaButton() {
 
     activePOIs.forEach(type => {
       if (type === 'sightseeing') return;
-      if (isEssentialType(type)) {
-        searchPOIsAlongRouteEssentials(type);
-      } else {
-        searchPOIsInView(type);
-      }
+      searchPOIsAlongRouteEssentials(type);
     });
   });
 
@@ -1374,16 +1357,7 @@ function setupSearchAreaButton() {
 
 function updateSearchButtonLabel() {
   if (!searchAreaBtn) return;
-  const hasEssentials = [...activePOIs].some(t => isEssentialType(t));
-  const hasSafety = [...activePOIs].some(t => SAFETY_TYPES.includes(t));
-
-  if (hasEssentials && !hasSafety) {
-    searchAreaBtn.textContent = '🔍 Search along route';
-  } else if (!hasEssentials && hasSafety) {
-    searchAreaBtn.textContent = '🔍 Search this area';
-  } else {
-    searchAreaBtn.textContent = '🔍 Search along route';
-  }
+  searchAreaBtn.textContent = '🔍 Search along route';
 }
 
 function showSearchExplanation() {
@@ -1394,13 +1368,11 @@ function showSearchExplanation() {
       <div style="font-size:32px;margin-bottom:12px;">🔍</div>
       <h3 style="font-size:16px;font-weight:700;color:#f5a623;margin-bottom:8px;">How Search Works</h3>
       <p style="font-size:13px;line-height:1.5;color:#a0a0a0;margin-bottom:12px;">
-        Results are found from the <strong style="color:#e5e5e5;">center of your screen</strong> outward.
-        The search area is shown as a circle on the map.
+        Results are found <strong style="color:#e5e5e5;">along your route</strong> from your current position (or the map center) to the destination.
       </p>
       <p style="font-size:13px;line-height:1.5;color:#a0a0a0;margin-bottom:16px;">
-        <strong style="color:#e5e5e5;">Zoom in</strong> to search a smaller area with more detail, or
-        <strong style="color:#e5e5e5;">zoom out</strong> to search a wider area.
-        Pan the map and tap "Search this area" again to search somewhere new.
+        Places within about <strong style="color:#e5e5e5;">5 miles of the route</strong> will show up.
+        Tap "Search along route" after panning or zooming to refresh results.
       </p>
       <button onclick="this.parentElement.parentElement.remove()" style="background:#f5a623;color:#0f0f14;border:none;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Got it!</button>
     </div>
@@ -1410,43 +1382,19 @@ function showSearchExplanation() {
 }
 
 function flashSearchRadius() {
-  // Remove previous circle if any
-  if (searchRadiusCircle) searchRadiusCircle.setMap(null);
-
-  const center = map.getCenter();
-  const zoom = map.getZoom();
-
-  // Match the radius logic from searchPOIsInView
-  let radius = 50000;
-  if (zoom >= 12) radius = 8000;
-  else if (zoom >= 10) radius = 16000;
-  else if (zoom >= 8) radius = 32000;
-  else if (zoom >= 6) radius = 50000;
-
-  searchRadiusCircle = new google.maps.Circle({
-    map: map,
-    center: { lat: center.lat(), lng: center.lng() },
-    radius: radius,
-    fillColor: '#f5a623',
-    fillOpacity: 0.12,
-    strokeColor: '#f5a623',
-    strokeOpacity: 0.6,
-    strokeWeight: 2,
-    clickable: false
-  });
-
-  // Fade out after 2 seconds
-  setTimeout(() => {
-    if (searchRadiusCircle) {
-      searchRadiusCircle.setOptions({ fillOpacity: 0.05, strokeOpacity: 0.2 });
-    }
-  }, 1500);
-  setTimeout(() => {
-    if (searchRadiusCircle) {
-      searchRadiusCircle.setMap(null);
-      searchRadiusCircle = null;
-    }
-  }, 3000);
+  // No circle needed -- all searches are along-route now
+  // Brief visual feedback: flash the route line
+  if (directionsRenderer) {
+    const origOpts = directionsRenderer.get('polylineOptions');
+    directionsRenderer.setOptions({ polylineOptions: { strokeColor: '#f5a623', strokeWeight: 6, strokeOpacity: 0.8 } });
+    // Force re-render by re-setting directions
+    const currentDirs = directionsRenderer.getDirections();
+    if (currentDirs) directionsRenderer.setDirections(currentDirs);
+    setTimeout(() => {
+      directionsRenderer.setOptions({ polylineOptions: origOpts || {} });
+      if (currentDirs) directionsRenderer.setDirections(currentDirs);
+    }, 1200);
+  }
 }
 
 function showSightseeingMarkers() {
@@ -1529,19 +1477,13 @@ function removeCustomWaypoint(lat, lng) {
 }
 
 function redrawRouteWithCustomWaypoints() {
-  const hotelWaypoints = HOTELS
-    .filter(h => h.lat && h.lng)
-    .map(h => ({
-      location: new google.maps.LatLng(h.lat, h.lng),
+  const orderedStops = getRouteStops();
+  const allWaypoints = orderedStops
+    .filter(s => s.lat && s.lng)
+    .map(s => ({
+      location: new google.maps.LatLng(s.lat, s.lng),
       stopover: true
     }));
-
-  const customWps = customWaypoints.map(cw => ({
-    location: new google.maps.LatLng(cw.lat, cw.lng),
-    stopover: true
-  }));
-
-  const allWaypoints = [...hotelWaypoints, ...customWps];
 
   directionsService.route({
     origin: ORIGIN,
@@ -2468,8 +2410,81 @@ function rwUpdateDeparture(legIdx, newTime) {
 // ============================================================
 // STOP PICKER
 // ============================================================
+// Unified route stops: combines hotels + custom waypoints into one ordered list.
+// Each stop: { type: 'hotel'|'custom', hotelIdx?, lat, lng, name, address, ... }
+// Hotels keep their original data; custom stops can be removed.
+// All middle stops (not origin/destination) can be reordered.
+
+function getRouteStops() {
+  // Build a single ordered list from saved order or default
+  const saved = localStorage.getItem('ys_route_stops_order');
+  if (saved) {
+    try {
+      const order = JSON.parse(saved);
+      // Reconcile: make sure all hotels and custom waypoints are present
+      const result = [];
+      const usedHotels = new Set();
+      const usedCustom = new Set();
+
+      for (const entry of order) {
+        if (entry.type === 'hotel') {
+          const h = HOTELS[entry.hotelIdx];
+          if (h && !usedHotels.has(entry.hotelIdx)) {
+            usedHotels.add(entry.hotelIdx);
+            result.push({ type: 'hotel', hotelIdx: entry.hotelIdx, lat: h.lat, lng: h.lng, name: h.name, address: h.address, date: h.date, night: h.night, confirmation: h.confirmation });
+          }
+        } else if (entry.type === 'custom') {
+          // Match by lat/lng
+          const ci = customWaypoints.findIndex(cw =>
+            Math.abs(cw.lat - entry.lat) < 0.0001 && Math.abs(cw.lng - entry.lng) < 0.0001
+          );
+          if (ci >= 0 && !usedCustom.has(ci)) {
+            usedCustom.add(ci);
+            result.push({ type: 'custom', lat: customWaypoints[ci].lat, lng: customWaypoints[ci].lng, name: customWaypoints[ci].name, address: customWaypoints[ci].address || '' });
+          }
+        }
+      }
+
+      // Add any hotels/custom not in saved order (new additions)
+      HOTELS.forEach((h, i) => {
+        if (!usedHotels.has(i)) {
+          result.push({ type: 'hotel', hotelIdx: i, lat: h.lat, lng: h.lng, name: h.name, address: h.address, date: h.date, night: h.night, confirmation: h.confirmation });
+        }
+      });
+      customWaypoints.forEach((cw, i) => {
+        if (!usedCustom.has(i)) {
+          result.push({ type: 'custom', lat: cw.lat, lng: cw.lng, name: cw.name, address: cw.address || '' });
+        }
+      });
+
+      return result;
+    } catch (e) { /* fall through to default */ }
+  }
+
+  // Default: hotels in order, then custom waypoints
+  const stops = [];
+  HOTELS.forEach((h, i) => {
+    stops.push({ type: 'hotel', hotelIdx: i, lat: h.lat, lng: h.lng, name: h.name, address: h.address, date: h.date, night: h.night, confirmation: h.confirmation });
+  });
+  customWaypoints.forEach(cw => {
+    stops.push({ type: 'custom', lat: cw.lat, lng: cw.lng, name: cw.name, address: cw.address || '' });
+  });
+  return stops;
+}
+
+function saveRouteStopsOrder(stops) {
+  const order = stops.map(s => {
+    if (s.type === 'hotel') return { type: 'hotel', hotelIdx: s.hotelIdx };
+    return { type: 'custom', lat: s.lat, lng: s.lng };
+  });
+  localStorage.setItem('ys_route_stops_order', JSON.stringify(order));
+}
+
+let currentRouteStops = [];
+
 function openStopPicker() {
   document.getElementById('stop-picker-panel').classList.add('open');
+  currentRouteStops = getRouteStops();
   renderStopPicker();
 }
 
@@ -2479,13 +2494,10 @@ function closeStopPicker() {
 
 function renderStopPicker() {
   const container = document.getElementById('stop-picker-list');
-
-  // Build all stops list: Origin, Hotels, Custom Stops, Destination
-  // Hotels are fixed in position (can't reorder them relative to each other for now)
-  // Custom waypoints can be reordered and removed
+  const stops = currentRouteStops;
   let html = '';
 
-  // Origin
+  // Origin (fixed, not movable)
   html += `<div class="stop-item origin-stop">
     <div class="text-blue-400 text-lg font-bold w-8 text-center">A</div>
     <div class="flex-1 min-w-0">
@@ -2494,41 +2506,33 @@ function renderStopPicker() {
     </div>
   </div>`;
 
-  // Hotels
-  HOTELS.forEach((hotel, i) => {
-    const nightLabel = `Night ${hotel.night}`;
-    html += `<div class="stop-item hotel-stop">
-      <div class="text-warm-400 text-lg font-bold w-8 text-center">${hotel.night}</div>
-      <div class="flex-1 min-w-0">
-        <div class="text-sm text-gray-200 font-medium truncate">${hotel.name}</div>
-        <div class="text-xs text-gray-500 truncate">${hotel.address}</div>
-        <div class="text-xs text-warm-400/70 mt-0.5">${nightLabel} - ${hotel.date}</div>
-      </div>
-      <div class="text-xs text-gray-600 px-2 py-1 rounded bg-dark-700">Hotel</div>
-    </div>`;
+  // All middle stops (hotels + custom, reorderable)
+  stops.forEach((stop, i) => {
+    const isHotel = stop.type === 'hotel';
+    const borderClass = isHotel ? 'hotel-stop' : 'custom-stop';
+    const label = isHotel ? `<div class="text-xs text-warm-400/70 mt-0.5">Night ${stop.night} - ${stop.date}</div>` : '';
+    const badge = isHotel
+      ? `<div class="text-xs text-gray-600 px-2 py-1 rounded bg-dark-700">Hotel</div>`
+      : `<button onclick="removeStopByIndex(${i})" class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-sm font-bold" title="Remove">✗</button>`;
 
-    // Insert custom waypoints that should come after this hotel
-    // (We show custom stops in their added order, between hotels)
+    const canMoveUp = i > 0;
+    const canMoveDown = i < stops.length - 1;
+
+    html += `<div class="stop-item ${borderClass}" data-stop-idx="${i}">
+      <div style="display:flex;flex-direction:column;gap:2px;margin-right:4px;">
+        <button onclick="moveStopUp(${i})" style="background:none;border:none;color:${canMoveUp ? '#f5a623' : '#333'};font-size:16px;cursor:${canMoveUp ? 'pointer' : 'default'};padding:0;line-height:1;" ${canMoveUp ? '' : 'disabled'} title="Move up">▲</button>
+        <button onclick="moveStopDown(${i})" style="background:none;border:none;color:${canMoveDown ? '#f5a623' : '#333'};font-size:16px;cursor:${canMoveDown ? 'pointer' : 'default'};padding:0;line-height:1;" ${canMoveDown ? '' : 'disabled'} title="Move down">▼</button>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm text-gray-200 font-medium truncate">${stop.name}</div>
+        <div class="text-xs text-gray-500 truncate">${stop.address}</div>
+        ${label}
+      </div>
+      ${badge}
+    </div>`;
   });
 
-  // Custom waypoints (after all hotels, before destination)
-  if (customWaypoints.length > 0) {
-    html += `<div class="px-1 pt-3 pb-1"><p class="text-[10px] uppercase tracking-wider text-road-green font-semibold">Custom Stops (drag to reorder)</p></div>`;
-    customWaypoints.forEach((cw, i) => {
-      html += `<div class="stop-item custom-stop" draggable="true" data-custom-idx="${i}"
-        ondragstart="onStopDragStart(event, ${i})" ondragover="onStopDragOver(event)" ondrop="onStopDrop(event, ${i})" ondragend="onStopDragEnd(event)"
-        ontouchstart="onStopTouchStart(event, ${i})" ontouchmove="onStopTouchMove(event)" ontouchend="onStopTouchEnd(event, ${i})">
-        <div class="stop-drag-handle" title="Drag to reorder">⠿</div>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm text-gray-200 font-medium truncate">${cw.name}</div>
-          <div class="text-xs text-gray-500 truncate">${cw.address || ''}</div>
-        </div>
-        <button onclick="removeStopFromPicker(${i})" class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-sm font-bold" title="Remove">✗</button>
-      </div>`;
-    });
-  }
-
-  // Destination
+  // Destination (fixed)
   html += `<div class="stop-item dest-stop">
     <div class="text-red-400 text-lg font-bold w-8 text-center">B</div>
     <div class="flex-1 min-w-0">
@@ -2540,80 +2544,72 @@ function renderStopPicker() {
   container.innerHTML = html;
 }
 
-// Drag and drop for reordering custom stops
-let dragFromIdx = null;
-
-function onStopDragStart(e, idx) {
-  dragFromIdx = idx;
-  e.currentTarget.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
+function moveStopUp(idx) {
+  if (idx <= 0) return;
+  const temp = currentRouteStops[idx];
+  currentRouteStops[idx] = currentRouteStops[idx - 1];
+  currentRouteStops[idx - 1] = temp;
+  saveRouteStopsOrder(currentRouteStops);
+  applyRouteStopsToMap();
+  renderStopPicker();
 }
 
-function onStopDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
+function moveStopDown(idx) {
+  if (idx >= currentRouteStops.length - 1) return;
+  const temp = currentRouteStops[idx];
+  currentRouteStops[idx] = currentRouteStops[idx + 1];
+  currentRouteStops[idx + 1] = temp;
+  saveRouteStopsOrder(currentRouteStops);
+  applyRouteStopsToMap();
+  renderStopPicker();
 }
 
-function onStopDrop(e, toIdx) {
-  e.preventDefault();
-  if (dragFromIdx === null || dragFromIdx === toIdx) return;
-
-  const item = customWaypoints.splice(dragFromIdx, 1)[0];
-  customWaypoints.splice(toIdx, 0, item);
-  localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
-
-  redrawRouteWithCustomWaypoints();
+function removeStopByIndex(idx) {
+  const stop = currentRouteStops[idx];
+  if (stop.type === 'custom') {
+    // Also remove from customWaypoints
+    customWaypoints = customWaypoints.filter(cw =>
+      !(Math.abs(cw.lat - stop.lat) < 0.0001 && Math.abs(cw.lng - stop.lng) < 0.0001)
+    );
+    localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+  }
+  currentRouteStops.splice(idx, 1);
+  saveRouteStopsOrder(currentRouteStops);
+  applyRouteStopsToMap();
   renderCustomStops();
   renderStopPicker();
 }
 
-function onStopDragEnd(e) {
-  dragFromIdx = null;
-  document.querySelectorAll('.stop-item.dragging').forEach(el => el.classList.remove('dragging'));
-}
+function applyRouteStopsToMap() {
+  // Rebuild waypoints from the current stop order and redraw the route
+  const allWaypoints = currentRouteStops
+    .filter(s => s.lat && s.lng)
+    .map(s => ({
+      location: new google.maps.LatLng(s.lat, s.lng),
+      stopover: true
+    }));
 
-// Touch-based drag for mobile
-let touchDragIdx = null;
-let touchClone = null;
-
-function onStopTouchStart(e, idx) {
-  const touch = e.touches[0];
-  touchDragIdx = idx;
-  // Visual feedback
-  e.currentTarget.classList.add('dragging');
-}
-
-function onStopTouchMove(e) {
-  if (touchDragIdx === null) return;
-  e.preventDefault(); // prevent scroll while dragging
-}
-
-function onStopTouchEnd(e, idx) {
-  if (touchDragIdx === null) return;
-  document.querySelectorAll('.stop-item.dragging').forEach(el => el.classList.remove('dragging'));
-
-  // Find which custom-stop element the finger ended on
-  const touch = e.changedTouches[0];
-  const elements = document.querySelectorAll('.stop-item.custom-stop');
-  let targetIdx = null;
-
-  elements.forEach((el, i) => {
-    const rect = el.getBoundingClientRect();
-    if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-      targetIdx = parseInt(el.dataset.customIdx);
+  directionsService.route({
+    origin: ORIGIN,
+    destination: DESTINATION,
+    waypoints: allWaypoints,
+    travelMode: 'DRIVING',
+    optimizeWaypoints: false
+  }, (result, status) => {
+    if (status === 'OK') {
+      directionsRenderer.setDirections(result);
+      routeWaypoints = [];
+      const legs = result.routes[0].legs;
+      for (const leg of legs) {
+        routeWaypoints.push(leg.start_location);
+        const steps = leg.steps;
+        for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
+          routeWaypoints.push(steps[i].start_location);
+        }
+      }
+      routeWaypoints.push(legs[legs.length - 1].end_location);
     }
   });
-
-  if (targetIdx !== null && targetIdx !== touchDragIdx) {
-    const item = customWaypoints.splice(touchDragIdx, 1)[0];
-    customWaypoints.splice(targetIdx, 0, item);
-    localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
-    redrawRouteWithCustomWaypoints();
-    renderCustomStops();
-    renderStopPicker();
-  }
-
-  touchDragIdx = null;
 }
 
 function removeStopFromPicker(idx) {
@@ -2636,23 +2632,13 @@ function addNewStop() {
 }
 
 function sendToGoogleMaps() {
-  // Build a Google Maps directions URL with all waypoints
+  // Build a Google Maps directions URL with all waypoints in route order
   // Google Maps URL supports max ~10 waypoints between origin and destination
 
-  // Collect all waypoints: hotels + custom
-  const allStops = [];
-
-  // Hotels
-  HOTELS.forEach(h => {
-    if (h.lat && h.lng) {
-      allStops.push({ coords: `${h.lat},${h.lng}`, name: h.name });
-    }
-  });
-
-  // Custom waypoints
-  customWaypoints.forEach(cw => {
-    allStops.push({ coords: `${cw.lat},${cw.lng}`, name: cw.name });
-  });
+  const orderedStops = getRouteStops();
+  const allStops = orderedStops
+    .filter(s => s.lat && s.lng)
+    .map(s => ({ coords: `${s.lat},${s.lng}`, name: s.name }));
 
   const MAX_GOOGLE_WAYPOINTS = 10;
   let stopsToSend = allStops;
