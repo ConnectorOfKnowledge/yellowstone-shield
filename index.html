@@ -1080,6 +1080,14 @@ function drawRoute() {
         }
       }
       routeWaypoints.push(legs[legs.length - 1].end_location);
+
+      // Auto-enable crime zones on first load
+      if (!activePOIs.has('crime_zones')) {
+        activePOIs.add('crime_zones');
+        showCrimeZones();
+        const crimeBtn = document.querySelector('[data-poi="crime_zones"]');
+        if (crimeBtn) crimeBtn.classList.add('active');
+      }
     }
   });
 }
