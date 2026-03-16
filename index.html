@@ -371,6 +371,13 @@ tailwind.config = {
       </div>
 
       <div class="mb-3">
+        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Weather</p>
+        <div class="space-y-1">
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="weather_overlay" id="weather-overlay-toggle">🌦️ Weather Along Route</button>
+        </div>
+      </div>
+
+      <div class="mb-3">
         <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Essentials</p>
         <div class="space-y-1">
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="gas_station">⛽ Gas Stations</button>
@@ -419,8 +426,9 @@ tailwind.config = {
   <!-- Find My Location Button (now in top control bar) -->
 
   <!-- Half-Tank Reminder -->
-  <div id="half-tank-reminder" class="bg-warm-600/90 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg">
-    ⛽ Half-Tank Rule: Time to refuel!
+  <div id="half-tank-reminder" class="bg-warm-600/90 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg" onclick="dismissHalfTankReminder()" style="cursor:pointer;">
+    ⛽ Half-Tank Rule: ~180 miles since last stop. Time to refuel!
+    <div style="font-size:9px;opacity:0.7;margin-top:2px;">Tap to dismiss</div>
   </div>
 
   <!-- GPS Override Warning -->
@@ -903,6 +911,7 @@ function startLocationWatch() {
       }
 
       checkGPSOverride(userPosition);
+      checkHalfTankReminder(userPosition);
     },
     (err) => {
       console.log('Geolocation error:', err.message);
@@ -982,6 +991,53 @@ function findMyLocation() {
     },
     { enableHighAccuracy: true, timeout: 10000 }
   );
+}
+
+// Half-tank reminder: show after ~180 miles from last dismissal point
+let lastFuelCheckPos = JSON.parse(localStorage.getItem('ys_last_fuel_check') || 'null');
+let halfTankDismissed = false;
+
+function checkHalfTankReminder(pos) {
+  if (halfTankDismissed) return;
+  const reminder = document.getElementById('half-tank-reminder');
+
+  // If no reference point, set the current position as starting point
+  if (!lastFuelCheckPos) {
+    lastFuelCheckPos = { lat: pos.lat, lng: pos.lng };
+    localStorage.setItem('ys_last_fuel_check', JSON.stringify(lastFuelCheckPos));
+    return;
+  }
+
+  // Haversine distance in miles
+  const R = 3959; // Earth radius in miles
+  const dLat = (pos.lat - lastFuelCheckPos.lat) * Math.PI / 180;
+  const dLng = (pos.lng - lastFuelCheckPos.lng) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lastFuelCheckPos.lat * Math.PI / 180) * Math.cos(pos.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  if (dist >= 180) {
+    reminder.style.display = 'block';
+    // Auto-hide after 30 seconds
+    setTimeout(() => {
+      reminder.style.display = 'none';
+      halfTankDismissed = true;
+      // Reset: next check starts from current position
+      lastFuelCheckPos = { lat: pos.lat, lng: pos.lng };
+      localStorage.setItem('ys_last_fuel_check', JSON.stringify(lastFuelCheckPos));
+      halfTankDismissed = false; // re-arm for next 180 miles
+    }, 30000);
+  }
+}
+
+function dismissHalfTankReminder() {
+  const reminder = document.getElementById('half-tank-reminder');
+  reminder.style.display = 'none';
+  // Reset reference point to current position
+  if (userPosition) {
+    lastFuelCheckPos = { lat: userPosition.lat, lng: userPosition.lng };
+    localStorage.setItem('ys_last_fuel_check', JSON.stringify(lastFuelCheckPos));
+  }
+  halfTankDismissed = false; // re-arm for next 180 miles
 }
 
 function checkGPSOverride(pos) {
@@ -1111,29 +1167,37 @@ function initSidebarToggle() {
         toggle.classList.remove('active');
         activePOIs.delete(type);
         clearPOIMarkers(type);
-        clearSearchMarkers();
-        // Clear the search bar if it matches this filter term
-        const input = document.getElementById('map-search-input');
-        const searchTerm = POI_SEARCH_TERMS[type] || type.replace(/_/g, ' ');
-        if (input.value.trim().toLowerCase() === searchTerm.toLowerCase()) {
-          input.value = '';
-          document.getElementById('map-search-clear').style.display = 'none';
+        if (type !== 'weather_overlay' && type !== 'sightseeing') {
+          clearSearchMarkers();
+          // Clear the search bar if it matches this filter term
+          const input = document.getElementById('map-search-input');
+          const searchTerm = POI_SEARCH_TERMS[type] || type.replace(/_/g, ' ');
+          if (input.value.trim().toLowerCase() === searchTerm.toLowerCase()) {
+            input.value = '';
+            document.getElementById('map-search-clear').style.display = 'none';
+          }
         }
       } else {
-        // Activate: deactivate all other filters first (one at a time for search approach)
-        document.querySelectorAll('.poi-toggle.active').forEach(otherToggle => {
-          const otherType = otherToggle.dataset.poi;
-          otherToggle.classList.remove('active');
-          activePOIs.delete(otherType);
-          clearPOIMarkers(otherType);
-        });
-        clearSearchMarkers();
+        // Weather overlay and sightseeing coexist with other filters;
+        // other POI types deactivate each other (one search at a time)
+        if (type !== 'weather_overlay' && type !== 'sightseeing') {
+          document.querySelectorAll('.poi-toggle.active').forEach(otherToggle => {
+            const otherType = otherToggle.dataset.poi;
+            if (otherType === 'weather_overlay' || otherType === 'sightseeing') return; // leave these active
+            otherToggle.classList.remove('active');
+            activePOIs.delete(otherType);
+            clearPOIMarkers(otherType);
+          });
+          clearSearchMarkers();
+        }
 
         toggle.classList.add('active');
         activePOIs.add(type);
 
         if (type === 'sightseeing') {
           showSightseeingMarkers();
+        } else if (type === 'weather_overlay') {
+          showWeatherOverlay();
         } else {
           // Use the main search bar with the filter term
           const searchTerm = POI_SEARCH_TERMS[type] || type.replace(/_/g, ' ');
@@ -1408,25 +1472,19 @@ function setupSearchAreaButton() {
   document.getElementById('main-app').appendChild(searchAreaBtn);
 
   searchAreaBtn.addEventListener('click', () => {
-    if (!hasSeenSearchExplanation) {
-      hasSeenSearchExplanation = true;
-      localStorage.setItem('ys_search_explained', 'true');
-      showSearchExplanation();
-    }
-
     searchAreaBtn.style.display = 'none';
-    flashSearchRadius();
-
-    activePOIs.forEach(type => {
-      if (type === 'sightseeing') return;
-      searchPOIsAlongRouteEssentials(type);
-    });
+    // Re-run the current search bar query at the new map position
+    const input = document.getElementById('map-search-input');
+    if (input && input.value.trim()) {
+      textSearchMap(input.value.trim());
+    }
   });
 
   if (!mapIdleListener) {
     mapIdleListener = map.addListener('idle', () => {
-      const hasActivePOIs = [...activePOIs].some(t => t !== 'sightseeing');
-      if (hasActivePOIs && searchAreaBtn) {
+      const input = document.getElementById('map-search-input');
+      const hasSearch = input && input.value.trim().length > 0;
+      if (hasSearch && searchAreaBtn) {
         updateSearchButtonLabel();
         searchAreaBtn.style.display = 'block';
       }
@@ -1510,6 +1568,231 @@ function clearPOIMarkers(type) {
   if (poiMarkers[type]) {
     poiMarkers[type].forEach(m => m.setMap(null));
     poiMarkers[type] = [];
+  }
+}
+
+// ============================================================
+// WEATHER OVERLAY (Drive Weather style bubbles along route)
+// ============================================================
+// Color map for severity -> marker fill
+const WO_COLORS = {
+  green:  { fill: '#3b82f6', stroke: '#93c5fd', bg: '#1a3a5c' },  // blue
+  yellow: { fill: '#6b7280', stroke: '#d1d5db', bg: '#2a2a3a' },  // gray
+  orange: { fill: '#f59e0b', stroke: '#fcd34d', bg: '#3d2800' },  // amber
+  red:    { fill: '#ef4444', stroke: '#fca5a5', bg: '#4a0000' }   // red
+};
+
+async function showWeatherOverlay() {
+  poiMarkers['weather_overlay'] = poiMarkers['weather_overlay'] || [];
+
+  // Sample points along the route (use routeWaypoints if available)
+  let samplePoints = [];
+
+  if (routeWaypoints && routeWaypoints.length > 0) {
+    // Sample ~20 evenly spaced points from the route
+    const targetCount = 20;
+    const step = Math.max(1, Math.floor(routeWaypoints.length / targetCount));
+    for (let i = 0; i < routeWaypoints.length; i += step) {
+      const wp = routeWaypoints[i];
+      samplePoints.push({ lat: wp.lat(), lng: wp.lng() });
+      if (samplePoints.length >= targetCount) break;
+    }
+    // Always include last point
+    const last = routeWaypoints[routeWaypoints.length - 1];
+    if (samplePoints.length > 0) {
+      const lastSample = samplePoints[samplePoints.length - 1];
+      if (Math.abs(lastSample.lat - last.lat()) > 0.1 || Math.abs(lastSample.lng - last.lng()) > 0.1) {
+        samplePoints.push({ lat: last.lat(), lng: last.lng() });
+      }
+    }
+  } else {
+    // Fallback: use RW_LEGS start/end points
+    const legs = getRWLegs();
+    legs.forEach(leg => {
+      samplePoints.push({ lat: leg.startLat, lng: leg.startLng });
+    });
+    samplePoints.push({ lat: legs[legs.length - 1].endLat, lng: legs[legs.length - 1].endLng });
+  }
+
+  if (samplePoints.length === 0) return;
+
+  // Show loading markers first
+  samplePoints.forEach(pt => {
+    const marker = new google.maps.Marker({
+      position: { lat: pt.lat, lng: pt.lng },
+      map: map,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 12,
+        fillColor: '#4a4a6a',
+        fillOpacity: 0.6,
+        strokeColor: '#888',
+        strokeWeight: 1
+      },
+      label: { text: '⏳', fontSize: '11px' },
+      zIndex: 50
+    });
+    poiMarkers['weather_overlay'].push(marker);
+  });
+
+  // Estimate arrival time at each point based on trip schedule
+  const legs = getRWLegs();
+  const tripStartDate = new Date(rwTripStartDate + 'T00:00:00');
+
+  // Calculate total route fraction for each sample point (approximate by distance along route)
+  // Use the total leg hours to estimate when she'll be at each point
+  const totalDriveHours = legs.reduce((sum, l) => sum + l.driveHours, 0);
+  let cumulativeHours = 0;
+  const legCumulativeStart = legs.map(l => {
+    const start = cumulativeHours;
+    cumulativeHours += l.driveHours;
+    return start;
+  });
+
+  // Assign each sample point to a leg based on proximity
+  function assignPointToLeg(lat, lng) {
+    let bestLeg = 0;
+    let bestDist = Infinity;
+    legs.forEach((leg, idx) => {
+      // Check distance to leg midpoint
+      const midLat = (leg.startLat + leg.endLat) / 2;
+      const midLng = (leg.startLng + leg.endLng) / 2;
+      const d = Math.pow(lat - midLat, 2) + Math.pow(lng - midLng, 2);
+      // Also check distance to start and end
+      const ds = Math.pow(lat - leg.startLat, 2) + Math.pow(lng - leg.startLng, 2);
+      const de = Math.pow(lat - leg.endLat, 2) + Math.pow(lng - leg.endLng, 2);
+      const minD = Math.min(d, ds, de);
+      if (minD < bestDist) { bestDist = minD; bestLeg = idx; }
+    });
+    return bestLeg;
+  }
+
+  // Batch fetch weather for all points (Open-Meteo supports up to 60 locations per request)
+  const lats = samplePoints.map(p => p.lat.toFixed(4)).join(',');
+  const lngs = samplePoints.map(p => p.lng.toFixed(4)).join(',');
+
+  try {
+    const resp = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,precipitation,snowfall,visibility&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`
+    );
+    const data = await resp.json();
+
+    // Clear loading markers
+    poiMarkers['weather_overlay'].forEach(m => m.setMap(null));
+    poiMarkers['weather_overlay'] = [];
+
+    // Handle single vs. multi-location response
+    const forecasts = Array.isArray(data) ? data : [data];
+
+    forecasts.forEach((forecast, i) => {
+      if (!forecast || !forecast.hourly) return;
+      const pt = samplePoints[i];
+      const legIdx = assignPointToLeg(pt.lat, pt.lng);
+      const leg = legs[legIdx];
+      if (!leg) return;
+
+      // Calculate estimated arrival hour at this point
+      const departTime = rwDepartureTimes[legIdx] || '08:00';
+      const [depH, depM] = departTime.split(':').map(Number);
+
+      // Fraction along this leg (0=start, 1=end)
+      const legDistStart = Math.sqrt(Math.pow(pt.lat - leg.startLat, 2) + Math.pow(pt.lng - leg.startLng, 2));
+      const legDistTotal = Math.sqrt(Math.pow(leg.endLat - leg.startLat, 2) + Math.pow(leg.endLng - leg.startLng, 2));
+      const frac = legDistTotal > 0 ? Math.min(1, legDistStart / legDistTotal) : 0;
+
+      const driveHoursToPoint = frac * leg.driveHours;
+      const arrivalTotalMinutes = depH * 60 + depM + driveHoursToPoint * 60;
+      const arrivalHour = Math.floor(arrivalTotalMinutes / 60) % 24;
+
+      // Find the forecast hour
+      const hIdx = rwFindHourlyIndex(forecast.hourly.time, leg.date, arrivalHour);
+      if (hIdx < 0) return;
+
+      const temp = Math.round(forecast.hourly.temperature_2m[hIdx]);
+      const feelsLike = forecast.hourly.apparent_temperature ? Math.round(forecast.hourly.apparent_temperature[hIdx]) : temp;
+      const code = forecast.hourly.weather_code[hIdx];
+      const wind = Math.round(forecast.hourly.wind_speed_10m[hIdx]);
+      const gusts = Math.round(forecast.hourly.wind_gusts_10m[hIdx] || 0);
+      const precip = forecast.hourly.precipitation[hIdx] || 0;
+      const snowfall = forecast.hourly.snowfall ? forecast.hourly.snowfall[hIdx] : 0;
+      const visibility = forecast.hourly.visibility ? forecast.hourly.visibility[hIdx] : null;
+      const emoji = getWeatherEmoji(code);
+      const desc = getWeatherDescription(code);
+      const severity = rwGetSeverity(code, gusts, precip, temp);
+      const colors = WO_COLORS[severity];
+      const city = rwGetNearestCity(pt.lat, pt.lng);
+
+      // Is it night?
+      const isNight = isNightHour(arrivalHour, pt.lat, pt.lng, leg.date);
+
+      // Time display
+      const ampm = arrivalHour >= 12 ? 'PM' : 'AM';
+      const displayHour = arrivalHour % 12 || 12;
+      const timeStr = `${displayHour}:00 ${ampm}`;
+
+      // Create the weather bubble marker
+      const marker = new google.maps.Marker({
+        position: { lat: pt.lat, lng: pt.lng },
+        map: map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 16,
+          fillColor: colors.fill,
+          fillOpacity: 0.85,
+          strokeColor: colors.stroke,
+          strokeWeight: 2
+        },
+        label: { text: emoji, fontSize: '14px' },
+        title: `${timeStr} - ${temp}°F ${desc}`,
+        zIndex: 60
+      });
+
+      // Build info window content
+      const sevLabel = rwSeverityLabel(severity);
+      const snowIn = snowfall > 0 ? (snowfall / 2.54).toFixed(1) : 0;
+      const visMiles = visibility !== null ? (visibility / 1609.34).toFixed(1) : null;
+
+      let advisoryBits = [];
+      if (temp <= 20) advisoryBits.push('🥶 Extreme cold');
+      else if (temp <= 32) advisoryBits.push('🧊 Below freezing');
+      if (parseFloat(snowIn) > 0) advisoryBits.push(`❄️ ${snowIn}" snow`);
+      if (gusts > 35) advisoryBits.push(`💨 Gusts ${gusts} mph`);
+      if (visMiles !== null && parseFloat(visMiles) < 5) advisoryBits.push(`🌫️ Vis ${visMiles} mi`);
+      if (precip > 2) advisoryBits.push('🌧️ Heavy precip');
+      if (isNight) advisoryBits.push('🌙 After dark');
+
+      const nightTag = isNight ? '<div style="color:#a5b4fc;font-size:10px;margin-top:2px;">🌙 Night driving</div>' : '';
+
+      const infoContent = `<div style="color:#1a1a24;font-family:Inter,sans-serif;max-width:220px;padding:4px 2px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span style="font-size:20px;">${emoji}</span>
+          <div>
+            <strong style="font-size:14px;">${temp}°F</strong>
+            <span style="font-size:11px;color:#666;margin-left:4px;">feels ${feelsLike}°F</span>
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:#333;">${desc}</div>
+        <div style="font-size:11px;color:#666;">Day ${leg.day} at ~${timeStr} near ${city}</div>
+        <div style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:white;background:${colors.fill};">${sevLabel.toUpperCase()}</div>
+        ${nightTag}
+        <div style="font-size:11px;color:#555;margin-top:6px;">
+          💨 Wind ${wind} mph${gusts > 15 ? ' (gusts ' + gusts + ')' : ''}<br>
+          ${parseFloat(snowIn) > 0 ? '❄️ Snow: ' + snowIn + ' in<br>' : ''}
+          ${visMiles !== null ? '👁️ Vis: ' + (parseFloat(visMiles) >= 10 ? '10+ mi' : visMiles + ' mi') + '<br>' : ''}
+        </div>
+        ${advisoryBits.length > 0 ? '<div style="margin-top:4px;padding:4px 6px;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;font-size:10px;color:#856404;">' + advisoryBits.join(' &bull; ') + '</div>' : ''}
+      </div>`;
+
+      const info = new google.maps.InfoWindow({ content: infoContent });
+      marker.addListener('click', () => info.open(map, marker));
+      poiMarkers['weather_overlay'].push(marker);
+    });
+
+  } catch (err) {
+    console.error('Weather overlay fetch failed:', err);
+    // Clear loading markers
+    poiMarkers['weather_overlay'].forEach(m => m.setMap(null));
+    poiMarkers['weather_overlay'] = [];
   }
 }
 
