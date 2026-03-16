@@ -2261,6 +2261,27 @@ function rwGetNearestCity(lat, lng) {
   return closest.name;
 }
 
+function rwSeverityBorderColor(sev) {
+  return { green: '#059669', yellow: '#ca8a04', orange: '#ea580c', red: '#dc2626' }[sev] || '#24243a';
+}
+
+function rwSeverityBgGlow(sev) {
+  return { green: '', yellow: '', orange: 'box-shadow:0 0 12px rgba(234,88,12,0.15);', red: 'box-shadow:0 0 20px rgba(220,38,38,0.25);' }[sev] || '';
+}
+
+function rwSeverityLabel(sev) {
+  return { green: 'Clear', yellow: 'Caution', orange: 'Poor', red: 'Severe' }[sev] || 'Unknown';
+}
+
+function rwSeverityExplain(sev) {
+  return {
+    green: 'Good driving conditions expected.',
+    yellow: 'Overcast skies, light rain, fog, or mild wind possible. Drive carefully.',
+    orange: 'Heavy rain, reduced visibility, or moderate wind gusts (30+ mph). Slow down and stay alert.',
+    red: 'Dangerous conditions: snow, ice, freezing rain, high wind (40+ mph), or thunderstorms. Consider delaying or finding shelter.'
+  }[sev] || '';
+}
+
 function renderRouteWeather() {
   const container = document.getElementById('route-weather-content');
   if (!rwCache) {
@@ -2277,28 +2298,25 @@ function renderRouteWeather() {
     const [depH, depM] = departTime.split(':').map(Number);
     const legPoints = points.filter(p => p.legIdx === legIdx);
 
-    // Build chips for this leg
+    // Build chips and collect hazard info for this leg
     let chipsHtml = '';
     let worstSev = 'green';
+    let hazards = []; // { time, city, description, severity, temp, gusts }
 
     legPoints.forEach((pt, ptIdx) => {
-      // Find the forecast data for this point
       const globalIdx = points.indexOf(pt);
       const forecast = forecasts[globalIdx];
       if (!forecast || !forecast.hourly) return;
 
-      // Calculate arrival hour at this point
       const driveHoursToPoint = pt.fracAlong * leg.driveHours;
       const arrivalTotalMinutes = depH * 60 + depM + driveHoursToPoint * 60;
       const arrivalHour = Math.floor(arrivalTotalMinutes / 60) % 24;
       const arrivalMinute = Math.round(arrivalTotalMinutes % 60);
 
-      // Format arrival time
       const ampm = arrivalHour >= 12 ? 'PM' : 'AM';
       const displayHour = arrivalHour % 12 || 12;
       const timeStr = `${displayHour}:${String(arrivalMinute).padStart(2, '0')} ${ampm}`;
 
-      // Find matching hourly index
       const hIdx = rwFindHourlyIndex(forecast.hourly.time, leg.date, arrivalHour);
       if (hIdx < 0) return;
 
@@ -2307,12 +2325,23 @@ function renderRouteWeather() {
       const wind = Math.round(forecast.hourly.wind_speed_10m[hIdx]);
       const gusts = Math.round(forecast.hourly.wind_gusts_10m[hIdx] || 0);
       const precip = forecast.hourly.precipitation[hIdx] || 0;
+      const precipProb = forecast.hourly.precipitation_probability ? forecast.hourly.precipitation_probability[hIdx] : 0;
       const emoji = getWeatherEmoji(code);
       const severity = rwGetSeverity(code, gusts, precip);
+      const desc = getWeatherDescription(code);
 
       if (rwSeverityRank(severity) > rwSeverityRank(worstSev)) worstSev = severity;
 
       const city = rwGetNearestCity(pt.lat, pt.lng);
+
+      // Collect hazards (anything yellow+)
+      if (severity !== 'green') {
+        let reason = desc;
+        if (gusts > 30) reason += `, gusts ${gusts} mph`;
+        if (temp <= 32) reason += `, ${temp}°F (freezing)`;
+        if (precipProb > 50) reason += `, ${precipProb}% precip chance`;
+        hazards.push({ time: timeStr, city, description: reason, severity, temp, gusts });
+      }
 
       chipsHtml += `<div class="rw-chip rw-severity-${severity}">
         <span class="rw-emoji">${emoji}</span>
@@ -2320,47 +2349,109 @@ function renderRouteWeather() {
         <span class="rw-loc" title="${city}">nr. ${city}</span>
         <span class="rw-temp">${temp}°F</span>
         <span class="rw-wind">${wind} mph${gusts > 25 ? ' (G' + gusts + ')' : ''}</span>
+        <span style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:1px;">${desc}</span>
       </div>`;
     });
 
-    overviewData.push({ day: leg.day, dateLabel: leg.dateLabel, worstSev, emoji: '?' });
+    overviewData.push({ day: leg.day, dateLabel: leg.dateLabel, worstSev, hazards });
 
-    html += `<div class="rw-leg-card">
+    // Build severity banner for this day
+    const sevLabel = rwSeverityLabel(worstSev);
+    const sevExplain = rwSeverityExplain(worstSev);
+    const borderColor = rwSeverityBorderColor(worstSev);
+    const bgGlow = rwSeverityBgGlow(worstSev);
+
+    let bannerHtml = '';
+    if (worstSev === 'red') {
+      bannerHtml = `<div style="background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.5);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:20px;">⚠️</span>
+          <span style="font-weight:800;color:#fca5a5;font-size:14px;">SEVERE CONDITIONS</span>
+        </div>
+        <p style="font-size:12px;color:#fca5a5;line-height:1.5;margin-bottom:6px;">${sevExplain}</p>
+        ${hazards.filter(h => h.severity === 'red').map(h =>
+          `<div style="font-size:11px;color:#f87171;padding:3px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+        ).join('')}
+      </div>`;
+    } else if (worstSev === 'orange') {
+      bannerHtml = `<div style="background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.4);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-size:18px;">🟠</span>
+          <span style="font-weight:700;color:#fb923c;font-size:13px;">POOR CONDITIONS</span>
+        </div>
+        <p style="font-size:11px;color:#fdba74;line-height:1.4;margin-bottom:4px;">${sevExplain}</p>
+        ${hazards.filter(h => rwSeverityRank(h.severity) >= 2).map(h =>
+          `<div style="font-size:11px;color:#fb923c;padding:2px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+        ).join('')}
+      </div>`;
+    } else if (worstSev === 'yellow') {
+      bannerHtml = `<div style="background:rgba(202,138,4,0.1);border:1px solid rgba(202,138,4,0.3);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+          <span style="font-size:16px;">🟡</span>
+          <span style="font-weight:600;color:#facc15;font-size:12px;">CAUTION</span>
+        </div>
+        <p style="font-size:11px;color:#fde68a;line-height:1.4;">${sevExplain}</p>
+        ${hazards.length > 0 ? hazards.map(h =>
+          `<div style="font-size:11px;color:#fcd34d;padding:2px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+        ).join('') : ''}
+      </div>`;
+    }
+    // Green gets no banner -- good news doesn't need a warning
+
+    html += `<div class="rw-leg-card" style="border-color:${borderColor};${bgGlow}">
       <div class="flex items-center justify-between mb-2">
         <div>
-          <h3 class="font-bold text-sm text-warm-400">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
+          <h3 class="font-bold text-sm" style="color:${borderColor === '#059669' ? '#f5a623' : borderColor};">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
           <p class="text-xs text-gray-500">${leg.dateLabel} &middot; ~${leg.driveHours}h drive</p>
         </div>
-        <div class="flex items-center gap-2">
-          <label class="text-xs text-gray-500">Depart:</label>
-          <input type="time" value="${departTime}" onchange="rwUpdateDeparture(${legIdx}, this.value)"
-            style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:6px;padding:4px 6px;color:#e5e5e5;font-size:12px;font-family:Inter,sans-serif;">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          <span style="font-size:11px;font-weight:700;color:${borderColor};background:${borderColor}22;padding:2px 8px;border-radius:6px;">${sevLabel.toUpperCase()}</span>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-gray-500">Depart:</label>
+            <input type="time" value="${departTime}" onchange="rwUpdateDeparture(${legIdx}, this.value)"
+              style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:6px;padding:4px 6px;color:#e5e5e5;font-size:12px;font-family:Inter,sans-serif;">
+          </div>
         </div>
       </div>
+      ${bannerHtml}
       <div class="rw-chips-row">${chipsHtml || '<span class="text-gray-500 text-xs py-4">No forecast data available for this leg</span>'}</div>
     </div>`;
   });
 
   // Trip overview
   html += `<div class="rw-leg-card" style="border-color:#f5a623;">
-    <h3 class="font-bold text-sm text-warm-400 mb-3">Trip Overview -- Worst Conditions Per Day</h3>
-    <div class="flex flex-wrap gap-2">`;
+    <h3 class="font-bold text-sm text-warm-400 mb-3">Trip Overview</h3>
+    <div class="flex flex-wrap gap-2 mb-3">`;
 
   overviewData.forEach(d => {
-    const sevLabel = { green: 'Clear', yellow: 'Caution', orange: 'Poor', red: 'Severe' }[d.worstSev];
-    html += `<div class="rw-overview-chip rw-severity-${d.worstSev}">
+    const sevLabel = rwSeverityLabel(d.worstSev);
+    const borderColor = rwSeverityBorderColor(d.worstSev);
+    html += `<div class="rw-overview-chip rw-severity-${d.worstSev}" style="border:1px solid ${borderColor};">
       <span class="text-white font-bold">Day ${d.day}</span>
       <span style="color:rgba(255,255,255,0.7);">${d.dateLabel}</span>
-      <span class="text-white">${sevLabel}</span>
+      <span class="text-white font-bold">${sevLabel}</span>
     </div>`;
   });
 
-  html += `</div>
-    <div class="mt-3 text-xs text-gray-500 space-y-1">
-      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded rw-severity-green"></span> Clear / Good driving</div>
-      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded rw-severity-yellow"></span> Cloudy / Light rain / Fog</div>
-      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded rw-severity-orange"></span> Heavy rain / Moderate wind</div>
-      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded rw-severity-red"></span> Snow / Ice / High wind (&gt;40mph) / Severe</div>
+  html += `</div>`;
+
+  // Summary of worst days
+  const badDays = overviewData.filter(d => rwSeverityRank(d.worstSev) >= 2);
+  if (badDays.length > 0) {
+    html += `<div style="background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <p style="font-weight:700;color:#fca5a5;font-size:12px;margin-bottom:6px;">⚠️ Days Requiring Extra Attention:</p>`;
+    badDays.forEach(d => {
+      const worst = d.hazards.length > 0 ? d.hazards[0] : null;
+      html += `<div style="font-size:11px;color:#f87171;padding:2px 0;">&#x2022; <strong>Day ${d.day} (${d.dateLabel})</strong>: ${rwSeverityLabel(d.worstSev)}${worst ? ' -- ' + worst.description + ' near ' + worst.city : ''}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="mt-3 text-xs text-gray-500 space-y-1">
+      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#059669;"></span> Clear -- Good driving</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#ca8a04;"></span> Caution -- Clouds, light rain, fog</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#ea580c;"></span> Poor -- Heavy rain, 30+ mph wind</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#dc2626;"></span> Severe -- Snow, ice, 40+ mph wind, storms</div>
     </div>
   </div>`;
 
@@ -2546,8 +2637,7 @@ function addNewStop() {
 
 function sendToGoogleMaps() {
   // Build a Google Maps directions URL with all waypoints
-  const origin = encodeURIComponent(ORIGIN);
-  const destination = encodeURIComponent(DESTINATION);
+  // Google Maps URL supports max ~10 waypoints between origin and destination
 
   // Collect all waypoints: hotels + custom
   const allStops = [];
@@ -2555,20 +2645,46 @@ function sendToGoogleMaps() {
   // Hotels
   HOTELS.forEach(h => {
     if (h.lat && h.lng) {
-      allStops.push(`${h.lat},${h.lng}`);
+      allStops.push({ coords: `${h.lat},${h.lng}`, name: h.name });
     }
   });
 
   // Custom waypoints
   customWaypoints.forEach(cw => {
-    allStops.push(`${cw.lat},${cw.lng}`);
+    allStops.push({ coords: `${cw.lat},${cw.lng}`, name: cw.name });
   });
 
-  // Google Maps URL format: origin/wp1/wp2/.../destination
-  // Max ~10 waypoints in the URL
+  const MAX_GOOGLE_WAYPOINTS = 10;
+  let stopsToSend = allStops;
+  let wasTruncated = false;
+
+  if (allStops.length > MAX_GOOGLE_WAYPOINTS) {
+    // Determine where the user likely is: use GPS or default to beginning
+    // Send the NEXT 10 stops from current position
+    let startIdx = 0;
+
+    if (userPosition) {
+      // Find the closest upcoming stop
+      let minDist = Infinity;
+      allStops.forEach((stop, i) => {
+        const [lat, lng] = stop.coords.split(',').map(Number);
+        const d = Math.pow(lat - userPosition.lat, 2) + Math.pow(lng - userPosition.lng, 2);
+        if (d < minDist) { minDist = d; startIdx = i; }
+      });
+    }
+
+    stopsToSend = allStops.slice(startIdx, startIdx + MAX_GOOGLE_WAYPOINTS);
+    wasTruncated = true;
+  }
+
+  if (wasTruncated) {
+    const names = stopsToSend.map(s => s.name).join(', ');
+    alert(`Google Maps only supports up to ${MAX_GOOGLE_WAYPOINTS} waypoints in a single route. Sending the next ${stopsToSend.length} stops: ${names}.\n\nThe remaining stops were not included.`);
+  }
+
   let url;
-  if (allStops.length > 0) {
-    const waypointsStr = allStops.join('/');
+  if (stopsToSend.length > 0) {
+    const waypointsStr = stopsToSend.map(s => s.coords).join('/');
     url = `https://www.google.com/maps/dir/${encodeURIComponent(ORIGIN)}/${waypointsStr}/${encodeURIComponent(DESTINATION)}`;
   } else {
     url = `https://www.google.com/maps/dir/${encodeURIComponent(ORIGIN)}/${encodeURIComponent(DESTINATION)}`;
