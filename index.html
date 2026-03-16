@@ -187,10 +187,11 @@ tailwind.config = {
   .rw-detail-row:last-child { border-bottom: none; }
   .rw-detail-label { color: #888; font-size: 12px; }
   .rw-detail-value { font-weight: 600; font-size: 13px; }
-  .rw-severity-green { background: #064e3b; }
-  .rw-severity-yellow { background: #713f12; }
-  .rw-severity-orange { background: #7c2d12; }
-  .rw-severity-red { background: #7f1d1d; }
+  /* Color-blind friendly: differ by brightness + saturation, not just hue */
+  .rw-severity-green { background: #1a3a5c; border: 1px solid #3b82f6; } /* bright blue tint -- clearly "good" */
+  .rw-severity-yellow { background: #2a2a3a; border: 1px solid #888; }    /* neutral gray -- "meh, fine" */
+  .rw-severity-orange { background: #3d2800; border: 1px solid #f59e0b; } /* bold amber -- "watch out" */
+  .rw-severity-red { background: #4a0000; border: 1px solid #ff4444; }    /* bright red on dark -- "danger" */
   .rw-overview-chip {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -2132,24 +2133,31 @@ async function fetchRouteWeatherData() {
 }
 
 function rwGetSeverity(weatherCode, gustsMph, precipMm) {
-  // Red: snow, ice, high wind, severe
-  if (weatherCode >= 71 && weatherCode <= 77) return 'red';   // snow
-  if (weatherCode >= 85 && weatherCode <= 86) return 'red';   // snow showers
-  if (weatherCode >= 56 && weatherCode <= 57) return 'red';   // freezing drizzle
-  if (weatherCode >= 66 && weatherCode <= 67) return 'red';   // freezing rain
-  if (weatherCode >= 95) return 'red';                         // thunderstorm
-  if (gustsMph > 40) return 'red';
-  // Orange: heavy rain, moderate wind
+  // SEVERE (red): truly dangerous conditions that warrant stopping or rerouting
+  if (weatherCode >= 75 && weatherCode <= 77) return 'red';   // heavy snow / snow grains
+  if (weatherCode === 86) return 'red';                        // heavy snow showers
+  if (weatherCode >= 66 && weatherCode <= 67) return 'red';   // freezing rain (ice on roads)
+  if (weatherCode === 57) return 'red';                        // heavy freezing drizzle
+  if (weatherCode >= 96) return 'red';                         // thunderstorm with hail
+  if (gustsMph > 50) return 'red';
+
+  // CAUTION (orange): drive carefully, reduce speed, but manageable
+  if (weatherCode >= 71 && weatherCode <= 73) return 'orange'; // light-moderate snow
+  if (weatherCode === 85) return 'orange';                     // light snow showers
+  if (weatherCode === 56) return 'orange';                     // light freezing drizzle
+  if (weatherCode === 95) return 'orange';                     // thunderstorm (no hail)
   if (weatherCode === 65 || weatherCode === 82) return 'orange'; // heavy rain/showers
-  if (gustsMph > 30) return 'orange';
-  if (precipMm > 2) return 'orange';
-  // Yellow: cloudy, light rain
-  if (weatherCode >= 51 && weatherCode <= 55) return 'yellow'; // drizzle
-  if (weatherCode === 61 || weatherCode === 63) return 'yellow'; // light/mod rain
-  if (weatherCode === 80 || weatherCode === 81) return 'yellow'; // showers
-  if (weatherCode === 3) return 'yellow'; // overcast
-  if (weatherCode >= 45 && weatherCode <= 48) return 'yellow'; // fog
-  // Green: clear, good
+  if (gustsMph > 40) return 'orange';
+  if (precipMm > 5) return 'orange';
+
+  // FAIR (yellow): minor nuisances, totally driveable, just be aware
+  if (weatherCode === 63) return 'yellow';                     // moderate rain
+  if (weatherCode === 81) return 'yellow';                     // moderate showers
+  if (gustsMph > 30) return 'yellow';
+  if (weatherCode >= 45 && weatherCode <= 48) return 'yellow'; // fog (genuinely reduces vis)
+
+  // GOOD (green): everything else including overcast, partly cloudy,
+  // light drizzle, light rain, light showers -- all perfectly fine to drive in
   return 'green';
 }
 
@@ -2213,23 +2221,27 @@ function rwGetNearestCity(lat, lng) {
 }
 
 function rwSeverityBorderColor(sev) {
-  return { green: '#059669', yellow: '#ca8a04', orange: '#ea580c', red: '#dc2626' }[sev] || '#24243a';
+  return { green: '#3b82f6', yellow: '#888888', orange: '#f59e0b', red: '#ff4444' }[sev] || '#24243a';
 }
 
 function rwSeverityBgGlow(sev) {
-  return { green: '', yellow: '', orange: 'box-shadow:0 0 12px rgba(234,88,12,0.15);', red: 'box-shadow:0 0 20px rgba(220,38,38,0.25);' }[sev] || '';
+  return { green: '', yellow: '', orange: 'box-shadow:0 0 12px rgba(245,158,11,0.2);', red: 'box-shadow:0 0 20px rgba(255,68,68,0.3);' }[sev] || '';
 }
 
 function rwSeverityLabel(sev) {
-  return { green: 'Clear', yellow: 'Caution', orange: 'Poor', red: 'Severe' }[sev] || 'Unknown';
+  return { green: 'Good', yellow: 'Fair', orange: 'Caution', red: 'Severe' }[sev] || 'Unknown';
+}
+
+function rwSeverityEmoji(sev) {
+  return { green: '✅', yellow: '👍', orange: '⚠️', red: '🛑' }[sev] || '❓';
 }
 
 function rwSeverityExplain(sev) {
   return {
-    green: 'Good driving conditions expected.',
-    yellow: 'Overcast skies, light rain, fog, or mild wind possible. Drive carefully.',
-    orange: 'Heavy rain, reduced visibility, or moderate wind gusts (30+ mph). Slow down and stay alert.',
-    red: 'Dangerous conditions: snow, ice, freezing rain, high wind (40+ mph), or thunderstorms. Consider delaying or finding shelter.'
+    green: 'Great driving conditions! Clear roads, good visibility. Enjoy the scenery.',
+    yellow: 'Perfectly driveable. Maybe some fog or a stiff breeze, but nothing to worry about. Stay aware and you\'re golden.',
+    orange: 'Snow, thunderstorms, or strong wind gusts possible. Slow down, stay alert, and check conditions before heading out.',
+    red: 'Dangerous conditions: heavy snow, ice, freezing rain, or extreme wind. Seriously consider waiting this out or adjusting your timing.'
   }[sev] || '';
 }
 
@@ -2329,51 +2341,68 @@ function renderRouteWeather() {
     const borderColor = rwSeverityBorderColor(worstSev);
     const bgGlow = rwSeverityBgGlow(worstSev);
 
+    const sevEmoji = rwSeverityEmoji(worstSev);
+
     let bannerHtml = '';
-    if (worstSev === 'red') {
-      bannerHtml = `<div style="background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.5);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <span style="font-size:20px;">⚠️</span>
-          <span style="font-weight:800;color:#fca5a5;font-size:14px;">SEVERE CONDITIONS</span>
+    if (worstSev === 'green') {
+      bannerHtml = `<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">✅</span>
+          <div>
+            <span style="font-weight:700;color:#93c5fd;font-size:12px;">LOOKING GOOD!</span>
+            <p style="font-size:11px;color:#93c5fd;line-height:1.4;margin-top:2px;">${sevExplain}</p>
+          </div>
         </div>
-        <p style="font-size:12px;color:#fca5a5;line-height:1.5;margin-bottom:6px;">${sevExplain}</p>
-        ${hazards.filter(h => h.severity === 'red').map(h =>
-          `<div style="font-size:11px;color:#f87171;padding:3px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
-        ).join('')}
-      </div>`;
-    } else if (worstSev === 'orange') {
-      bannerHtml = `<div style="background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.4);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-          <span style="font-size:18px;">🟠</span>
-          <span style="font-weight:700;color:#fb923c;font-size:13px;">POOR CONDITIONS</span>
-        </div>
-        <p style="font-size:11px;color:#fdba74;line-height:1.4;margin-bottom:4px;">${sevExplain}</p>
-        ${hazards.filter(h => rwSeverityRank(h.severity) >= 2).map(h =>
-          `<div style="font-size:11px;color:#fb923c;padding:2px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
-        ).join('')}
       </div>`;
     } else if (worstSev === 'yellow') {
-      bannerHtml = `<div style="background:rgba(202,138,4,0.1);border:1px solid rgba(202,138,4,0.3);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-          <span style="font-size:16px;">🟡</span>
-          <span style="font-weight:600;color:#facc15;font-size:12px;">CAUTION</span>
+      bannerHtml = `<div style="background:rgba(136,136,136,0.08);border:1px solid rgba(136,136,136,0.3);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">👍</span>
+          <div>
+            <span style="font-weight:600;color:#ccc;font-size:12px;">FAIR CONDITIONS</span>
+            <p style="font-size:11px;color:#aaa;line-height:1.4;margin-top:2px;">${sevExplain}</p>
+          </div>
         </div>
-        <p style="font-size:11px;color:#fde68a;line-height:1.4;">${sevExplain}</p>
-        ${hazards.length > 0 ? hazards.map(h =>
-          `<div style="font-size:11px;color:#fcd34d;padding:2px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
-        ).join('') : ''}
+        ${hazards.length > 0 ? '<div style="margin-top:6px;">' + hazards.map(h =>
+          `<div style="font-size:11px;color:#aaa;padding:2px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+        ).join('') + '</div>' : ''}
+      </div>`;
+    } else if (worstSev === 'orange') {
+      bannerHtml = `<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-size:18px;">⚠️</span>
+          <div>
+            <span style="font-weight:700;color:#fbbf24;font-size:13px;">HEADS UP</span>
+            <p style="font-size:11px;color:#fcd34d;line-height:1.4;margin-top:2px;">${sevExplain}</p>
+          </div>
+        </div>
+        ${hazards.filter(h => rwSeverityRank(h.severity) >= 2).map(h =>
+          `<div style="font-size:11px;color:#fbbf24;padding:3px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+        ).join('')}
+      </div>`;
+    } else if (worstSev === 'red') {
+      bannerHtml = `<div style="background:rgba(255,68,68,0.12);border:2px solid rgba(255,68,68,0.6);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:22px;">🛑</span>
+          <div>
+            <span style="font-weight:800;color:#ff6666;font-size:14px;">SEVERE -- CHECK BEFORE DRIVING</span>
+            <p style="font-size:12px;color:#ff8888;line-height:1.5;margin-top:2px;">${sevExplain}</p>
+          </div>
+        </div>
+        ${hazards.filter(h => h.severity === 'red').map(h =>
+          `<div style="font-size:11px;color:#ff6666;padding:3px 0;">&#x2022; <strong>${h.time}</strong> near ${h.city}: ${h.description}</div>`
+        ).join('')}
       </div>`;
     }
-    // Green gets no banner -- good news doesn't need a warning
 
     html += `<div class="rw-leg-card" style="border-color:${borderColor};${bgGlow}">
       <div class="flex items-center justify-between mb-2">
         <div>
-          <h3 class="font-bold text-sm" style="color:${borderColor === '#059669' ? '#f5a623' : borderColor};">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
+          <h3 class="font-bold text-sm text-warm-400">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
           <p class="text-xs text-gray-500">${leg.dateLabel} &middot; ~${leg.driveHours}h drive</p>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-          <span style="font-size:11px;font-weight:700;color:${borderColor};background:${borderColor}22;padding:2px 8px;border-radius:6px;">${sevLabel.toUpperCase()}</span>
+          <span style="font-size:12px;font-weight:700;color:${borderColor};background:${borderColor}22;padding:3px 10px;border-radius:6px;border:1px solid ${borderColor}55;">${sevEmoji} ${sevLabel.toUpperCase()}</span>
           <div class="flex items-center gap-2">
             <label class="text-xs text-gray-500">Depart:</label>
             <input type="time" value="${departTime}" onchange="rwUpdateDeparture(${legIdx}, this.value)"
@@ -2387,39 +2416,49 @@ function renderRouteWeather() {
   });
 
   // Trip overview
+  const goodDayCount = overviewData.filter(d => d.worstSev === 'green').length;
+  const totalDays = overviewData.length;
+
   html += `<div class="rw-leg-card" style="border-color:#f5a623;">
-    <h3 class="font-bold text-sm text-warm-400 mb-3">Trip Overview</h3>
+    <h3 class="font-bold text-sm text-warm-400 mb-1">Trip Overview</h3>
+    <p class="text-xs text-gray-400 mb-3">${goodDayCount} of ${totalDays} days looking great${goodDayCount >= totalDays - 1 ? ' -- nice!' : ''}</p>
     <div class="flex flex-wrap gap-2 mb-3">`;
 
   overviewData.forEach(d => {
     const sevLabel = rwSeverityLabel(d.worstSev);
+    const sevEmoji = rwSeverityEmoji(d.worstSev);
     const borderColor = rwSeverityBorderColor(d.worstSev);
     html += `<div class="rw-overview-chip rw-severity-${d.worstSev}" style="border:1px solid ${borderColor};">
       <span class="text-white font-bold">Day ${d.day}</span>
       <span style="color:rgba(255,255,255,0.7);">${d.dateLabel}</span>
-      <span class="text-white font-bold">${sevLabel}</span>
+      <span class="text-white font-bold">${sevEmoji} ${sevLabel}</span>
     </div>`;
   });
 
   html += `</div>`;
 
-  // Summary of worst days
-  const badDays = overviewData.filter(d => rwSeverityRank(d.worstSev) >= 2);
-  if (badDays.length > 0) {
-    html += `<div style="background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-      <p style="font-weight:700;color:#fca5a5;font-size:12px;margin-bottom:6px;">⚠️ Days Requiring Extra Attention:</p>`;
-    badDays.forEach(d => {
+  // Summary of days needing attention (only orange+)
+  const attentionDays = overviewData.filter(d => rwSeverityRank(d.worstSev) >= 2);
+  if (attentionDays.length > 0) {
+    html += `<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <p style="font-weight:700;color:#fbbf24;font-size:12px;margin-bottom:6px;">📋 Days to watch:</p>`;
+    attentionDays.forEach(d => {
       const worst = d.hazards.length > 0 ? d.hazards[0] : null;
-      html += `<div style="font-size:11px;color:#f87171;padding:2px 0;">&#x2022; <strong>Day ${d.day} (${d.dateLabel})</strong>: ${rwSeverityLabel(d.worstSev)}${worst ? ' -- ' + worst.description + ' near ' + worst.city : ''}</div>`;
+      const emoji = rwSeverityEmoji(d.worstSev);
+      html += `<div style="font-size:11px;color:#fcd34d;padding:2px 0;">${emoji} <strong>Day ${d.day} (${d.dateLabel})</strong>: ${rwSeverityLabel(d.worstSev)}${worst ? ' -- ' + worst.description + ' near ' + worst.city : ''}</div>`;
     });
     html += `</div>`;
+  } else {
+    html += `<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <p style="font-size:12px;color:#93c5fd;">🎉 <strong>All clear!</strong> No severe weather expected on any day. You've got a great window for this trip.</p>
+    </div>`;
   }
 
-  html += `<div class="mt-3 text-xs text-gray-500 space-y-1">
-      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#059669;"></span> Clear -- Good driving</div>
-      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#ca8a04;"></span> Caution -- Clouds, light rain, fog</div>
-      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#ea580c;"></span> Poor -- Heavy rain, 30+ mph wind</div>
-      <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded" style="background:#dc2626;"></span> Severe -- Snow, ice, 40+ mph wind, storms</div>
+  html += `<div class="mt-3 text-xs text-gray-500 space-y-1.5">
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#1a3a5c;border:1px solid #3b82f6;"></span> ✅ Good -- Clear roads, smooth sailing</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#2a2a3a;border:1px solid #888;"></span> 👍 Fair -- Minor stuff, totally driveable</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#3d2800;border:1px solid #f59e0b;"></span> ⚠️ Caution -- Slow down, stay sharp</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#4a0000;border:1px solid #ff4444;"></span> 🛑 Severe -- Consider waiting it out</div>
     </div>
   </div>`;
 
