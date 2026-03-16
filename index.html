@@ -106,12 +106,13 @@ tailwind.config = {
     display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
 
-  /* Toggle sidebar btn */
-  #toggle-sidebar-btn {
-    position: fixed; top: 80px; left: 8px; z-index: 85;
-    transition: left 0.3s ease;
+  /* SOS Button */
+  #sos-btn {
+    position: fixed; bottom: 132px; left: 16px; z-index: 200;
+    width: 56px; height: 56px; border-radius: 50%; background: #dc2626;
+    border: 2px solid #fca5a5; box-shadow: 0 0 16px rgba(220,38,38,0.4);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
-  #toggle-sidebar-btn.shifted { left: 268px; }
 
   /* Half-tank reminder */
   #half-tank-reminder {
@@ -145,6 +146,7 @@ tailwind.config = {
     #hotel-panel { left: auto; width: 400px; right: 0; border-radius: 16px 0 0 0; }
     #emergency-btn { bottom: 24px; right: 24px; }
     #text-dad-btn { bottom: 24px; left: 24px; }
+    #sos-btn { bottom: 90px; left: 24px; }
   }
 </style>
 </head>
@@ -219,11 +221,22 @@ tailwind.config = {
   <!-- Map -->
   <div id="map"></div>
 
-  <!-- Toggle Sidebar Button -->
-  <button id="toggle-sidebar-btn" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all">
-    <svg id="sidebar-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-    <svg id="sidebar-icon-close" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-  </button>
+  <!-- Top Left Controls -->
+  <div style="position:fixed;top:80px;left:8px;z-index:85;display:flex;gap:4px;align-items:center;transition:left 0.3s ease;" id="top-left-controls">
+    <!-- Back Button -->
+    <button onclick="window.history.back()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Back">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <!-- Forward Button -->
+    <button onclick="window.history.forward()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Forward">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <!-- Toggle Sidebar Button -->
+    <button id="toggle-sidebar-btn" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all">
+      <svg id="sidebar-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <svg id="sidebar-icon-close" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
 
   <!-- POI Sidebar -->
   <div id="poi-sidebar" class="collapsed">
@@ -289,6 +302,13 @@ tailwind.config = {
   <!-- Emergency Button -->
   <button id="emergency-btn" onclick="openEmergencyModal()">
     <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+    </svg>
+  </button>
+
+  <!-- SOS Button (above Text Dad) -->
+  <button id="sos-btn" onclick="sendSOS()">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
     </svg>
   </button>
@@ -628,11 +648,19 @@ function addHotelMarkers() {
       }
     });
 
+    const hotelAddr = hotel.address.replace(/'/g, "\\'");
     const infoWindow = new google.maps.InfoWindow({
-      content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;padding:4px;">
-        <strong>${hotel.name}</strong><br>
-        <span style="font-size:12px;">${hotel.address}</span><br>
-        <span style="font-size:12px;">Night ${hotel.night} - ${hotel.date}</span>
+      content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;padding:4px;max-width:240px;">
+        <strong style="font-size:14px;">${hotel.name}</strong><br>
+        <span style="font-size:12px;color:#555;">${hotel.address}</span><br>
+        <span style="font-size:12px;color:#888;">Night ${hotel.night} - ${hotel.date}</span>
+        ${hotel.confirmation !== '--' ? `<br><span style="font-size:11px;color:#0d9488;">Conf: ${hotel.confirmation}</span>` : ''}
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${hotel.lat},${hotel.lng}" target="_blank"
+            style="flex:1;text-align:center;font-size:11px;color:#3b82f6;background:#eff6ff;padding:6px 4px;border-radius:6px;text-decoration:none;">📍 Directions</a>
+          <button onclick="navigator.clipboard.writeText('${hotelAddr}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='📋 Copy',1500);"
+            style="flex:1;text-align:center;font-size:11px;color:#0d9488;background:#f0fdfa;padding:6px 4px;border-radius:6px;border:none;cursor:pointer;">📋 Copy</button>
+        </div>
       </div>`
     });
     marker.addListener('click', () => infoWindow.open(map, marker));
@@ -929,7 +957,7 @@ function setupSearchAreaButton() {
   // Create the "Search this area" button
   searchAreaBtn = document.createElement('button');
   searchAreaBtn.textContent = '🔍 Search this area';
-  searchAreaBtn.style.cssText = 'display:none;position:absolute;top:80px;left:50%;transform:translateX(-50%);z-index:100;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
+  searchAreaBtn.style.cssText = 'display:none;position:absolute;top:80px;left:50%;transform:translateX(-50%);z-index:5;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
   document.getElementById('map').appendChild(searchAreaBtn);
 
   searchAreaBtn.addEventListener('click', () => {
@@ -1347,6 +1375,25 @@ function textDad() {
     });
   } else {
     window.location.href = `sms:2232549070?body=${encodeURIComponent("Hey Dad, just checking in! I'm on the road.")}`;
+  }
+}
+
+// ============================================================
+// SOS - HELP BUTTON
+// ============================================================
+function sendSOS() {
+  if (userPosition) {
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ location: userPosition }, (results, status) => {
+      let address = `${userPosition.lat.toFixed(4)}, ${userPosition.lng.toFixed(4)}`;
+      if (status === 'OK' && results[0]) {
+        address = results[0].formatted_address;
+      }
+      const mapsLink = `https://www.google.com/maps?q=${userPosition.lat},${userPosition.lng}`;
+      window.location.href = `sms:2232549070?body=${encodeURIComponent(`Dad, I need help. Can you call me when you see this?\n\nI'm at: ${address}\n\nMap: ${mapsLink}`)}`;
+    });
+  } else {
+    window.location.href = `sms:2232549070?body=${encodeURIComponent("Dad, I need help. Can you call me when you see this?")}`;
   }
 }
 
