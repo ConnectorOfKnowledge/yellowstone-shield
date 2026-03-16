@@ -1062,16 +1062,37 @@ function extractRouteData(result) {
   const legs = result.routes[0].legs;
   routeWaypoints = [];
   routeLegDurations = [];
+
+  // Collect ALL path points from the route polyline for dense coverage
+  const allPathPoints = [];
   for (const leg of legs) {
-    routeWaypoints.push(leg.start_location);
-    // Actual drive time in hours from Google
     routeLegDurations.push(Math.round(leg.duration.value / 3600 * 10) / 10);
-    const steps = leg.steps;
-    for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
-      routeWaypoints.push(steps[i].start_location);
+    for (const step of leg.steps) {
+      if (step.path) {
+        step.path.forEach(p => allPathPoints.push(p));
+      } else if (step.start_location) {
+        allPathPoints.push(step.start_location);
+      }
     }
   }
-  routeWaypoints.push(legs[legs.length - 1].end_location);
+
+  // Sample evenly along the full path for POI searches (~every 30 miles / 48 km)
+  // This gives ~60 search points for a 1800-mile trip -- good coverage
+  const TARGET_SPACING_KM = 48;
+  routeWaypoints = [allPathPoints[0]];
+  let accumDist = 0;
+  for (let i = 1; i < allPathPoints.length; i++) {
+    const d = google.maps.geometry.spherical.computeDistanceBetween(allPathPoints[i - 1], allPathPoints[i]);
+    accumDist += d;
+    if (accumDist >= TARGET_SPACING_KM * 1000) {
+      routeWaypoints.push(allPathPoints[i]);
+      accumDist = 0;
+    }
+  }
+  // Always include the last point
+  if (allPathPoints.length > 0) {
+    routeWaypoints.push(allPathPoints[allPathPoints.length - 1]);
+  }
 }
 
 function drawRoute() {
@@ -1753,10 +1774,11 @@ function searchPOIsAlongRouteEssentials(type) {
   }
   poiMarkers[type] = [];
 
-  const aheadPoints = getAheadWaypoints();
+  // Use ALL route waypoints (evenly spaced ~30mi apart along entire route)
+  const searchPoints = routeWaypoints;
 
   // If no route waypoints available, fall back to viewport search
-  if (aheadPoints.length === 0) {
+  if (!searchPoints || searchPoints.length === 0) {
     searchPOIsInView(type);
     return;
   }
@@ -1764,23 +1786,24 @@ function searchPOIsAlongRouteEssentials(type) {
   const placeType = type === 'rest_stop' ? 'parking' : type;
   const seenPlaceIds = new Set();
 
-  // Search at each sampled waypoint along the route
-  let completedSearches = 0;
-  const totalSearches = aheadPoints.length;
+  // Search radius: 32km (~20 miles) to ensure overlap between sample points
+  const searchRadius = 32000;
 
-  aheadPoints.forEach((wp, idx) => {
-    // Stagger requests slightly to avoid rate limits
+  showToast(`🔍 Searching ${type.replace('_', ' ')} along full route (${searchPoints.length} zones)...`);
+
+  // Search at each waypoint along the ENTIRE route
+  searchPoints.forEach((wp, idx) => {
+    // Stagger requests to avoid API rate limits (~3 per second)
     setTimeout(() => {
       const request = {
         location: { lat: wp.lat(), lng: wp.lng() },
-        radius: 8000, // ~5 miles from route
+        radius: searchRadius,
         type: placeType
       };
 
       placesService.nearbySearch(request, (results, status) => {
-        completedSearches++;
         if (status === google.maps.places.PlacesServiceStatus.OK) {
-          results.slice(0, 5).forEach(place => {
+          results.slice(0, 10).forEach(place => {
             // Deduplicate by place_id
             if (seenPlaceIds.has(place.place_id)) return;
             seenPlaceIds.add(place.place_id);
@@ -1792,7 +1815,7 @@ function searchPOIsAlongRouteEssentials(type) {
           });
         }
       });
-    }, idx * 200); // 200ms stagger between requests
+    }, idx * 350); // 350ms stagger to stay under rate limits
   });
 }
 
@@ -2284,17 +2307,7 @@ function redrawRouteWithCustomWaypoints() {
   directionsService.route(buildDirectionsRequest(ORIGIN, DESTINATION, allWaypoints), (result, status) => {
     if (status === 'OK') {
       directionsRenderer.setDirections(result);
-      // Re-extract route waypoints
-      const legs = result.routes[0].legs;
-      routeWaypoints = [];
-      for (const leg of legs) {
-        routeWaypoints.push(leg.start_location);
-        const steps = leg.steps;
-        for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
-          routeWaypoints.push(steps[i].start_location);
-        }
-      }
-      routeWaypoints.push(legs[legs.length - 1].end_location);
+      extractRouteData(result);
     }
   });
 }
@@ -4710,16 +4723,7 @@ function applyRouteSettings() {
   directionsService.route(buildDirectionsRequest(ORIGIN, DESTINATION, allWaypoints), (result, status) => {
     if (status === 'OK') {
       directionsRenderer.setDirections(result);
-      routeWaypoints = [];
-      const legs = result.routes[0].legs;
-      for (const leg of legs) {
-        routeWaypoints.push(leg.start_location);
-        const steps = leg.steps;
-        for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
-          routeWaypoints.push(steps[i].start_location);
-        }
-      }
-      routeWaypoints.push(legs[legs.length - 1].end_location);
+      extractRouteData(result);
       rwCache = null;
       showToast('✅ Route updated with new settings!');
     } else {
