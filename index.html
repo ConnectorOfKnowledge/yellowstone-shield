@@ -343,22 +343,23 @@ tailwind.config = {
         <span style="font-size:18px;">📍</span>
         <span style="font-size:13px;font-weight:600;">Map Filters</span>
       </button>
-      <button onclick="findMyLocation();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
-        <span style="font-size:18px;">📡</span>
-        <span style="font-size:13px;font-weight:600;">Find My Location</span>
-      </button>
-      <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 8px;"></div>
-      <button onclick="appBack();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-400 hover:bg-dark-600 transition-all">
-        <span style="font-size:18px;">◀️</span>
-        <span style="font-size:13px;font-weight:500;">Back / Close Panel</span>
-      </button>
     </div>
   </div>
+
+  <!-- Find My Location Button (always visible on map) -->
+  <button id="find-location-btn" onclick="findMyLocation()" style="position:fixed;top:124px;right:12px;z-index:93;width:44px;height:44px;background:rgba(30,30,46,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);" title="Find my location">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#e2e8f0" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>
+    </svg>
+  </button>
 
   <!-- POI Sidebar -->
   <div id="poi-sidebar" class="collapsed">
     <div class="px-3 py-2">
-      <h3 class="text-xs font-bold text-warm-400 uppercase tracking-wider mb-3 px-1">Points of Interest</h3>
+      <div class="flex items-center justify-between mb-3 px-1">
+        <h3 class="text-xs font-bold text-warm-400 uppercase tracking-wider">Points of Interest</h3>
+        <button onclick="closePOISidebar()" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;" title="Close">✕</button>
+      </div>
 
       <!-- Open Places Only Toggle -->
       <div class="flex items-center justify-between px-1 mb-3 pb-2 border-b border-dark-600">
@@ -451,12 +452,20 @@ tailwind.config = {
   <!-- Route Weather Panel -->
   <div id="route-weather-panel" onclick="if(event.target===this)closeRouteWeather()">
     <div class="max-w-lg mx-auto px-4 py-6 pb-24">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-4">
         <div>
           <h2 class="text-xl font-extrabold text-warm-400">Route Weather Forecast</h2>
           <p class="text-gray-500 text-xs mt-0.5">Weather along your entire trip route</p>
         </div>
         <button onclick="closeRouteWeather()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
+      </div>
+      <div style="background:rgba(30,30,46,0.8);border:1px solid rgba(245,166,35,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#f5a623;">📅 Trip Start Date</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;">Change if trip is delayed</div>
+        </div>
+        <input type="date" id="rw-trip-start-date" value="" onchange="rwUpdateTripStartDate(this.value)"
+          style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:8px;padding:6px 10px;color:#e5e5e5;font-size:13px;font-family:Inter,sans-serif;">
       </div>
       <div id="route-weather-content">
         <div class="rw-spinner"></div>
@@ -1079,25 +1088,85 @@ function initSidebarToggle() {
     closeHamburgerMenu();
   });
 
+  // POI filter names mapped to search-friendly terms
+  const POI_SEARCH_TERMS = {
+    gas_station: 'gas station',
+    rest_stop: 'rest stop rest area',
+    restaurant: 'restaurant food',
+    supermarket: 'grocery store supermarket',
+    police: 'police station',
+    hospital: 'hospital emergency room',
+    fire_station: 'fire station',
+    car_repair: 'auto repair mechanic',
+    sightseeing: 'tourist attraction sightseeing'
+  };
+
   document.querySelectorAll('.poi-toggle').forEach(toggle => {
     toggle.addEventListener('click', () => {
       const type = toggle.dataset.poi;
-      toggle.classList.toggle('active');
+      const isActive = toggle.classList.contains('active');
 
-      if (activePOIs.has(type)) {
+      if (isActive) {
+        // Deactivate: clear markers and search
+        toggle.classList.remove('active');
         activePOIs.delete(type);
         clearPOIMarkers(type);
+        clearSearchMarkers();
+        // Clear the search bar if it matches this filter term
+        const input = document.getElementById('map-search-input');
+        const searchTerm = POI_SEARCH_TERMS[type] || type.replace(/_/g, ' ');
+        if (input.value.trim().toLowerCase() === searchTerm.toLowerCase()) {
+          input.value = '';
+          document.getElementById('map-search-clear').style.display = 'none';
+        }
       } else {
+        // Activate: deactivate all other filters first (one at a time for search approach)
+        document.querySelectorAll('.poi-toggle.active').forEach(otherToggle => {
+          const otherType = otherToggle.dataset.poi;
+          otherToggle.classList.remove('active');
+          activePOIs.delete(otherType);
+          clearPOIMarkers(otherType);
+        });
+        clearSearchMarkers();
+
+        toggle.classList.add('active');
         activePOIs.add(type);
+
         if (type === 'sightseeing') {
           showSightseeingMarkers();
         } else {
-          searchPOIsAlongRoute(type);
+          // Use the main search bar with the filter term
+          const searchTerm = POI_SEARCH_TERMS[type] || type.replace(/_/g, ' ');
+          const input = document.getElementById('map-search-input');
+          input.value = searchTerm;
+          document.getElementById('map-search-clear').style.display = 'block';
+          textSearchMap(searchTerm);
         }
       }
+
+      closePOISidebar();
     });
   });
 }
+
+function closePOISidebar() {
+  const sidebar = document.getElementById('poi-sidebar');
+  if (!sidebar.classList.contains('collapsed')) {
+    sidebar.classList.add('collapsed');
+  }
+}
+
+// Close POI sidebar when tapping on the map (outside sidebar)
+document.addEventListener('click', (e) => {
+  const sidebar = document.getElementById('poi-sidebar');
+  if (!sidebar || sidebar.classList.contains('collapsed')) return;
+  const toggleBtn = document.getElementById('toggle-sidebar-btn');
+  if (sidebar.contains(e.target) || (toggleBtn && toggleBtn.contains(e.target))) return;
+  // Don't close if clicking hamburger menu
+  const hamburgerMenu = document.getElementById('hamburger-menu');
+  if (hamburgerMenu && hamburgerMenu.contains(e.target)) return;
+  closePOISidebar();
+});
 
 let searchAreaBtn = null;
 let mapIdleListener = null;
@@ -2051,29 +2120,65 @@ let rwDepartureTimes = JSON.parse(localStorage.getItem('ys_departure_times') || 
   '08:00', '08:00', '08:00', '08:00', '08:00', '05:00'
 ];
 
-const RW_LEGS = [
-  { day: 1, date: '2026-03-17', dateLabel: 'Mar 17', driveHours: 5.5,
+// Base leg data (original schedule)
+const RW_LEGS_BASE = [
+  { day: 1, baseDate: '2026-03-17', driveHours: 5.5,
     fromLabel: 'Seven Valleys, PA', toLabel: 'Comfort Inn, Maumee, OH',
     startLat: 39.8473, startLng: -76.7619, endLat: 41.5710, endLng: -83.6740 },
-  { day: 2, date: '2026-03-18', dateLabel: 'Mar 18', driveHours: 7.5,
+  { day: 2, baseDate: '2026-03-18', driveHours: 7.5,
     fromLabel: 'Maumee, OH', toLabel: 'Drury Inn, Coralville, IA',
     startLat: 41.5710, startLng: -83.6740, endLat: 41.6764, endLng: -91.5642 },
-  { day: 3, date: '2026-03-19', dateLabel: 'Mar 19', driveHours: 6.5,
+  { day: 3, baseDate: '2026-03-19', driveHours: 6.5,
     fromLabel: 'Coralville, IA', toLabel: 'Holiday Inn, Brandon, SD',
     startLat: 41.6764, startLng: -91.5642, endLat: 43.5947, endLng: -96.5717 },
-  { day: 4, date: '2026-03-20', dateLabel: 'Mar 20', driveHours: 5.5,
+  { day: 4, baseDate: '2026-03-20', driveHours: 5.5,
     fromLabel: 'Brandon, SD', toLabel: 'Baymont, Rapid City, SD',
     startLat: 43.5947, startLng: -96.5717, endLat: 44.0581, endLng: -103.1994 },
-  { day: 5, date: '2026-03-21', dateLabel: 'Mar 21', driveHours: 5,
+  { day: 5, baseDate: '2026-03-21', driveHours: 5,
     fromLabel: 'Rapid City, SD', toLabel: 'Billings, MT',
     startLat: 44.0581, startLng: -103.1994, endLat: 45.7833, endLng: -108.5007 },
-  { day: 6, date: '2026-03-22', dateLabel: 'Mar 22', driveHours: 2.75,
+  { day: 6, baseDate: '2026-03-22', driveHours: 2.75,
     fromLabel: 'Billings, MT', toLabel: 'Gardiner, Yellowstone',
     startLat: 45.7833, startLng: -108.5007, endLat: 45.0328, endLng: -110.7059 }
 ];
 
+// Trip start date (saved in localStorage, defaults to original Mar 17)
+let rwTripStartDate = localStorage.getItem('ys_trip_start_date') || '2026-03-17';
+
+// Build RW_LEGS dynamically from base data + start date offset
+function getRWLegs() {
+  const baseStart = new Date('2026-03-17');
+  const actualStart = new Date(rwTripStartDate);
+  const dayOffset = Math.round((actualStart - baseStart) / 86400000);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  return RW_LEGS_BASE.map(base => {
+    const origDate = new Date(base.baseDate);
+    const newDate = new Date(origDate.getTime() + dayOffset * 86400000);
+    const dateStr = newDate.toISOString().split('T')[0];
+    const dateLabel = `${months[newDate.getMonth()]} ${newDate.getDate()}`;
+    return { ...base, date: dateStr, dateLabel };
+  });
+}
+
+// For backward compatibility
+let RW_LEGS = getRWLegs();
+
+function rwUpdateTripStartDate(newDate) {
+  rwTripStartDate = newDate;
+  localStorage.setItem('ys_trip_start_date', newDate);
+  RW_LEGS = getRWLegs();
+  // Clear cached weather data since dates changed
+  rwCache = null;
+  // Re-fetch and render
+  fetchRouteWeatherData();
+}
+
 function openRouteWeather() {
   document.getElementById('route-weather-panel').classList.add('open');
+  // Set the date picker to current trip start
+  const dateInput = document.getElementById('rw-trip-start-date');
+  if (dateInput) dateInput.value = rwTripStartDate;
   if (!rwCache) {
     fetchRouteWeatherData();
   } else {
@@ -2314,26 +2419,135 @@ function renderRouteWeather() {
         hazards.push({ time: timeStr, city, description: reason, severity, temp, gusts });
       }
 
+      // Determine if this point is at night or twilight
+      const isNight = isNightHour(arrivalHour + arrivalMinute / 60, pt.lat, pt.lng, leg.date);
+      const isTwilight = !isNight && isTwilightHour(arrivalHour + arrivalMinute / 60, pt.lat, pt.lng, leg.date);
+      const sunTimes = getSunTimes(pt.lat, pt.lng, leg.date);
+      const sunsetHr = Math.floor(sunTimes.sunset);
+      const sunsetMin = Math.round((sunTimes.sunset - sunsetHr) * 60);
+      const sunsetAmPm = sunsetHr >= 12 ? 'PM' : 'AM';
+      const sunsetDisplay = `${sunsetHr % 12 || 12}:${String(sunsetMin).padStart(2, '0')} ${sunsetAmPm}`;
+      const sunriseHr = Math.floor(sunTimes.sunrise);
+      const sunriseMin = Math.round((sunTimes.sunrise - sunriseHr) * 60);
+      const sunriseAmPm = sunriseHr >= 12 ? 'PM' : 'AM';
+      const sunriseDisplay = `${sunriseHr % 12 || 12}:${String(sunriseMin).padStart(2, '0')} ${sunriseAmPm}`;
+
+      // Check if this is the last point of the leg (arriving at destination)
+      const isLastPoint = ptIdx === legPoints.length - 1;
+
       // Store chip data for the detail popup
       const chipId = `rw-chip-${legIdx}-${ptIdx}`;
       const chipData = JSON.stringify({
         time: timeStr, city, emoji, desc, severity, temp, feelsLike,
         wind, gusts, windDir, precip, precipProb, snowfall, snowDepth,
-        visibility, humidity, dewPoint, cloudCover, code
+        visibility, humidity, dewPoint, cloudCover, code,
+        isNight, isTwilight, sunsetDisplay, sunriseDisplay, isLastPoint,
+        arrivalHour, arrivalMinute
       }).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
 
-      chipsHtml += `<div class="rw-chip rw-severity-${severity}" id="${chipId}" onclick="openChipDetail('${chipId}')" data-chip='${chipData}'>
+      const nightBadge = isNight ? '<span style="font-size:9px;background:#1a1a3a;border:1px solid #6366f1;color:#a5b4fc;padding:1px 6px;border-radius:4px;margin-top:2px;">🌙 Night</span>' : (isTwilight ? '<span style="font-size:9px;background:#2a1a00;border:1px solid #f59e0b;color:#fcd34d;padding:1px 6px;border-radius:4px;margin-top:2px;">🌅 Dusk</span>' : '');
+      const nightBorder = isNight ? 'border-left:3px solid #6366f1;' : (isTwilight ? 'border-left:3px solid #f59e0b;' : '');
+
+      chipsHtml += `<div class="rw-chip rw-severity-${severity}" id="${chipId}" onclick="openChipDetail('${chipId}')" data-chip='${chipData}' style="${nightBorder}">
         <span class="rw-emoji">${emoji}</span>
         <span class="rw-time">${timeStr}</span>
         <span class="rw-loc" title="${city}">nr. ${city}</span>
         <span class="rw-temp">${temp}°F</span>
         <span class="rw-wind">${wind} mph${gusts > 25 ? ' (G' + gusts + ')' : ''}</span>
         <span style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:1px;">${desc}</span>
+        ${nightBadge}
         <span style="font-size:8px;color:rgba(245,166,35,0.5);margin-top:2px;">tap for details</span>
       </div>`;
     });
 
-    overviewData.push({ day: leg.day, dateLabel: leg.dateLabel, worstSev, hazards });
+    // Check if arriving at destination after dark
+    const lastPt = legPoints[legPoints.length - 1];
+    const lastDriveHours = lastPt ? lastPt.fracAlong * leg.driveHours : leg.driveHours;
+    const lastArrivalMinutes = depH * 60 + depM + lastDriveHours * 60;
+    const lastArrivalHour = Math.floor(lastArrivalMinutes / 60) % 24;
+    const lastArrivalMin = Math.round(lastArrivalMinutes % 60);
+    const destSun = getSunTimes(leg.endLat, leg.endLng, leg.date);
+    const arrivalDecimal = lastArrivalHour + lastArrivalMin / 60;
+    const arrivingAfterDark = arrivalDecimal >= destSun.sunset;
+    const arrivingNearDark = !arrivingAfterDark && arrivalDecimal >= destSun.sunset - 0.75;
+    const destSunsetHr = Math.floor(destSun.sunset);
+    const destSunsetMin = Math.round((destSun.sunset - destSunsetHr) * 60);
+    const destSunsetStr = `${destSunsetHr % 12 || 12}:${String(destSunsetMin).padStart(2, '0')} ${destSunsetHr >= 12 ? 'PM' : 'AM'}`;
+
+    // Count how many chips are at night
+    let nightChipCount = 0;
+    legPoints.forEach(pt => {
+      const hrs = pt.fracAlong * leg.driveHours;
+      const arrMin = depH * 60 + depM + hrs * 60;
+      const arrHr = (Math.floor(arrMin / 60) % 24) + Math.round(arrMin % 60) / 60;
+      if (isNightHour(arrHr, pt.lat, pt.lng, leg.date)) nightChipCount++;
+    });
+
+    overviewData.push({ day: leg.day, dateLabel: leg.dateLabel, worstSev, hazards, arrivingAfterDark, arrivingNearDark, nightChipCount, totalChips: legPoints.length });
+
+    // Build night driving warning
+    let nightWarningHtml = '';
+    if (arrivingAfterDark) {
+      const nightRisks = [];
+      // Check for compounding hazards at night
+      const lastChipHazards = hazards.filter(h => true); // all hazards apply
+      if (worstSev === 'red' || worstSev === 'orange') {
+        nightRisks.push('Combined with ' + rwSeverityLabel(worstSev).toLowerCase() + ' weather conditions, this creates significantly elevated risk.');
+      }
+      // Check freezing
+      const lastForecast = legPoints.length > 0 ? forecasts[points.indexOf(legPoints[legPoints.length - 1])] : null;
+      let arrTemp = null;
+      if (lastForecast && lastForecast.hourly) {
+        const lHIdx = rwFindHourlyIndex(lastForecast.hourly.time, leg.date, lastArrivalHour);
+        if (lHIdx >= 0) arrTemp = Math.round(lastForecast.hourly.temperature_2m[lHIdx]);
+      }
+      if (arrTemp !== null && arrTemp <= 32) {
+        nightRisks.push('Below freezing (' + arrTemp + '\u00B0F) at arrival. Black ice is invisible at night.');
+      }
+
+      nightWarningHtml = `<div style="background:rgba(99,102,241,0.12);border:2px solid rgba(99,102,241,0.5);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:20px;">🌙</span>
+          <div>
+            <span style="font-weight:800;color:#a5b4fc;font-size:13px;">ARRIVING AFTER DARK</span>
+            <p style="font-size:11px;color:#c7d2fe;line-height:1.5;margin-top:2px;">
+              Sunset at destination is <strong>${destSunsetStr}</strong>. At current departure time, you'll arrive after dark.
+            </p>
+          </div>
+        </div>
+        <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:8px 10px;margin-top:6px;">
+          <div style="font-weight:700;color:#fca5a5;font-size:11px;margin-bottom:4px;">⛔ SOLO NIGHT DRIVING IS NOT RECOMMENDED</div>
+          <div style="font-size:11px;color:#d4d4d4;line-height:1.6;">
+            Night driving alone significantly increases fatigue, reduces reaction time, and limits visibility of road hazards, wildlife, and changing road conditions.
+            ${nightRisks.length > 0 ? '<br><br>' + nightRisks.join('<br>') : ''}
+            <br><br><strong>Recommendation:</strong> Consider departing earlier (before ${destSunsetStr} minus ${leg.driveHours}h = adjust departure to arrive by sunset) to ensure you reach your hotel in daylight.
+          </div>
+        </div>
+      </div>`;
+    } else if (arrivingNearDark) {
+      nightWarningHtml = `<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">🌅</span>
+          <div>
+            <span style="font-weight:700;color:#fcd34d;font-size:12px;">ARRIVING NEAR SUNSET</span>
+            <p style="font-size:11px;color:#fcd34d;line-height:1.5;margin-top:2px;">
+              Sunset at destination is <strong>${destSunsetStr}</strong>. You're cutting it close. Any delays could push your arrival into darkness. Solo night driving is not recommended -- try to leave on time or slightly earlier.
+            </p>
+          </div>
+        </div>
+      </div>`;
+    }
+    // Also warn if many route segments are at night
+    if (nightChipCount > 0 && nightChipCount >= Math.ceil(legPoints.length * 0.5) && !arrivingAfterDark) {
+      nightWarningHtml += `<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:16px;">🌙</span>
+          <div style="font-size:11px;color:#c7d2fe;line-height:1.5;">
+            <strong>${nightChipCount} of ${legPoints.length} route segments</strong> fall during darkness. Solo night driving is strongly discouraged. Consider adjusting your departure time to maximize daylight hours.
+          </div>
+        </div>
+      </div>`;
+    }
 
     // Build severity banner for this day
     const sevLabel = rwSeverityLabel(worstSev);
@@ -2411,6 +2625,7 @@ function renderRouteWeather() {
         </div>
       </div>
       ${bannerHtml}
+      ${nightWarningHtml}
       <div class="rw-chips-row">${chipsHtml || '<span class="text-gray-500 text-xs py-4">No forecast data available for this leg</span>'}</div>
     </div>`;
   });
@@ -2428,10 +2643,12 @@ function renderRouteWeather() {
     const sevLabel = rwSeverityLabel(d.worstSev);
     const sevEmoji = rwSeverityEmoji(d.worstSev);
     const borderColor = rwSeverityBorderColor(d.worstSev);
+    const nightTag = d.arrivingAfterDark ? '<span style="font-size:9px;color:#a5b4fc;">🌙 Night arrival</span>' : (d.arrivingNearDark ? '<span style="font-size:9px;color:#fcd34d;">🌅 Near sunset</span>' : '');
     html += `<div class="rw-overview-chip rw-severity-${d.worstSev}" style="border:1px solid ${borderColor};">
       <span class="text-white font-bold">Day ${d.day}</span>
       <span style="color:rgba(255,255,255,0.7);">${d.dateLabel}</span>
       <span class="text-white font-bold">${sevEmoji} ${sevLabel}</span>
+      ${nightTag}
     </div>`;
   });
 
@@ -2454,11 +2671,29 @@ function renderRouteWeather() {
     </div>`;
   }
 
+  // Night driving summary
+  const nightArrivalDays = overviewData.filter(d => d.arrivingAfterDark);
+  const nearSunsetDays = overviewData.filter(d => d.arrivingNearDark);
+  if (nightArrivalDays.length > 0 || nearSunsetDays.length > 0) {
+    html += `<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <p style="font-weight:700;color:#a5b4fc;font-size:12px;margin-bottom:6px;">🌙 Night Driving Alert</p>
+      <p style="font-size:11px;color:#c7d2fe;line-height:1.6;margin-bottom:6px;">Solo night driving is not recommended, especially on unfamiliar roads in March when wildlife is active and road conditions can change rapidly after sunset.</p>`;
+    nightArrivalDays.forEach(d => {
+      html += `<div style="font-size:11px;color:#a5b4fc;padding:2px 0;">🌙 <strong>Day ${d.day} (${d.dateLabel})</strong>: Arriving after dark. Adjust departure time to arrive before sunset.</div>`;
+    });
+    nearSunsetDays.forEach(d => {
+      html += `<div style="font-size:11px;color:#fcd34d;padding:2px 0;">🌅 <strong>Day ${d.day} (${d.dateLabel})</strong>: Cutting it close to sunset. Leave on time.</div>`;
+    });
+    html += `</div>`;
+  }
+
   html += `<div class="mt-3 text-xs text-gray-500 space-y-1.5">
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#1a3a5c;border:1px solid #3b82f6;"></span> ✅ Good -- Clear roads, smooth sailing</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#2a2a3a;border:1px solid #888;"></span> 👍 Fair -- Minor stuff, totally driveable</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#3d2800;border:1px solid #f59e0b;"></span> ⚠️ Caution -- Slow down, stay sharp</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#4a0000;border:1px solid #ff4444;"></span> 🛑 Severe -- Consider waiting it out</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#1a1a3a;border:1px solid #6366f1;"></span> 🌙 Night -- After dark, solo driving discouraged</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#2a1a00;border:1px solid #f59e0b;"></span> 🌅 Dusk -- Near sunset, finish driving soon</div>
     </div>
   </div>`;
 
@@ -2521,7 +2756,12 @@ function openChipDetail(chipId) {
     <div style="margin-bottom:12px;">
       <div style="font-weight:700;font-size:15px;color:#e5e5e5;">${d.desc}</div>
       <div style="font-size:12px;color:#888;">${d.time} near ${d.city}</div>
-      <div style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:white;background:${borderColor};">${sevLabel.toUpperCase()}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+        <span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:white;background:${borderColor};">${sevLabel.toUpperCase()}</span>
+        ${d.isNight ? '<span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#a5b4fc;background:#1a1a3a;border:1px solid #6366f1;">🌙 NIGHT DRIVING</span>' : ''}
+        ${d.isTwilight ? '<span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#fcd34d;background:#2a1a00;border:1px solid #f59e0b;">🌅 DUSK</span>' : ''}
+      </div>
+      <div style="font-size:11px;color:#888;margin-top:4px;">☀️ Sunrise ${d.sunriseDisplay} / Sunset ${d.sunsetDisplay}</div>
     </div>
 
     <div style="background:${borderColor}15;border:1px solid ${borderColor}40;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
@@ -2558,6 +2798,10 @@ function openChipDetail(chipId) {
         <span class="rw-detail-label">💧 Humidity</span>
         <span class="rw-detail-value">${d.humidity !== null ? d.humidity + '%' : 'N/A'}${d.dewPoint !== null ? ` (dew point ${d.dewPoint}°F)` : ''}</span>
       </div>
+      <div class="rw-detail-row">
+        <span class="rw-detail-label">☀️ Daylight</span>
+        <span class="rw-detail-value" style="color:${d.isNight ? '#a5b4fc' : d.isTwilight ? '#fcd34d' : '#4ade80'};">${d.isNight ? '🌙 After dark' : d.isTwilight ? '🌅 Twilight' : '☀️ Daylight'} (sunrise ${d.sunriseDisplay}, sunset ${d.sunsetDisplay})</span>
+      </div>
     </div>
   `;
 
@@ -2568,6 +2812,57 @@ function openChipDetail(chipId) {
 function getWindDirLabel(deg) {
   const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
   return dirs[Math.round(deg / 22.5) % 16] || '';
+}
+
+// ============================================================
+// SUNRISE / SUNSET CALCULATOR
+// ============================================================
+// Simplified solar calculation -- accurate to ~5 min for continental US
+function getSunTimes(lat, lng, dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+
+  // Solar declination (simplified)
+  const declination = -23.45 * Math.cos(toRad * (360 / 365) * (dayOfYear + 10));
+
+  // Hour angle for sunrise/sunset (when sun is at -0.833 degrees -- accounts for refraction)
+  const latRad = lat * toRad;
+  const declRad = declination * toRad;
+  const cosHA = (Math.sin(-0.833 * toRad) - Math.sin(latRad) * Math.sin(declRad)) / (Math.cos(latRad) * Math.cos(declRad));
+
+  if (cosHA > 1) return { sunrise: 8, sunset: 17 }; // polar night fallback
+  if (cosHA < -1) return { sunrise: 4, sunset: 22 }; // midnight sun fallback
+
+  const haHours = Math.acos(cosHA) * toDeg / 15;
+
+  // Solar noon in UTC hours, then adjust for longitude
+  const solarNoon = 12 - lng / 15;
+
+  // Convert to approximate local time (US timezone offsets: EST=-5, CST=-6, MST=-7)
+  // We'll use a longitude-based offset since this route crosses multiple zones
+  const tzOffset = Math.round(lng / 15); // rough timezone offset from UTC
+  const localNoon = solarNoon + tzOffset;
+
+  const sunrise = localNoon - haHours;
+  const sunset = localNoon + haHours;
+
+  return { sunrise: Math.max(0, sunrise), sunset: Math.min(24, sunset) };
+}
+
+// Check if a given hour is during night (before sunrise or after sunset)
+function isNightHour(hour, lat, lng, dateStr) {
+  const sun = getSunTimes(lat, lng, dateStr);
+  return hour < sun.sunrise || hour >= sun.sunset;
+}
+
+// Check if hour is in twilight zone (within 45 min of sunrise/sunset)
+function isTwilightHour(hour, lat, lng, dateStr) {
+  const sun = getSunTimes(lat, lng, dateStr);
+  const twilightBefore = sun.sunrise - 0.75;
+  const twilightAfter = sun.sunset + 0.75;
+  return (hour >= twilightBefore && hour < sun.sunrise) || (hour >= sun.sunset && hour < twilightAfter);
 }
 
 function buildTravelAdvisory(d) {
@@ -2636,6 +2931,29 @@ function buildTravelAdvisory(d) {
     points.push('🌫️ <strong>Dense moisture.</strong> High humidity with full cloud cover often means fog. Keep defroster running to prevent windshield fogging.');
   }
 
+  // Night driving advisories
+  if (d.isNight) {
+    const nightIssues = [];
+    if (d.temp <= 32) nightIssues.push('below-freezing temperatures make black ice invisible in headlights');
+    if (visMiles !== null && visMiles < 5) nightIssues.push('reduced visibility compounded by darkness');
+    if (d.gusts > 25) nightIssues.push('gusty winds are harder to anticipate without visual cues');
+    if (parseFloat(snowIn) > 0) nightIssues.push('snow on the road is much harder to see at night');
+    if (d.precipProb > 40) nightIssues.push('wet roads reflect headlights and reduce lane visibility');
+
+    points.push('🌙 <strong>You\'re driving in the dark.</strong> Solo night driving is strongly discouraged. Fatigue, wildlife, and road hazards are all harder to manage at night.'
+      + (nightIssues.length > 0 ? ' Right now: ' + nightIssues.join('; ') + '.' : '')
+      + ' If you can safely stop for the night, do it.');
+
+    if (d.isLastPoint) {
+      points.push('🏨 <strong>Arriving after dark.</strong> Consider leaving earlier tomorrow or adjusting today\'s departure to arrive before sunset (' + d.sunsetDisplay + ').');
+    }
+  } else if (d.isTwilight) {
+    points.push('🌅 <strong>Twilight driving.</strong> The sun is low, which can cause glare and make it hard to see. Use your visor and slow down. Sunset/sunrise is near ' + d.sunsetDisplay + '.');
+    if (d.temp <= 35) {
+      points.push('🧊 Temperatures drop fast after sunset. Roads that were fine an hour ago can ice over quickly.');
+    }
+  }
+
   // Good conditions
   if (points.length === 0) {
     if (d.severity === 'green') {
@@ -2645,6 +2963,7 @@ function buildTravelAdvisory(d) {
       if (d.temp >= 40 && d.temp <= 75) goodPoints.push('comfortable temperature');
       if (d.cloudCover !== null && d.cloudCover < 30) goodPoints.push('clear skies');
       if (d.precipProb < 10) goodPoints.push('no precipitation expected');
+      if (!d.isNight && !d.isTwilight) goodPoints.push('daylight hours');
 
       points.push('✅ <strong>Great driving conditions!</strong> ' + (goodPoints.length > 0 ? goodPoints.join(', ').replace(/^./, c => c.toUpperCase()) + '.' : 'Clear and safe for travel.'));
       points.push('👍 Enjoy the drive. This is an ideal window for making good time.');
