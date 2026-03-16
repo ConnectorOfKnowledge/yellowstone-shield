@@ -841,6 +841,9 @@ function showMainApp() {
   initSidebarToggle();
   initMapSearch();
   startLocationWatch();
+  // Sync Drive Weather legs with saved stop order (in case stops were reordered in a previous session)
+  const savedStops = getRouteStops();
+  rebuildRWLegsFromStops(savedStops);
   fetchWeather();
   // Refresh weather every 60 seconds for up-to-date conditions while traveling
   setInterval(() => { fetchWeather(); }, 60 * 1000);
@@ -2808,6 +2811,50 @@ function formatDateStr(d) {
 // For backward compatibility
 let RW_LEGS = getRWLegs();
 
+// Rebuild RW_LEGS_BASE coordinates to match current route stop order.
+// This bridges the gap between the reorderable stop list (map) and
+// the Drive Weather forecast (which samples weather along each leg).
+function rebuildRWLegsFromStops(orderedStops) {
+  // Build the full waypoint chain: origin → stops → destination
+  const chain = [
+    { lat: ORIGIN_LATLNG.lat, lng: ORIGIN_LATLNG.lng, label: 'Seven Valleys, PA' },
+    ...orderedStops.map(s => ({ lat: s.lat, lng: s.lng, label: s.name })),
+    { lat: DEST_LATLNG.lat, lng: DEST_LATLNG.lng, label: 'Gardiner, Yellowstone' }
+  ];
+
+  // Rebuild each leg's start/end coordinates and labels
+  for (let i = 0; i < RW_LEGS_BASE.length; i++) {
+    if (i < chain.length - 1) {
+      RW_LEGS_BASE[i].startLat = chain[i].lat;
+      RW_LEGS_BASE[i].startLng = chain[i].lng;
+      RW_LEGS_BASE[i].endLat = chain[i + 1].lat;
+      RW_LEGS_BASE[i].endLng = chain[i + 1].lng;
+      RW_LEGS_BASE[i].fromLabel = chain[i].label;
+      RW_LEGS_BASE[i].toLabel = chain[i + 1].label;
+    }
+  }
+
+  // If stops were added/removed, we may have more or fewer legs than RW_LEGS_BASE.
+  // Add extra legs if there are more stops than the original 5 hotels.
+  while (RW_LEGS_BASE.length < chain.length - 1) {
+    const i = RW_LEGS_BASE.length;
+    RW_LEGS_BASE.push({
+      day: i + 1, baseDate: RW_LEGS_BASE[i - 1].baseDate, driveHours: 5,
+      fromLabel: chain[i].label, toLabel: chain[i + 1].label,
+      startLat: chain[i].lat, startLng: chain[i].lng,
+      endLat: chain[i + 1].lat, endLng: chain[i + 1].lng,
+      roadNote: ''
+    });
+  }
+  // Trim extra legs if stops were removed
+  while (RW_LEGS_BASE.length > chain.length - 1 && RW_LEGS_BASE.length > 1) {
+    RW_LEGS_BASE.pop();
+  }
+
+  // Refresh the computed legs
+  RW_LEGS = getRWLegs();
+}
+
 function rwUpdateLegDate(legIdx, newDate) {
   rwLegDates[legIdx] = newDate;
   if (legIdx === 0) rwTripStartDate = newDate;
@@ -4226,7 +4273,11 @@ function saveAndUpdateRoute() {
 
   saveRouteStopsOrder(currentRouteStops);
   applyRouteStopsToMap();
-  // Invalidate weather cache so Drive Weather re-fetches for new route
+
+  // Rebuild Drive Weather legs to match new stop order
+  rebuildRWLegsFromStops(currentRouteStops);
+
+  // Invalidate weather cache and force re-fetch for new route geometry
   rwCache = null;
   // Also clear weather overlay markers (they're based on old route)
   clearPOIMarkers('weather_overlay');
@@ -4234,8 +4285,13 @@ function saveAndUpdateRoute() {
     // Re-fetch weather overlay after route updates
     setTimeout(() => { showWeatherOverlay(); }, 2000);
   }
+  // If Drive Weather panel is currently open, re-fetch immediately
+  const rwPanel = document.getElementById('route-weather-panel');
+  if (rwPanel && rwPanel.classList.contains('open')) {
+    fetchRouteWeatherData();
+  }
   closeStopPicker();
-  showToast('✅ Route updated! Weather will refresh on next forecast view.');
+  showToast('✅ Route updated! Map and weather forecast synced.');
 }
 
 function applyRouteStopsToMap() {
