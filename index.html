@@ -307,46 +307,51 @@ tailwind.config = {
   <!-- Map -->
   <div id="map"></div>
 
-  <!-- Top Control Bar (buttons + search in one row) -->
-  <div id="top-control-bar" style="position:fixed;top:72px;left:0;right:0;z-index:95;display:flex;align-items:center;gap:4px;padding:6px 8px;">
-    <!-- Back Button (closes open overlays) -->
-    <button onclick="appBack()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Back" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-    </button>
-    <!-- Route Weather Button -->
-    <button onclick="openRouteWeather()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Route Weather" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
-      </svg>
-    </button>
-    <!-- Stop Picker Button (route/road icon) -->
-    <button onclick="openStopPicker()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Manage Stops" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-      </svg>
-    </button>
-    <!-- Toggle Sidebar / Filters Button -->
-    <button id="toggle-sidebar-btn" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Filters" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
-      <svg id="sidebar-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-      <svg id="sidebar-icon-close" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+  <!-- Top Control Bar: Hamburger + Search -->
+  <div id="top-control-bar" style="position:fixed;top:72px;left:0;right:0;z-index:95;display:flex;align-items:center;gap:6px;padding:6px 8px;">
+    <!-- Hamburger Menu Button -->
+    <button id="hamburger-btn" onclick="toggleHamburgerMenu()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" style="min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;">
+      <svg id="hamburger-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <svg id="hamburger-icon-close" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
     <!-- Search Bar (fills remaining space) -->
     <div style="position:relative;flex:1;min-width:0;">
       <input id="map-search-input" type="text" placeholder="Search places..."
-        style="width:100%;padding:8px 72px 8px 32px;background:#1e1e2e;border:1px solid #3a3a4a;border-radius:10px;color:#e5e5e5;font-size:13px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.4);"
+        style="width:100%;padding:10px 72px 10px 34px;background:#1e1e2e;border:1px solid #3a3a4a;border-radius:10px;color:#e5e5e5;font-size:14px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.4);"
         onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#3a3a4a'">
-      <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#888;pointer-events:none;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#888;pointer-events:none;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
       </svg>
-      <button id="map-search-go" onclick="triggerMapSearch()" style="position:absolute;right:30px;top:50%;transform:translateY(-50%);background:#f5a623;border:none;color:#0f0f14;font-size:11px;font-weight:700;cursor:pointer;padding:4px 10px;border-radius:6px;">Go</button>
+      <button id="map-search-go" onclick="triggerMapSearch()" style="position:absolute;right:30px;top:50%;transform:translateY(-50%);background:#f5a623;border:none;color:#0f0f14;font-size:11px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:6px;">Go</button>
       <button id="map-search-clear" onclick="clearMapSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px;">✕</button>
     </div>
-    <!-- Find My Location Button -->
-    <button onclick="findMyLocation()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Find my location" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>
-      </svg>
-    </button>
+  </div>
+
+  <!-- Hamburger Dropdown Menu -->
+  <div id="hamburger-menu" style="display:none;position:fixed;top:124px;left:8px;z-index:96;width:220px;background:rgba(26,26,36,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="padding:6px;">
+      <button onclick="openRouteWeather();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+        <span style="font-size:18px;">🌦️</span>
+        <span style="font-size:13px;font-weight:600;">Route Weather</span>
+      </button>
+      <button onclick="openStopPicker();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+        <span style="font-size:18px;">🗺️</span>
+        <span style="font-size:13px;font-weight:600;">Manage Stops</span>
+      </button>
+      <button id="toggle-sidebar-btn" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+        <span style="font-size:18px;">📍</span>
+        <span style="font-size:13px;font-weight:600;">Map Filters</span>
+      </button>
+      <button onclick="findMyLocation();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+        <span style="font-size:18px;">📡</span>
+        <span style="font-size:13px;font-weight:600;">Find My Location</span>
+      </button>
+      <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 8px;"></div>
+      <button onclick="appBack();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-400 hover:bg-dark-600 transition-all">
+        <span style="font-size:18px;">◀️</span>
+        <span style="font-size:13px;font-weight:500;">Back / Close Panel</span>
+      </button>
+    </div>
   </div>
 
   <!-- POI Sidebar -->
@@ -1067,14 +1072,10 @@ function getDirectionsTo(lat, lng) {
 function initSidebarToggle() {
   const btn = document.getElementById('toggle-sidebar-btn');
   const sidebar = document.getElementById('poi-sidebar');
-  const openIcon = document.getElementById('sidebar-icon-open');
-  const closeIcon = document.getElementById('sidebar-icon-close');
 
   btn.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
-    btn.classList.toggle('shifted');
-    openIcon.classList.toggle('hidden');
-    closeIcon.classList.toggle('hidden');
+    closeHamburgerMenu();
   });
 
   document.querySelectorAll('.poi-toggle').forEach(toggle => {
@@ -1136,46 +1137,34 @@ function isEssentialType(type) {
 function getAheadWaypoints() {
   if (!routeWaypoints || routeWaypoints.length === 0) return [];
 
-  // Find the reference point: user position or map center
-  let refLat, refLng;
-  if (userPosition) {
-    refLat = userPosition.lat;
-    refLng = userPosition.lng;
-  } else {
+  // Only return route waypoints that are visible on the current screen
+  const bounds = map.getBounds();
+  if (!bounds) return [];
+
+  const visibleWaypoints = routeWaypoints.filter(wp => bounds.contains(wp));
+
+  if (visibleWaypoints.length === 0) {
+    // Fallback: use waypoints near the map center
     const c = map.getCenter();
-    refLat = c.lat();
-    refLng = c.lng();
+    const cLat = c.lat();
+    const cLng = c.lng();
+    // Find the 5 closest waypoints to map center
+    const sorted = routeWaypoints
+      .map(wp => ({ wp, dist: Math.pow(wp.lat() - cLat, 2) + Math.pow(wp.lng() - cLng, 2) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 5);
+    return sorted.map(s => s.wp);
   }
 
-  // Find the closest waypoint index to the reference position
-  let closestIdx = 0;
-  let closestDist = Infinity;
-  for (let i = 0; i < routeWaypoints.length; i++) {
-    const wp = routeWaypoints[i];
-    const dLat = wp.lat() - refLat;
-    const dLng = wp.lng() - refLng;
-    const dist = dLat * dLat + dLng * dLng;
-    if (dist < closestDist) {
-      closestDist = dist;
-      closestIdx = i;
-    }
-  }
+  // Sample evenly from visible waypoints (max ~10 search points)
+  const targetPoints = 10;
+  if (visibleWaypoints.length <= targetPoints) return visibleWaypoints;
 
-  // Get waypoints AHEAD (from closest to end)
-  const ahead = routeWaypoints.slice(closestIdx);
-  if (ahead.length === 0) return routeWaypoints.slice(-5);
-
-  // Sample ~8-10 evenly spaced points along the remaining route
-  const targetPoints = 9;
-  const step = Math.max(1, Math.floor(ahead.length / targetPoints));
+  const step = Math.max(1, Math.floor(visibleWaypoints.length / targetPoints));
   const sampled = [];
-  for (let i = 0; i < ahead.length; i += step) {
-    sampled.push(ahead[i]);
+  for (let i = 0; i < visibleWaypoints.length; i += step) {
+    sampled.push(visibleWaypoints[i]);
     if (sampled.length >= targetPoints) break;
-  }
-  // Always include the last point
-  if (sampled.length > 0 && sampled[sampled.length - 1] !== ahead[ahead.length - 1]) {
-    sampled.push(ahead[ahead.length - 1]);
   }
   return sampled;
 }
@@ -2901,9 +2890,53 @@ function sendToGoogleMaps() {
 }
 
 // ============================================================
+// HAMBURGER MENU
+// ============================================================
+let hamburgerOpen = false;
+
+function toggleHamburgerMenu() {
+  hamburgerOpen = !hamburgerOpen;
+  const menu = document.getElementById('hamburger-menu');
+  const iconOpen = document.getElementById('hamburger-icon-open');
+  const iconClose = document.getElementById('hamburger-icon-close');
+
+  if (hamburgerOpen) {
+    menu.style.display = 'block';
+    iconOpen.classList.add('hidden');
+    iconClose.classList.remove('hidden');
+  } else {
+    menu.style.display = 'none';
+    iconOpen.classList.remove('hidden');
+    iconClose.classList.add('hidden');
+  }
+}
+
+function closeHamburgerMenu() {
+  hamburgerOpen = false;
+  const menu = document.getElementById('hamburger-menu');
+  const iconOpen = document.getElementById('hamburger-icon-open');
+  const iconClose = document.getElementById('hamburger-icon-close');
+  menu.style.display = 'none';
+  iconOpen.classList.remove('hidden');
+  iconClose.classList.add('hidden');
+}
+
+// Close hamburger when tapping anywhere else on the map
+document.addEventListener('click', (e) => {
+  if (!hamburgerOpen) return;
+  const menu = document.getElementById('hamburger-menu');
+  const btn = document.getElementById('hamburger-btn');
+  if (!menu.contains(e.target) && !btn.contains(e.target)) {
+    closeHamburgerMenu();
+  }
+});
+
+// ============================================================
 // APP-LEVEL BACK BUTTON
 // ============================================================
 function appBack() {
+  // Close hamburger menu first if open
+  if (hamburgerOpen) { closeHamburgerMenu(); return; }
   // Close open overlays in priority order instead of navigating away
   const emergencyModal = document.getElementById('emergency-modal');
   if (emergencyModal && emergencyModal.style.display === 'block') {
