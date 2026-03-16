@@ -239,6 +239,7 @@ tailwind.config = {
   /* Responsive */
   @media (min-width: 768px) {
     #emergency-btn { bottom: 24px; right: 24px; }
+    #bug-report-fab { bottom: 90px; right: 24px; }
     #text-dad-btn { bottom: 24px; left: 24px; }
     #sos-btn { bottom: 90px; left: 24px; }
   }
@@ -458,6 +459,13 @@ tailwind.config = {
   <div id="gps-override-warning" class="bg-red-700/90 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg max-w-xs text-center">
     ⚠️ Stay on I-90 for cell service and safety. Avoid US-212.
   </div>
+
+  <!-- Bug Report Button (above emergency button, right side) -->
+  <button id="bug-report-fab" onclick="openBugReport()" style="position:fixed;bottom:132px;right:16px;z-index:200;width:44px;height:44px;border-radius:50%;background:#6366f1;border:2px solid #a5b4fc;box-shadow:0 0 12px rgba(99,102,241,0.4);display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Report a Bug">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+  </button>
 
   <!-- Emergency Services Button (bottom right, aligned with text-dad) -->
   <button id="emergency-btn" onclick="openEmergencyModal()">
@@ -1437,12 +1445,8 @@ function initSidebarToggle() {
         } else if (type === 'crime_zones') {
           showCrimeZones();
         } else {
-          // Use the main search bar with the filter term
-          const searchTerm = POI_SEARCH_TERMS[type] || type.replace(/_/g, ' ');
-          const input = document.getElementById('map-search-input');
-          input.value = searchTerm;
-          document.getElementById('map-search-clear').style.display = 'block';
-          textSearchMap(searchTerm);
+          // Search along the planned route (not viewport)
+          searchPOIsAlongRoute(type);
         }
       }
 
@@ -1461,7 +1465,7 @@ function closePOISidebar() {
 
 // Hide/show the floating text/SOS/emergency buttons so they don't overlay panels
 function setFloatingBtnsVisible(visible) {
-  const ids = ['text-dad-btn', 'sos-btn', 'emergency-btn'];
+  const ids = ['text-dad-btn', 'sos-btn', 'emergency-btn', 'bug-report-fab'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = visible ? '' : 'none';
