@@ -3976,199 +3976,157 @@ function renderStopPicker() {
 }
 
 // Touch/mouse drag-and-drop for stop reordering
+// Approach: floating clone follows finger, drop indicator line shows target,
+// single reorder on drop (no live DOM swapping = no flicker)
+let _drag = { active: false, idx: -1, targetIdx: -1, clone: null, indicator: null, timer: null };
+
 function initDragAndDrop() {
-  const handles = document.querySelectorAll('.drag-handle');
-  let dragIdx = null;
-  let dragEl = null;
-  let dragClone = null;
-  let longPressTimer = null;
-  let isDragging = false;
-  let startY = 0;
-  let offsetY = 0;
-  const LONG_PRESS_MS = 400;
-
-  function getStopElements() {
-    return Array.from(document.querySelectorAll('[data-stop-idx]'));
-  }
-
-  function startDrag(idx, clientY) {
-    isDragging = true;
-    dragIdx = idx;
-    dragEl = document.getElementById(`stop-drag-${idx}`);
-    if (!dragEl) return;
-
-    const rect = dragEl.getBoundingClientRect();
-    offsetY = clientY - rect.top;
-
-    // Create floating clone
-    dragClone = dragEl.cloneNode(true);
-    dragClone.style.cssText = `
-      position:fixed; left:${rect.left}px; top:${rect.top}px;
-      width:${rect.width}px; z-index:99999;
-      background:#2a2a3e; border:2px solid #f5a623;
-      border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.6);
-      opacity:0.95; pointer-events:none; transition:none;
-      padding:12px 14px; display:flex; align-items:center; gap:10px;
-    `;
-    dragClone.id = 'drag-clone';
-    document.body.appendChild(dragClone);
-
-    // Dim the original
-    dragEl.style.opacity = '0.3';
-    dragEl.style.border = '2px dashed #f5a623';
-
-    // Prevent scrolling while dragging
-    document.getElementById('stop-picker-panel').style.overflow = 'hidden';
-
-    // Haptic feedback if available
-    if (navigator.vibrate) navigator.vibrate(30);
-  }
-
-  function moveDrag(clientY) {
-    if (!isDragging || !dragClone) return;
-
-    dragClone.style.top = `${clientY - offsetY}px`;
-
-    // Check which stop we're hovering over
-    const stopEls = getStopElements();
-    for (let i = 0; i < stopEls.length; i++) {
-      if (i === dragIdx) continue;
-      const rect = stopEls[i].getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      if (clientY < midY && i < dragIdx) {
-        // Move drag item up
-        const temp = currentRouteStops[dragIdx];
-        currentRouteStops.splice(dragIdx, 1);
-        currentRouteStops.splice(i, 0, temp);
-        dragIdx = i;
-        rerenderDragItems();
-        break;
-      } else if (clientY > midY && i > dragIdx) {
-        // Move drag item down
-        const temp = currentRouteStops[dragIdx];
-        currentRouteStops.splice(dragIdx, 1);
-        currentRouteStops.splice(i, 0, temp);
-        dragIdx = i;
-        rerenderDragItems();
-        break;
-      }
-    }
-  }
-
-  function rerenderDragItems() {
-    // Quick re-render of just the stop items (not full render, to preserve drag state)
-    const stops = currentRouteStops;
-    const container = document.getElementById('stop-picker-list');
-    const items = container.querySelectorAll('[data-stop-idx]');
-
-    items.forEach((item, i) => {
-      const stop = stops[i];
-      if (!stop) return;
-      item.dataset.stopIdx = i;
-      item.id = `stop-drag-${i}`;
-      const nameEl = item.querySelector('.text-sm.text-gray-200');
-      const addrEl = item.querySelector('.text-xs.text-gray-500');
-      if (nameEl) nameEl.textContent = stop.name;
-      if (addrEl) addrEl.textContent = stop.address;
-      // Update drag handle index
-      const handle = item.querySelector('.drag-handle');
-      if (handle) handle.dataset.dragIdx = i;
-      // Dim the dragged item
-      if (i === dragIdx) {
-        item.style.opacity = '0.3';
-        item.style.border = '2px dashed #f5a623';
-      } else {
-        item.style.opacity = '1';
-        item.style.border = '1px solid #24243a';
-      }
-    });
-  }
-
-  function endDrag() {
-    if (!isDragging) return;
-    isDragging = false;
-
-    // Remove clone
-    if (dragClone) { dragClone.remove(); dragClone = null; }
-
-    // Restore original
-    if (dragEl) {
-      dragEl.style.opacity = '1';
-      dragEl.style.border = '1px solid #24243a';
-    }
-
-    // Re-enable scrolling
-    document.getElementById('stop-picker-panel').style.overflow = 'auto';
-
-    // Save new order and update route
-    saveRouteStopsOrder(currentRouteStops);
-    applyRouteStopsToMap();
-    renderStopPicker(); // Full re-render to clean up
-  }
-
-  function cancelDrag() {
-    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-    if (isDragging) endDrag();
-  }
-
-  handles.forEach(handle => {
+  document.querySelectorAll('.drag-handle').forEach(handle => {
     const idx = parseInt(handle.dataset.dragIdx);
 
-    // Touch events
     handle.addEventListener('touchstart', (e) => {
-      e.preventDefault();
       const touch = e.touches[0];
-      startY = touch.clientY;
-      longPressTimer = setTimeout(() => {
-        startDrag(idx, touch.clientY);
-      }, LONG_PRESS_MS);
+      _drag.startY = touch.clientY;
+      _drag.timer = setTimeout(() => {
+        e.preventDefault();
+        dragStart(idx, touch.clientY);
+      }, 400);
     }, { passive: false });
 
     handle.addEventListener('touchmove', (e) => {
       const touch = e.touches[0];
-      // Cancel long press if finger moves too much before activation
-      if (!isDragging && Math.abs(touch.clientY - startY) > 10) {
-        cancelDrag();
+      if (!_drag.active) {
+        if (Math.abs(touch.clientY - _drag.startY) > 10) dragCancel();
         return;
       }
-      if (isDragging) {
-        e.preventDefault();
-        moveDrag(touch.clientY);
-      }
+      e.preventDefault();
+      dragMove(touch.clientY);
     }, { passive: false });
 
-    handle.addEventListener('touchend', () => {
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-      if (isDragging) endDrag();
-    });
+    handle.addEventListener('touchend', () => { _drag.active ? dragEnd() : dragCancel(); });
+    handle.addEventListener('touchcancel', dragCancel);
 
-    handle.addEventListener('touchcancel', cancelDrag);
-
-    // Mouse events (for desktop testing)
+    // Mouse (desktop testing)
     handle.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      startY = e.clientY;
-      longPressTimer = setTimeout(() => {
-        startDrag(idx, e.clientY);
-
-        const onMouseMove = (me) => {
-          me.preventDefault();
-          moveDrag(me.clientY);
-        };
-        const onMouseUp = () => {
-          endDrag();
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
-        };
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-      }, LONG_PRESS_MS);
+      _drag.startY = e.clientY;
+      _drag.timer = setTimeout(() => {
+        dragStart(idx, e.clientY);
+        const mm = (me) => { me.preventDefault(); dragMove(me.clientY); };
+        const mu = () => { dragEnd(); document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); };
+        document.addEventListener('mousemove', mm);
+        document.addEventListener('mouseup', mu);
+      }, 400);
     });
-
-    handle.addEventListener('mouseup', () => {
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-    });
+    handle.addEventListener('mouseup', dragCancel);
   });
+}
+
+function dragStart(idx, clientY) {
+  const el = document.getElementById(`stop-drag-${idx}`);
+  if (!el) return;
+  _drag.active = true;
+  _drag.idx = idx;
+  _drag.targetIdx = idx;
+
+  const rect = el.getBoundingClientRect();
+  _drag.offsetY = clientY - rect.top;
+
+  // Clone
+  const clone = el.cloneNode(true);
+  clone.id = 'drag-clone';
+  clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;z-index:99999;background:#2a2a3e;border:2px solid #f5a623;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);opacity:0.95;pointer-events:none;`;
+  document.body.appendChild(clone);
+  _drag.clone = clone;
+
+  // Dim source
+  el.style.opacity = '0.2';
+
+  // Drop indicator line
+  const ind = document.createElement('div');
+  ind.id = 'drag-indicator';
+  ind.style.cssText = 'height:3px;background:#f5a623;border-radius:2px;margin:4px 0;display:none;transition:none;';
+  document.getElementById('stop-picker-list').appendChild(ind);
+  _drag.indicator = ind;
+
+  // Lock scroll
+  document.getElementById('stop-picker-panel').style.overflow = 'hidden';
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function dragMove(clientY) {
+  if (!_drag.clone) return;
+  _drag.clone.style.top = `${clientY - _drag.offsetY}px`;
+
+  // Find drop target
+  const items = Array.from(document.querySelectorAll('[data-stop-idx]'));
+  let newTarget = _drag.idx;
+
+  for (let i = 0; i < items.length; i++) {
+    const r = items[i].getBoundingClientRect();
+    const mid = r.top + r.height / 2;
+    if (clientY < mid) { newTarget = i; break; }
+    newTarget = i + 1;
+  }
+  // Clamp
+  newTarget = Math.max(0, Math.min(items.length, newTarget));
+  _drag.targetIdx = newTarget;
+
+  // Position indicator
+  const ind = _drag.indicator;
+  if (!ind) return;
+
+  if (newTarget === _drag.idx || newTarget === _drag.idx + 1) {
+    // Dropping back in same spot
+    ind.style.display = 'none';
+  } else {
+    ind.style.display = 'block';
+    // Insert indicator before the target element
+    const refEl = newTarget < items.length ? items[newTarget] : null;
+    if (refEl) {
+      refEl.parentNode.insertBefore(ind, refEl);
+    } else {
+      // After last item
+      const container = document.getElementById('stop-picker-list');
+      const destStop = container.querySelector('.dest-stop');
+      if (destStop) container.insertBefore(ind, destStop);
+    }
+  }
+}
+
+function dragEnd() {
+  if (!_drag.active) return;
+  const fromIdx = _drag.idx;
+  let toIdx = _drag.targetIdx;
+
+  // Clean up UI first (prevents frozen state)
+  if (_drag.clone) { _drag.clone.remove(); _drag.clone = null; }
+  if (_drag.indicator) { _drag.indicator.remove(); _drag.indicator = null; }
+  document.getElementById('stop-picker-panel').style.overflow = 'auto';
+  _drag.active = false;
+
+  // Perform the move if target changed
+  if (toIdx !== fromIdx && toIdx !== fromIdx + 1) {
+    const item = currentRouteStops.splice(fromIdx, 1)[0];
+    // Adjust target index since we removed an item
+    if (toIdx > fromIdx) toIdx--;
+    currentRouteStops.splice(toIdx, 0, item);
+    saveRouteStopsOrder(currentRouteStops);
+    applyRouteStopsToMap();
+  }
+
+  // Always full re-render to guarantee clean state
+  renderStopPicker();
+}
+
+function dragCancel() {
+  if (_drag.timer) { clearTimeout(_drag.timer); _drag.timer = null; }
+  if (_drag.active) {
+    if (_drag.clone) { _drag.clone.remove(); _drag.clone = null; }
+    if (_drag.indicator) { _drag.indicator.remove(); _drag.indicator = null; }
+    document.getElementById('stop-picker-panel').style.overflow = 'auto';
+    _drag.active = false;
+    renderStopPicker(); // Clean re-render
+  }
 }
 
 function removeStopByIndex(idx) {
