@@ -2959,7 +2959,9 @@ function getRWLegsUpTo(upToIdx) {
     }
     const d = new Date(dateStr + 'T12:00:00');
     const dateLabel = `${RW_DAYS_OF_WEEK[d.getDay()]}, ${RW_MONTHS[d.getMonth()]} ${d.getDate()}`;
-    results.push({ ...RW_LEGS_BASE[i], date: dateStr, dateLabel });
+    if (RW_LEGS_BASE[i]) {
+      results.push({ ...RW_LEGS_BASE[i], date: dateStr, dateLabel });
+    }
   }
   return results;
 }
@@ -2971,59 +2973,53 @@ function formatDateStr(d) {
 // For backward compatibility
 let RW_LEGS = getRWLegs();
 
-// Rebuild RW_LEGS_BASE coordinates to match current route stop order.
-// This bridges the gap between the reorderable stop list (map) and
-// the Drive Weather forecast (which samples weather along each leg).
-// Original coordinates backup (immutable) for reset
-const RW_LEGS_ORIGINAL = RW_LEGS_BASE.map(leg => ({
-  startLat: leg.startLat, startLng: leg.startLng,
-  endLat: leg.endLat, endLng: leg.endLng,
-  fromLabel: leg.fromLabel, toLabel: leg.toLabel
-}));
+// Original leg data backup for reset
+const RW_LEGS_ORIGINAL = RW_LEGS_BASE.map(leg => ({ ...leg }));
 
 function rebuildRWLegsFromStops(orderedStops) {
-  // Strategy: map hotel stops back to their original RW_LEGS_BASE entries
-  // by hotelIdx, then update coordinates to reflect new order.
-  // Custom stops are skipped for weather (the map handles routing for them).
-  // This keeps the 6-leg structure intact so dates, departure times, and
-  // road notes all stay valid.
+  // Fully dynamic: build legs from ALL stops (hotels + custom), not
+  // from the hardcoded 6-leg structure. This means weather works
+  // regardless of how many stops are added, removed, or reordered.
 
-  const hotelStops = orderedStops.filter(s => s.type === 'hotel');
+  // Build waypoint chain: origin → all stops → destination
+  const chain = [
+    { lat: ORIGIN_LATLNG.lat, lng: ORIGIN_LATLNG.lng, label: 'Seven Valleys, PA' },
+    ...orderedStops.map(s => ({ lat: s.lat, lng: s.lng, label: s.name })),
+    { lat: DEST_LATLNG.lat, lng: DEST_LATLNG.lng, label: 'Gardiner, Yellowstone' }
+  ];
 
-  // If hotels are in original order and count unchanged, just restore originals
-  const isOriginalOrder = hotelStops.length === HOTELS.length &&
-    hotelStops.every((s, i) => s.hotelIdx === i);
+  const numLegs = chain.length - 1;
 
-  if (isOriginalOrder) {
-    // Restore original coordinates
-    RW_LEGS_ORIGINAL.forEach((orig, i) => {
-      RW_LEGS_BASE[i].startLat = orig.startLat;
-      RW_LEGS_BASE[i].startLng = orig.startLng;
-      RW_LEGS_BASE[i].endLat = orig.endLat;
-      RW_LEGS_BASE[i].endLng = orig.endLng;
-      RW_LEGS_BASE[i].fromLabel = orig.fromLabel;
-      RW_LEGS_BASE[i].toLabel = orig.toLabel;
+  // Rebuild RW_LEGS_BASE to match the actual route
+  RW_LEGS_BASE.length = 0; // clear it
+  for (let i = 0; i < numLegs; i++) {
+    // Try to find matching original leg data (for road notes, drive hours)
+    const origLeg = RW_LEGS_ORIGINAL.find(o =>
+      Math.abs(o.startLat - chain[i].lat) < 0.01 &&
+      Math.abs(o.endLat - chain[i + 1].lat) < 0.01
+    );
+
+    RW_LEGS_BASE.push({
+      day: i + 1,
+      baseDate: formatDateStr(new Date(new Date('2026-03-17T12:00:00').getTime() + i * 86400000)),
+      driveHours: origLeg ? origLeg.driveHours : 5,
+      fromLabel: chain[i].label,
+      toLabel: chain[i + 1].label,
+      startLat: chain[i].lat,
+      startLng: chain[i].lng,
+      endLat: chain[i + 1].lat,
+      endLng: chain[i + 1].lng,
+      roadNote: origLeg ? origLeg.roadNote : ''
     });
-  } else {
-    // Hotels reordered: rebuild the chain from origin → hotels in new order → destination
-    const chain = [
-      { lat: ORIGIN_LATLNG.lat, lng: ORIGIN_LATLNG.lng, label: 'Seven Valleys, PA' },
-      ...hotelStops.map(s => ({ lat: s.lat, lng: s.lng, label: s.name })),
-      { lat: DEST_LATLNG.lat, lng: DEST_LATLNG.lng, label: 'Gardiner, Yellowstone' }
-    ];
-
-    // Update only the legs that fit within the original 6-leg structure
-    for (let i = 0; i < RW_LEGS_BASE.length && i < chain.length - 1; i++) {
-      RW_LEGS_BASE[i].startLat = chain[i].lat;
-      RW_LEGS_BASE[i].startLng = chain[i].lng;
-      RW_LEGS_BASE[i].endLat = chain[i + 1].lat;
-      RW_LEGS_BASE[i].endLng = chain[i + 1].lng;
-      RW_LEGS_BASE[i].fromLabel = chain[i].label;
-      RW_LEGS_BASE[i].toLabel = chain[i + 1].label;
-    }
   }
 
-  // Refresh the computed legs (never changes array length)
+  // Resize rwLegDates and rwDepartureTimes to match new leg count
+  while (rwLegDates.length < numLegs) rwLegDates.push(null);
+  while (rwLegDates.length > numLegs) rwLegDates.pop();
+  while (rwDepartureTimes.length < numLegs) rwDepartureTimes.push('08:00');
+  while (rwDepartureTimes.length > numLegs) rwDepartureTimes.pop();
+
+  // Refresh the computed legs
   RW_LEGS = getRWLegs();
 }
 
@@ -4240,9 +4236,7 @@ function renderStopPicker() {
     const isHotel = stop.type === 'hotel';
     const borderClass = isHotel ? 'hotel-stop' : 'custom-stop';
     const label = isHotel ? `<div class="text-xs text-warm-400/70 mt-0.5">Night ${stop.night} - ${stop.date}</div>` : '';
-    const badge = isHotel
-      ? `<div class="text-xs text-gray-600 px-2 py-1 rounded bg-dark-700">Hotel</div>`
-      : `<button onclick="removeStopByIndex(${i})" class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-sm font-bold" title="Remove">✗</button>`;
+    const badge = `<button onclick="event.stopPropagation();removeStopByIndex(${i})" class="flex-shrink-0 w-8 h-8 flex items-center justify-content rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-sm font-bold" title="Remove" style="display:flex;align-items:center;justify-content:center;">✗</button>`;
 
     html += `<div class="stop-item ${borderClass} drag-handle" data-stop-idx="${i}" data-drag-idx="${i}" id="stop-drag-${i}"
       style="user-select:none;-webkit-user-select:none;">
@@ -4444,10 +4438,8 @@ function dragCancel() {
 
 function removeStopByIndex(idx) {
   const stop = currentRouteStops[idx];
-  if (stop.type === 'custom') {
-    // Park it instead of permanently deleting -- she can drag it back
-    parkedStops.push(stop);
-  }
+  // Park it (recoverable) regardless of type -- hotels and custom stops alike
+  parkedStops.push(stop);
   currentRouteStops.splice(idx, 1);
   // Don't auto-update map -- user hits Save button when ready
   renderStopPicker();
