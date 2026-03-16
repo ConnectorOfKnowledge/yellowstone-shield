@@ -4155,8 +4155,16 @@ function removeStopByIndex(idx) {
 function saveAndUpdateRoute() {
   saveRouteStopsOrder(currentRouteStops);
   applyRouteStopsToMap();
+  // Invalidate weather cache so Drive Weather re-fetches for new route
+  rwCache = null;
+  // Also clear weather overlay markers (they're based on old route)
+  clearPOIMarkers('weather_overlay');
+  if (activePOIs.has('weather_overlay')) {
+    // Re-fetch weather overlay after route updates
+    setTimeout(() => { showWeatherOverlay(); }, 2000);
+  }
   closeStopPicker();
-  showToast('✅ Route updated!');
+  showToast('✅ Route updated! Weather will refresh on next forecast view.');
 }
 
 function applyRouteStopsToMap() {
