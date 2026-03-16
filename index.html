@@ -3775,6 +3775,22 @@ function renderRouteWeather() {
         </div>
       </div>
       <p style="font-size:14px;color:#d4d4d4;line-height:1.5;margin-bottom:8px;">${quickSummary}</p>
+      ${(() => {
+        // Late departure warning: if current departure is later than the default,
+        // warn that weather conditions may be different
+        const defaultTime = legIdx < 5 ? '08:00' : '05:00';
+        const [defH, defM] = defaultTime.split(':').map(Number);
+        const defMinutes = defH * 60 + defM;
+        const curMinutes = depH * 60 + depM;
+        const diff = curMinutes - defMinutes;
+        if (diff >= 60 && worstSev !== 'green') {
+          const diffHrs = Math.round(diff / 60 * 10) / 10;
+          return '<div style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#fbbf24;line-height:1.5;">⏰ <strong>Late departure.</strong> You\'re leaving ' + diffHrs + 'h later than planned. Sticking to the original time may help you avoid worsening weather later in the day.</div>';
+        } else if (diff >= 60 && worstSev === 'green') {
+          return '<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#93c5fd;line-height:1.5;">⏰ Departing ' + diffHrs + 'h later than planned. Conditions still look good, but weather can shift -- leaving on time is always safer.</div>';
+        }
+        return '';
+      })()}
       ${leg.roadNote ? `<div style="font-size:13px;color:#9ca3af;padding:6px 10px;margin-bottom:8px;background:#0f0f1a;border-radius:8px;border-left:3px solid #3a3a4a;line-height:1.5;">${leg.roadNote}</div>` : ''}
       <div onclick="this.querySelector('.rw-collapse-content').classList.toggle('hidden');this.querySelector('.rw-collapse-chevron').classList.toggle('rw-rotated');" style="cursor:pointer;border-top:1px solid #24243a;margin-top:4px;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
