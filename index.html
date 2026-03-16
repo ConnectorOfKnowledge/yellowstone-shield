@@ -3490,12 +3490,17 @@ function calcIdealDeparture(leg, legIdx, points, forecasts) {
   const legPoints = points.filter(p => p.legIdx === legIdx);
   if (legPoints.length === 0) return null;
 
+  // Get sunrise at departure location -- only suggest daylight departures
+  const originSun = getSunTimes(leg.startLat, leg.startLng, leg.date);
+  const sunriseHour = Math.ceil(originSun.sunrise); // round up to next full hour after sunrise
+  const earliestDaylight = Math.max(sunriseHour, 6); // never earlier than 6 AM regardless
+
   let bestTime = '08:00';
   let bestScore = Infinity; // lower = better
+  let preDawnBest = null; // track pre-dawn option only for severe weather fallback
 
-  for (let testH = 5; testH <= 12; testH++) {
+  function scoreAtHour(testH) {
     let worstRank = 0;
-    let nightPenalty = 0;
 
     legPoints.forEach(pt => {
       const globalIdx = points.indexOf(pt);
@@ -3519,6 +3524,7 @@ function calcIdealDeparture(leg, legIdx, points, forecasts) {
     });
 
     // Check if arriving after dark
+    let nightPenalty = 0;
     const lastPt = legPoints[legPoints.length - 1];
     const lastDriveHours = lastPt ? lastPt.fracAlong * leg.driveHours : leg.driveHours;
     const lastArrMin = testH * 60 + lastDriveHours * 60;
@@ -3527,11 +3533,34 @@ function calcIdealDeparture(leg, legIdx, points, forecasts) {
     if (lastArrHr >= destSun.sunset) nightPenalty = 2;
     else if (lastArrHr >= destSun.sunset - 0.75) nightPenalty = 1;
 
-    // Score: weather severity * 3 + night penalty (prefer daylight + good weather)
-    const score = worstRank * 3 + nightPenalty;
+    // Departing before sunrise penalty
+    let darkDepartPenalty = 0;
+    if (testH < sunriseHour) darkDepartPenalty = 3;
+
+    return { score: worstRank * 3 + nightPenalty + darkDepartPenalty, worstRank };
+  }
+
+  // Test daylight hours only: sunrise through noon
+  for (let testH = earliestDaylight; testH <= 12; testH++) {
+    const { score } = scoreAtHour(testH);
     if (score < bestScore) {
       bestScore = score;
       bestTime = `${String(testH).padStart(2, '0')}:00`;
+    }
+  }
+
+  // If EVERY daylight hour is orange or red (score >= 6), check if pre-dawn avoids it
+  // This is the snowstorm exception -- only suggest dark departure if it dodges severe weather
+  let preDawnWarning = false;
+  if (bestScore >= 6) {
+    for (let testH = 5; testH < earliestDaylight; testH++) {
+      const { score, worstRank } = scoreAtHour(testH);
+      // Only suggest pre-dawn if it actually improves weather to green/yellow
+      if (worstRank <= 1 && score < bestScore) {
+        bestScore = score;
+        bestTime = `${String(testH).padStart(2, '0')}:00`;
+        preDawnWarning = true;
+      }
     }
   }
 
@@ -3539,7 +3568,7 @@ function calcIdealDeparture(leg, legIdx, points, forecasts) {
   const display = `${bH % 12 || 12}:00 ${bH >= 12 ? 'PM' : 'AM'}`;
   const sevLabel = bestScore <= 1 ? 'green' : bestScore <= 4 ? 'yellow' : bestScore <= 7 ? 'orange' : 'red';
 
-  return { time: bestTime, display, severity: sevLabel };
+  return { time: bestTime, display, severity: sevLabel, preDawnWarning };
 }
 
 function renderRouteWeather() {
@@ -3809,7 +3838,12 @@ function renderRouteWeather() {
     const idealHtml = idealDep ? (() => {
       const isCurrent = departTime === idealDep.time;
       const idealColor = idealDep.severity === 'green' ? '#34d399' : idealDep.severity === 'yellow' ? '#fbbf24' : idealDep.severity === 'orange' ? '#f59e0b' : '#ff6666';
-      if (isCurrent) {
+      const preDawnNote = idealDep.preDawnWarning
+        ? `<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:12px;color:#fca5a5;line-height:1.5;">
+            <strong>⚠️ PRE-DAWN DEPARTURE:</strong> This is before sunrise, but severe weather (snow, ice, storms) is forecast during normal daylight hours. Leaving early avoids the worst of it. Drive with headlights on and extra caution.
+          </div>`
+        : '';
+      if (isCurrent && !idealDep.preDawnWarning) {
         return `<div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.4);border-radius:10px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
           <span style="font-size:20px;">✅</span>
           <div><span style="font-weight:800;font-size:14px;color:#34d399;">IDEAL DEPARTURE: ${idealDep.display}</span>
@@ -3818,12 +3852,13 @@ function renderRouteWeather() {
       }
       return `<div style="background:rgba(245,166,35,0.08);border:2px solid ${idealColor};border-radius:10px;padding:10px 12px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:22px;">🕐</span>
+          <span style="font-size:22px;">${idealDep.preDawnWarning ? '⚠️' : '🕐'}</span>
           <div>
             <div style="font-weight:800;font-size:15px;color:${idealColor};letter-spacing:0.5px;">IDEAL DEPARTURE: ${idealDep.display}</div>
-            <div style="font-size:12px;color:#aaa;margin-top:2px;">Best weather + daylight arrival. Tap the clock above to change.</div>
+            <div style="font-size:12px;color:#aaa;margin-top:2px;">${idealDep.preDawnWarning ? 'Early start to avoid severe weather.' : 'Best weather + daylight arrival.'} Tap the clock above to change.</div>
           </div>
         </div>
+        ${preDawnNote}
       </div>`;
     })() : '';
 
