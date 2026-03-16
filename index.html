@@ -58,14 +58,6 @@ tailwind.config = {
     backdrop-filter: blur(12px); border-bottom: 1px solid rgba(245,166,35,0.2);
   }
 
-  /* Hotel panel */
-  #hotel-panel {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
-    background: rgba(26,26,36,0.96); backdrop-filter: blur(12px);
-    border-top: 1px solid rgba(245,166,35,0.2); border-radius: 16px 16px 0 0;
-    transition: transform 0.3s ease; max-height: 70vh; overflow-y: auto;
-  }
-  #hotel-panel.collapsed { transform: translateY(calc(100% - 52px)); }
   .hotel-card { transition: all 0.2s; }
   .hotel-card:active { transform: scale(0.98); }
 
@@ -246,7 +238,6 @@ tailwind.config = {
 
   /* Responsive */
   @media (min-width: 768px) {
-    #hotel-panel { left: auto; width: 400px; right: 0; border-radius: 16px 0 0 0; }
     #emergency-btn { bottom: 24px; right: 24px; }
     #text-dad-btn { bottom: 24px; left: 24px; }
     #sos-btn { bottom: 90px; left: 24px; }
@@ -354,7 +345,7 @@ tailwind.config = {
   </div>
 
   <!-- Hamburger Dropdown Menu -->
-  <div id="hamburger-menu" style="display:none;position:fixed;top:140px;left:8px;z-index:96;width:220px;background:rgba(26,26,36,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+  <div id="hamburger-menu" style="display:none;position:fixed;top:140px;left:8px;z-index:250;width:220px;background:rgba(26,26,36,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
     <div style="padding:6px;">
       <button onclick="openRouteWeather();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">🌦️</span>
@@ -453,21 +444,7 @@ tailwind.config = {
   </div>
 
   <!-- Hotel Panel -->
-  <div id="hotel-panel" class="collapsed">
-    <div id="hotel-panel-handle" style="cursor:pointer;padding:8px 16px 4px;user-select:none;-webkit-user-select:none;">
-      <div class="w-10 h-1 bg-gray-600 rounded-full" style="margin:0 auto 8px;"></div>
-      <div class="flex items-center justify-between">
-        <h3 class="text-sm font-bold text-warm-400">Trip Stops</h3>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span id="hotel-count" class="text-xs text-gray-500"></span>
-          <svg id="hotel-panel-chevron" class="w-4 h-4 text-gray-500 transition-transform" style="transform:rotate(180deg);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </div>
-      </div>
-    </div>
-    <div id="hotel-cards" class="px-4 pb-6 space-y-3"></div>
-  </div>
+  <!-- Hotel panel removed - all stop info accessible via Manage Stops in hamburger menu -->
 
   <!-- Find My Location Button (now in top control bar) -->
 
@@ -702,6 +679,11 @@ tailwind.config = {
       <a href="tel:911" class="block w-full py-4 bg-red-600 hover:bg-red-500 rounded-xl text-center text-white font-extrabold text-xl mb-4 shadow-lg shadow-red-900/50 transition-all active:scale-95">
         📞 CALL 911
       </a>
+
+      <button id="safe-haven-btn" onclick="findSafeHaven()" class="block w-full py-4 bg-blue-700 hover:bg-blue-600 rounded-xl text-center text-white font-extrabold text-lg mb-4 shadow-lg shadow-blue-900/50 transition-all active:scale-95 border-2 border-blue-400">
+        🛡️ TAKE ME SOMEWHERE SAFE
+      </button>
+      <p id="safe-haven-status" class="text-center text-gray-500 text-xs mb-4" style="display:none;"></p>
 
       <div id="emergency-results" class="space-y-3">
         <div class="text-center text-gray-500 py-8">
@@ -1373,121 +1355,8 @@ function saveHotelNote(index, value) {
   localStorage.setItem('ys_hotel_notes', JSON.stringify(saved));
 }
 
-function initHotelPanel() {
-  const panel = document.getElementById('hotel-panel');
-  const handle = document.getElementById('hotel-panel-handle');
-
-  handle.addEventListener('click', () => {
-    const isCollapsed = panel.classList.toggle('collapsed');
-    const chevron = document.getElementById('hotel-panel-chevron');
-    if (chevron) chevron.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
-  });
-
-  const container = document.getElementById('hotel-cards');
-  const legs = getRWLegs();
-  let html = '';
-
-  // Update count
-  document.getElementById('hotel-count').textContent = `${HOTELS.length + 2} stops`;
-
-  // Origin card
-  html += `<div class="hotel-card bg-dark-700 rounded-xl border border-dark-600 overflow-hidden" id="hotel-card-origin">
-    <div class="flex items-center gap-3 p-3 cursor-pointer" onclick="toggleHotelCard('origin')">
-      <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 bg-road-green/20 text-road-green">🏠</div>
-      <div class="flex-1 min-w-0">
-        <div class="font-semibold text-sm text-gray-200 truncate">Seven Valleys, PA</div>
-        <div class="text-xs text-gray-500">Start &middot; ${legs[0] ? legs[0].dateLabel : 'Mar 17'}</div>
-      </div>
-      <svg class="w-4 h-4 text-gray-500 transform transition-transform hotel-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-      </svg>
-    </div>
-    <div class="hotel-details hidden px-3 pb-3">
-      <div class="text-xs text-gray-400 mb-2">Home base. Trip begins here.</div>
-      <div class="flex gap-2">
-        <button class="flex-1 py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
-          onclick="getDirectionsTo(${ORIGIN_LATLNG.lat}, ${ORIGIN_LATLNG.lng})">📍 Directions</button>
-      </div>
-    </div>
-  </div>`;
-
-  // Hotel cards
-  HOTELS.forEach((hotel, i) => {
-    const booked = hotel.confirmation !== '--';
-    const legDate = legs[i] ? legs[i].dateLabel : hotel.date;
-    const driveInfo = legs[i] ? `~${legs[i].driveHours}h drive` : '';
-
-    html += `<div class="hotel-card bg-dark-700 rounded-xl border border-dark-600 overflow-hidden" id="hotel-card-${i}">
-      <div class="flex items-center gap-3 p-3 cursor-pointer" onclick="toggleHotelCard(${i})">
-        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${booked ? 'bg-road-green/20 text-road-green' : 'bg-warm-400/20 text-warm-400'}">
-          ${booked ? '✓' : hotel.night}
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold text-sm text-gray-200 truncate">${hotel.name}</div>
-          <div class="text-xs text-gray-500">Night ${hotel.night} &middot; ${legDate}${driveInfo ? ' &middot; ' + driveInfo : ''}</div>
-        </div>
-        <svg class="w-4 h-4 text-gray-500 transform transition-transform hotel-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-        </svg>
-      </div>
-      <div class="hotel-details hidden px-3 pb-3">
-        <div class="flex items-center gap-2 mb-1">
-          <div class="text-xs text-gray-400 flex-1">${hotel.address}</div>
-          <button class="text-xs text-road-teal hover:text-white px-2 py-1 bg-dark-600 rounded flex-shrink-0 transition-all"
-            onclick="event.stopPropagation(); navigator.clipboard.writeText('${hotel.address.replace(/'/g, "\\'")}').then(() => { this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500); })">Copy</button>
-        </div>
-        ${booked ? `<div class="text-xs text-road-teal mb-2">Confirmation: ${hotel.confirmation}</div>` : '<div class="text-xs text-warm-400 mb-2">⚠ Not yet booked</div>'}
-        ${legs[i] && legs[i].roadNote ? `<div style="font-size:10px;color:#888;padding:4px 8px;background:#0f0f1a;border-radius:6px;border-left:2px solid #3a3a4a;margin-bottom:6px;line-height:1.4;">${legs[i].roadNote}</div>` : ''}
-        <textarea class="w-full bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-xs text-gray-300 placeholder-gray-600 resize-none" rows="2"
-          placeholder="Add notes..." oninput="saveHotelNote(${i}, this.value)">${hotel.notes || ''}</textarea>
-        <div class="flex gap-2 mt-2">
-          <button class="flex-1 py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
-            onclick="getDirectionsTo(${hotel.lat}, ${hotel.lng})">📍 Directions</button>
-          <button class="flex-1 py-2 bg-dark-600 text-gray-300 border border-dark-500 rounded-lg text-xs font-semibold hover:text-white transition-all"
-            onclick="window.open('https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + ' ' + hotel.address)}','_blank')">🔍 View on Maps</button>
-        </div>
-      </div>
-    </div>`;
-  });
-
-  // Destination card
-  const lastLeg = legs[legs.length - 1];
-  const destDate = lastLeg ? lastLeg.dateLabel : 'Mar 22';
-
-  html += `<div class="hotel-card bg-dark-700 rounded-xl border border-warm-400/30 overflow-hidden" id="hotel-card-dest">
-    <div class="flex items-center gap-3 p-3 cursor-pointer" onclick="toggleHotelCard('dest')">
-      <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 bg-warm-400/20 text-warm-400">🏔️</div>
-      <div class="flex-1 min-w-0">
-        <div class="font-semibold text-sm text-warm-400 truncate">Gardiner, MT - Yellowstone!</div>
-        <div class="text-xs text-gray-500">Arrival &middot; ${destDate}${lastLeg ? ' &middot; ~' + lastLeg.driveHours + 'h drive' : ''}</div>
-      </div>
-      <svg class="w-4 h-4 text-gray-500 transform transition-transform hotel-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-      </svg>
-    </div>
-    <div class="hotel-details hidden px-3 pb-3">
-      <div class="text-xs text-gray-400 mb-2">North Entrance, Yellowstone National Park</div>
-      <div class="text-xs text-warm-400 mb-2">🎉 You made it! Check in with your employer.</div>
-      <div class="flex gap-2">
-        <button class="flex-1 py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
-          onclick="getDirectionsTo(45.0328, -110.7059)">📍 Directions</button>
-        <button class="flex-1 py-2 bg-dark-600 text-gray-300 border border-dark-500 rounded-lg text-xs font-semibold hover:text-white transition-all"
-          onclick="window.open('https://www.google.com/maps/search/?api=1&query=Gardiner+MT+Yellowstone+North+Entrance','_blank')">🔍 View on Maps</button>
-      </div>
-    </div>
-  </div>`;
-
-  container.innerHTML = html;
-}
-
-function toggleHotelCard(index) {
-  const card = document.getElementById(`hotel-card-${index}`);
-  if (!card) return;
-  const details = card.querySelector('.hotel-details');
-  const chevron = card.querySelector('.hotel-chevron');
-  details.classList.toggle('hidden');
-  chevron.classList.toggle('rotate-180');
-}
+// Hotel panel removed -- all stop info accessible via Manage Stops in hamburger menu
+function initHotelPanel() { /* no-op */ }
 
 function getDirectionsTo(lat, lng) {
   const url = userPosition
@@ -1672,20 +1541,41 @@ function createPOIMarker(place, type) {
     Math.abs(cw.lng - place.geometry.location.lng()) < 0.0001
   );
 
+  // Build a label showing name + rating stars
+  const ratingStr = place.rating ? `${'★'.repeat(Math.round(place.rating))}${'☆'.repeat(5 - Math.round(place.rating))}` : '';
+  const shortName = place.name.length > 18 ? place.name.substring(0, 16) + '...' : place.name;
+
   const marker = new google.maps.Marker({
     position: place.geometry.location,
     map: map,
-    title: place.name,
+    title: `${place.name}${place.rating ? ' (' + place.rating + '⭐)' : ''}`,
     label: { text: POI_ICON_MAP[type] || '📍', fontSize: '14px' },
     icon: {
       path: google.maps.SymbolPath.CIRCLE,
       scale: 10,
-      fillColor: isOnRoute ? '#166534' : '#24243a',
+      fillColor: isOnRoute ? '#166534' : (place.rating && place.rating < 3 ? '#4a1c1c' : '#24243a'),
       fillOpacity: 0.9,
-      strokeColor: isOnRoute ? '#22c55e' : '#f5a623',
+      strokeColor: isOnRoute ? '#22c55e' : (place.rating && place.rating < 3 ? '#dc2626' : '#f5a623'),
       strokeWeight: isOnRoute ? 2 : 1
     }
   });
+
+  // Add a name+rating label overlay that appears at higher zoom levels
+  const labelDiv = document.createElement('div');
+  labelDiv.style.cssText = 'position:absolute;white-space:nowrap;font-size:10px;font-weight:600;color:#e5e5e5;background:rgba(15,15,20,0.85);padding:2px 6px;border-radius:4px;border:1px solid rgba(245,166,35,0.3);pointer-events:none;transform:translate(-50%,8px);text-shadow:0 1px 2px rgba(0,0,0,0.8);max-width:160px;overflow:hidden;text-overflow:ellipsis;';
+  labelDiv.innerHTML = `${shortName}${ratingStr ? ` <span style="color:#fbbf24;font-size:9px;">${place.rating}</span>` : ''}`;
+  const overlay = new google.maps.OverlayView();
+  overlay.onAdd = function() { this.getPanes().floatPane.appendChild(labelDiv); };
+  overlay.draw = function() {
+    const proj = this.getProjection();
+    if (!proj) return;
+    const pos = proj.fromLatLngToDivPixel(place.geometry.location);
+    if (pos) { labelDiv.style.left = pos.x + 'px'; labelDiv.style.top = (pos.y + 12) + 'px'; }
+    labelDiv.style.display = map.getZoom() >= 9 ? '' : 'none';
+  };
+  overlay.onRemove = function() { if (labelDiv.parentNode) labelDiv.parentNode.removeChild(labelDiv); };
+  overlay.setMap(map);
+  marker._labelOverlay = overlay;
 
   const placeAddr = place.vicinity || place.name;
   const placeLat = place.geometry.location.lat();
@@ -1728,7 +1618,7 @@ function searchPOIsInView(type) {
 
   // Clear existing markers for this type
   if (poiMarkers[type]) {
-    poiMarkers[type].forEach(m => m.setMap(null));
+    poiMarkers[type].forEach(m => { if (m._labelOverlay) m._labelOverlay.setMap(null); m.setMap(null); });
     poiMarkers[type] = [];
   }
 
@@ -1769,7 +1659,7 @@ function searchPOIsAlongRouteEssentials(type) {
 
   // Clear existing markers for this type
   if (poiMarkers[type]) {
-    poiMarkers[type].forEach(m => m.setMap(null));
+    poiMarkers[type].forEach(m => { if (m._labelOverlay) m._labelOverlay.setMap(null); m.setMap(null); });
     poiMarkers[type] = [];
   }
   poiMarkers[type] = [];
@@ -2321,10 +2211,8 @@ function renderCustomStops() {
   }
 
   if (!section) {
-    section = document.createElement('div');
-    section.id = 'custom-stops-section';
-    const hotelCards = document.getElementById('hotel-cards');
-    hotelCards.parentElement.insertBefore(section, hotelCards);
+    // Hotel panel removed -- custom stops now managed via Manage Stops menu
+    return;
   }
 
   section.style.display = 'block';
@@ -2548,6 +2436,93 @@ function openEmergencyModal() {
 
 function closeEmergencyModal() {
   document.getElementById('emergency-modal').style.display = 'none';
+}
+
+// Find the closest safe, public, well-lit location and open Google Maps navigation immediately
+function findSafeHaven() {
+  const statusEl = document.getElementById('safe-haven-status');
+  const btn = document.getElementById('safe-haven-btn');
+  btn.disabled = true;
+  btn.textContent = '🔍 Finding safe location...';
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Getting your location...';
+
+  function searchSafePlace(pos) {
+    if (!placesService) {
+      // No Places service -- fall back to Google Maps search
+      window.open(`https://www.google.com/maps/search/police+station+OR+hospital+OR+fire+station/@${pos.lat},${pos.lng},13z`, '_blank');
+      btn.disabled = false;
+      btn.textContent = '🛡️ TAKE ME SOMEWHERE SAFE';
+      statusEl.style.display = 'none';
+      return;
+    }
+
+    statusEl.textContent = 'Searching for nearest safe location...';
+
+    // Search for police, hospital, and fire station simultaneously
+    const safeTypes = ['police', 'hospital', 'fire_station'];
+    let allResults = [];
+    let completed = 0;
+
+    safeTypes.forEach(type => {
+      placesService.nearbySearch({
+        location: pos,
+        rankBy: google.maps.places.RankBy.DISTANCE,
+        type: type
+      }, (results, status) => {
+        completed++;
+        if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
+          allResults.push({ place: results[0], type, distance: google.maps.geometry.spherical.computeDistanceBetween(
+            new google.maps.LatLng(pos.lat, pos.lng), results[0].geometry.location
+          )});
+        }
+        if (completed === safeTypes.length) {
+          btn.disabled = false;
+          btn.textContent = '🛡️ TAKE ME SOMEWHERE SAFE';
+
+          if (allResults.length === 0) {
+            statusEl.textContent = 'Could not find nearby safe locations. Use Google Maps to search.';
+            setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+            return;
+          }
+
+          // Pick the absolute closest safe location
+          allResults.sort((a, b) => a.distance - b.distance);
+          const closest = allResults[0];
+          const lat = closest.place.geometry.location.lat();
+          const lng = closest.place.geometry.location.lng();
+          const name = encodeURIComponent(closest.place.name);
+          const miles = (closest.distance / 1609.34).toFixed(1);
+          const typeLabel = closest.type === 'police' ? 'Police Station' : closest.type === 'hospital' ? 'Hospital' : 'Fire Station';
+
+          statusEl.textContent = `Navigating to ${closest.place.name} (${typeLabel}, ${miles} mi away)...`;
+
+          // Open Google Maps navigation directly (starts turn-by-turn)
+          window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${closest.place.place_id}&travelmode=driving&dir_action=navigate`, '_blank');
+          setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+        }
+      });
+    });
+  }
+
+  // Try GPS first for accuracy
+  if (userPosition) {
+    searchSafePlace(userPosition);
+  } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (geoPos) => {
+        userPosition = { lat: geoPos.coords.latitude, lng: geoPos.coords.longitude };
+        searchSafePlace(userPosition);
+      },
+      () => {
+        // Fall back to map center
+        searchSafePlace({ lat: map.getCenter().lat(), lng: map.getCenter().lng() });
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
+  } else {
+    searchSafePlace({ lat: map.getCenter().lat(), lng: map.getCenter().lng() });
+  }
 }
 
 function findEmergencyServices() {
@@ -3509,6 +3484,64 @@ function rwQuickSummary(worstSev, hazards, legPoints, forecasts, points, leg) {
   }
 }
 
+// Calculate ideal departure time for a leg by testing every hour from 5 AM to 12 PM
+// and finding the one with the best weather severity + daylight arrival
+function calcIdealDeparture(leg, legIdx, points, forecasts) {
+  const legPoints = points.filter(p => p.legIdx === legIdx);
+  if (legPoints.length === 0) return null;
+
+  let bestTime = '08:00';
+  let bestScore = Infinity; // lower = better
+
+  for (let testH = 5; testH <= 12; testH++) {
+    let worstRank = 0;
+    let nightPenalty = 0;
+
+    legPoints.forEach(pt => {
+      const globalIdx = points.indexOf(pt);
+      const forecast = forecasts[globalIdx];
+      if (!forecast || !forecast.hourly) return;
+
+      const driveHoursToPoint = pt.fracAlong * leg.driveHours;
+      const arrivalMinutes = testH * 60 + driveHoursToPoint * 60;
+      const arrivalHour = Math.floor(arrivalMinutes / 60) % 24;
+
+      const hIdx = rwFindHourlyIndex(forecast.hourly.time, leg.date, arrivalHour);
+      if (hIdx < 0) return;
+
+      const code = forecast.hourly.weather_code[hIdx];
+      const gusts = Math.round(forecast.hourly.wind_gusts_10m[hIdx] || 0);
+      const precip = forecast.hourly.precipitation[hIdx] || 0;
+      const temp = Math.round(forecast.hourly.temperature_2m[hIdx]);
+      const sev = rwGetSeverity(code, gusts, precip, temp);
+      const rank = rwSeverityRank(sev);
+      if (rank > worstRank) worstRank = rank;
+    });
+
+    // Check if arriving after dark
+    const lastPt = legPoints[legPoints.length - 1];
+    const lastDriveHours = lastPt ? lastPt.fracAlong * leg.driveHours : leg.driveHours;
+    const lastArrMin = testH * 60 + lastDriveHours * 60;
+    const lastArrHr = (Math.floor(lastArrMin / 60) % 24) + Math.round(lastArrMin % 60) / 60;
+    const destSun = getSunTimes(leg.endLat, leg.endLng, leg.date);
+    if (lastArrHr >= destSun.sunset) nightPenalty = 2;
+    else if (lastArrHr >= destSun.sunset - 0.75) nightPenalty = 1;
+
+    // Score: weather severity * 3 + night penalty (prefer daylight + good weather)
+    const score = worstRank * 3 + nightPenalty;
+    if (score < bestScore) {
+      bestScore = score;
+      bestTime = `${String(testH).padStart(2, '0')}:00`;
+    }
+  }
+
+  const [bH] = bestTime.split(':').map(Number);
+  const display = `${bH % 12 || 12}:00 ${bH >= 12 ? 'PM' : 'AM'}`;
+  const sevLabel = bestScore <= 1 ? 'green' : bestScore <= 4 ? 'yellow' : bestScore <= 7 ? 'orange' : 'red';
+
+  return { time: bestTime, display, severity: sevLabel };
+}
+
 function renderRouteWeather() {
   const container = document.getElementById('route-weather-content');
   if (!rwCache) {
@@ -3771,6 +3804,29 @@ function renderRouteWeather() {
     const alertsExpanded = hasAlerts ? '' : 'hidden';
     const alertsChevronRotated = hasAlerts ? 'rw-rotated' : '';
 
+    // Calculate ideal departure time for this leg
+    const idealDep = calcIdealDeparture(leg, legIdx, points, forecasts);
+    const idealHtml = idealDep ? (() => {
+      const isCurrent = departTime === idealDep.time;
+      const idealColor = idealDep.severity === 'green' ? '#34d399' : idealDep.severity === 'yellow' ? '#fbbf24' : idealDep.severity === 'orange' ? '#f59e0b' : '#ff6666';
+      if (isCurrent) {
+        return `<div style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.4);border-radius:10px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:20px;">✅</span>
+          <div><span style="font-weight:800;font-size:14px;color:#34d399;">IDEAL DEPARTURE: ${idealDep.display}</span>
+          <span style="font-size:12px;color:#6ee7b7;margin-left:6px;">You're on the best time!</span></div>
+        </div>`;
+      }
+      return `<div style="background:rgba(245,166,35,0.08);border:2px solid ${idealColor};border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:22px;">🕐</span>
+          <div>
+            <div style="font-weight:800;font-size:15px;color:${idealColor};letter-spacing:0.5px;">IDEAL DEPARTURE: ${idealDep.display}</div>
+            <div style="font-size:12px;color:#aaa;margin-top:2px;">Best weather + daylight arrival. Tap the clock above to change.</div>
+          </div>
+        </div>
+      </div>`;
+    })() : '';
+
     html += `<div class="rw-leg-card" style="border-color:${borderColor};${bgGlow}">
       <div class="flex items-center justify-between mb-2">
         <div style="flex:1;min-width:0;">
@@ -3787,6 +3843,7 @@ function renderRouteWeather() {
           </button>
         </div>
       </div>
+      ${idealHtml}
       <p style="font-size:14px;color:#d4d4d4;line-height:1.5;margin-bottom:8px;">${quickSummary}</p>
       ${(() => {
         // Late departure warning: if current departure is later than the default,
@@ -4809,11 +4866,7 @@ function appBack() {
   if (sidebar && !sidebar.classList.contains('collapsed')) {
     closePOISidebar(); return true;
   }
-  // Close hotel panel
-  const hotelPanel = document.getElementById('hotel-panel');
-  if (hotelPanel && !hotelPanel.classList.contains('collapsed')) {
-    hotelPanel.classList.add('collapsed'); return true;
-  }
+  // Hotel panel removed
   // Close any open Google Maps info windows
   if (typeof google !== 'undefined') {
     // Search markers may have open info windows
