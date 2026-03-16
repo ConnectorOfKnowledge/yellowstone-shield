@@ -480,13 +480,8 @@ tailwind.config = {
         </div>
         <button onclick="closeRouteWeather()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
       </div>
-      <div style="background:rgba(30,30,46,0.8);border:1px solid rgba(245,166,35,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-        <div>
-          <div style="font-size:12px;font-weight:700;color:#f5a623;">📅 Trip Start Date</div>
-          <div style="font-size:10px;color:#888;margin-top:2px;">Change if trip is delayed</div>
-        </div>
-        <input type="date" id="rw-trip-start-date" value="" onchange="rwUpdateTripStartDate(this.value)"
-          style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:8px;padding:6px 10px;color:#e5e5e5;font-size:13px;font-family:Inter,sans-serif;">
+      <div style="background:rgba(30,30,46,0.8);border:1px solid rgba(245,166,35,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;">
+        <div style="font-size:11px;color:#888;">📅 Tap any leg's date to adjust. If delayed, push individual legs forward -- later legs auto-adjust.</div>
       </div>
       <div id="route-weather-content">
         <div class="rw-spinner"></div>
@@ -2667,44 +2662,312 @@ const RW_LEGS_BASE = [
     startLat: 45.7833, startLng: -108.5007, endLat: 45.0328, endLng: -110.7059 }
 ];
 
-// Trip start date (saved in localStorage, defaults to original Mar 17)
-let rwTripStartDate = localStorage.getItem('ys_trip_start_date') || '2026-03-17';
+// Per-leg date overrides (saved in localStorage)
+// Each entry is a date string like '2026-03-17' or null (use default)
+let rwLegDates = JSON.parse(localStorage.getItem('ys_leg_dates') || 'null') || [null, null, null, null, null, null];
 
-// Build RW_LEGS dynamically from base data + start date offset
+// Trip start date (first leg date override, or original Mar 17)
+let rwTripStartDate = rwLegDates[0] || '2026-03-17';
+
+const RW_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const RW_DAYS_OF_WEEK = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// Build RW_LEGS dynamically from base data + per-leg date overrides
 function getRWLegs() {
-  // Use noon to avoid timezone/DST off-by-one bugs
   const baseStart = new Date('2026-03-17T12:00:00');
-  const actualStart = new Date(rwTripStartDate + 'T12:00:00');
-  const dayOffset = Math.round((actualStart - baseStart) / 86400000);
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  return RW_LEGS_BASE.map(base => {
-    const origDate = new Date(base.baseDate + 'T12:00:00');
-    const newDate = new Date(origDate.getTime() + dayOffset * 86400000);
-    const dateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
-    const dateLabel = `${months[newDate.getMonth()]} ${newDate.getDate()}`;
+  return RW_LEGS_BASE.map((base, idx) => {
+    let dateStr;
+    if (rwLegDates[idx]) {
+      // This leg has a specific override
+      dateStr = rwLegDates[idx];
+    } else if (idx === 0) {
+      dateStr = rwTripStartDate;
+    } else {
+      // Cascade from previous leg: previous leg date + 1 day
+      const prevLegs = getRWLegsUpTo(idx);
+      const prevDate = new Date(prevLegs[idx - 1].date + 'T12:00:00');
+      const nextDate = new Date(prevDate.getTime() + 86400000);
+      dateStr = formatDateStr(nextDate);
+    }
+    const d = new Date(dateStr + 'T12:00:00');
+    const dateLabel = `${RW_DAYS_OF_WEEK[d.getDay()]}, ${RW_MONTHS[d.getMonth()]} ${d.getDate()}`;
     return { ...base, date: dateStr, dateLabel };
   });
+}
+
+// Helper: get legs up to (but not including) index, to avoid infinite recursion
+function getRWLegsUpTo(upToIdx) {
+  const results = [];
+  for (let i = 0; i < upToIdx; i++) {
+    let dateStr;
+    if (rwLegDates[i]) {
+      dateStr = rwLegDates[i];
+    } else if (i === 0) {
+      dateStr = rwTripStartDate;
+    } else {
+      const prevDate = new Date(results[i - 1].date + 'T12:00:00');
+      const nextDate = new Date(prevDate.getTime() + 86400000);
+      dateStr = formatDateStr(nextDate);
+    }
+    const d = new Date(dateStr + 'T12:00:00');
+    const dateLabel = `${RW_DAYS_OF_WEEK[d.getDay()]}, ${RW_MONTHS[d.getMonth()]} ${d.getDate()}`;
+    results.push({ ...RW_LEGS_BASE[i], date: dateStr, dateLabel });
+  }
+  return results;
+}
+
+function formatDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // For backward compatibility
 let RW_LEGS = getRWLegs();
 
-function rwUpdateTripStartDate(newDate) {
-  rwTripStartDate = newDate;
-  localStorage.setItem('ys_trip_start_date', newDate);
+function rwUpdateLegDate(legIdx, newDate) {
+  rwLegDates[legIdx] = newDate;
+  if (legIdx === 0) rwTripStartDate = newDate;
+  // Auto-cascade: push subsequent legs forward if they'd overlap
+  const updatedDate = new Date(newDate + 'T12:00:00');
+  for (let i = legIdx + 1; i < rwLegDates.length; i++) {
+    const prevLegDate = rwLegDates[i - 1]
+      ? new Date(rwLegDates[i - 1] + 'T12:00:00')
+      : updatedDate;
+    const minNext = new Date(prevLegDate.getTime() + 86400000);
+    const currentDate = rwLegDates[i]
+      ? new Date(rwLegDates[i] + 'T12:00:00')
+      : minNext;
+    if (currentDate < minNext) {
+      // This leg needs to be pushed forward
+      rwLegDates[i] = formatDateStr(minNext);
+    } else {
+      break; // No more cascading needed
+    }
+  }
+  localStorage.setItem('ys_leg_dates', JSON.stringify(rwLegDates));
+  localStorage.setItem('ys_trip_start_date', rwTripStartDate);
   RW_LEGS = getRWLegs();
-  // Clear cached weather data since dates changed
   rwCache = null;
-  // Re-fetch and render
   fetchRouteWeatherData();
+}
+
+function rwUpdateTripStartDate(newDate) {
+  rwUpdateLegDate(0, newDate);
+}
+
+// Custom date picker modal
+function openDatePicker(legIdx) {
+  const legs = getRWLegs();
+  const currentDate = new Date(legs[legIdx].date + 'T12:00:00');
+  let viewYear = currentDate.getFullYear();
+  let viewMonth = currentDate.getMonth();
+
+  function renderCalendar() {
+    const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    // Min date: previous leg's date + 1 (can't depart before arriving)
+    let minDate = null;
+    if (legIdx > 0) {
+      const prevLegs = getRWLegs();
+      minDate = new Date(prevLegs[legIdx - 1].date + 'T12:00:00');
+      minDate.setDate(minDate.getDate() + 1);
+    }
+
+    let cells = '';
+    // Empty cells before first day
+    for (let i = 0; i < firstDay; i++) cells += '<div></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      const thisDate = new Date(viewYear, viewMonth, d);
+      const dateStr = formatDateStr(thisDate);
+      const isSelected = dateStr === legs[legIdx].date;
+      const isToday = thisDate.getTime() === today.getTime();
+      const isPast = minDate && thisDate < minDate;
+
+      let style = 'width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;transition:all 0.15s;';
+      if (isPast) {
+        style += 'color:#444;cursor:not-allowed;';
+      } else if (isSelected) {
+        style += 'background:#f5a623;color:#0f0f14;font-weight:700;';
+      } else if (isToday) {
+        style += 'border:1px solid #f5a623;color:#f5a623;';
+      } else {
+        style += 'color:#ccc;';
+      }
+
+      cells += `<div style="${style}" ${isPast ? '' : `onclick="selectPickerDate(${legIdx},'${dateStr}')"`}
+        ${!isPast ? 'onmouseover="this.style.background=\'#2a2a3a\'"' : ''}
+        ${!isPast ? 'onmouseout="this.style.background=\'' + (isSelected ? '#f5a623' : 'transparent') + '\'"' : ''}
+      >${d}</div>`;
+    }
+
+    const monthLabel = `${RW_MONTHS[viewMonth]} ${viewYear}`;
+
+    document.getElementById('date-picker-grid').innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <button onclick="datePickerPrevMonth()" style="background:none;border:none;color:#ccc;font-size:20px;cursor:pointer;padding:4px 10px;">‹</button>
+        <span style="font-weight:700;font-size:14px;color:#e5e5e5;">${monthLabel}</span>
+        <button onclick="datePickerNextMonth()" style="background:none;border:none;color:#ccc;font-size:20px;cursor:pointer;padding:4px 10px;">›</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;">
+        ${['S','M','T','W','T','F','S'].map(d => `<div style="font-size:10px;color:#666;font-weight:600;padding:4px 0;">${d}</div>`).join('')}
+        ${cells}
+      </div>
+    `;
+  }
+
+  // Store month navigation functions globally so onclick can reach them
+  window.datePickerPrevMonth = () => { viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} renderCalendar(); };
+  window.datePickerNextMonth = () => { viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderCalendar(); };
+
+  // Create modal
+  const backdrop = document.createElement('div');
+  backdrop.id = 'date-picker-modal';
+  backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  backdrop.onclick = (e) => { if(e.target === backdrop) backdrop.remove(); };
+
+  backdrop.innerHTML = `
+    <div style="background:#1a1a2e;border:1px solid #3a3a4a;border-radius:16px;padding:20px;width:300px;max-width:90vw;box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+      <div style="font-size:13px;font-weight:700;color:#f5a623;margin-bottom:4px;">📅 Day ${legs[legIdx].day}: ${legs[legIdx].fromLabel}</div>
+      <div style="font-size:11px;color:#888;margin-bottom:14px;">Select departure date for this leg</div>
+      <div id="date-picker-grid"></div>
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        <button onclick="document.getElementById('date-picker-modal').remove()"
+          style="flex:1;padding:10px;background:#2a2a3a;border:1px solid #3a3a4a;border-radius:10px;color:#ccc;font-size:13px;cursor:pointer;">Cancel</button>
+        <button onclick="resetLegDate(${legIdx})"
+          style="flex:1;padding:10px;background:#1a2a1a;border:1px solid #3a5a3a;border-radius:10px;color:#6ee7b7;font-size:13px;cursor:pointer;">Reset to Default</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(backdrop);
+  renderCalendar();
+  history.pushState({ ys: true }, '');
+}
+
+function selectPickerDate(legIdx, dateStr) {
+  const modal = document.getElementById('date-picker-modal');
+  if (modal) modal.remove();
+  rwUpdateLegDate(legIdx, dateStr);
+}
+
+function resetLegDate(legIdx) {
+  const modal = document.getElementById('date-picker-modal');
+  if (modal) modal.remove();
+  rwLegDates[legIdx] = null;
+  if (legIdx === 0) rwTripStartDate = '2026-03-17';
+  localStorage.setItem('ys_leg_dates', JSON.stringify(rwLegDates));
+  localStorage.setItem('ys_trip_start_date', rwTripStartDate);
+  RW_LEGS = getRWLegs();
+  rwCache = null;
+  fetchRouteWeatherData();
+}
+
+// Custom time picker modal
+function openTimePicker(legIdx) {
+  const currentTime = rwDepartureTimes[legIdx] || '08:00';
+  const [curH, curM] = currentTime.split(':').map(Number);
+  let selH = curH, selM = curM;
+
+  function renderTimePicker() {
+    const ampm = selH >= 12 ? 'PM' : 'AM';
+    const displayH = selH % 12 || 12;
+    const displayM = String(selM).padStart(2, '0');
+
+    document.getElementById('time-picker-display').innerHTML = `
+      <div style="font-size:42px;font-weight:800;color:#e5e5e5;letter-spacing:2px;font-variant-numeric:tabular-nums;">
+        ${displayH}:${displayM} <span style="font-size:18px;color:#888;">${ampm}</span>
+      </div>
+    `;
+  }
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'time-picker-modal';
+  backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  backdrop.onclick = (e) => { if(e.target === backdrop) backdrop.remove(); };
+
+  const legs = getRWLegs();
+
+  backdrop.innerHTML = `
+    <div style="background:#1a1a2e;border:1px solid #3a3a4a;border-radius:16px;padding:20px;width:300px;max-width:90vw;box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+      <div style="font-size:13px;font-weight:700;color:#f5a623;margin-bottom:4px;">⏰ Day ${legs[legIdx].day}: Departure Time</div>
+      <div style="font-size:11px;color:#888;margin-bottom:16px;">${legs[legIdx].fromLabel} &rarr; ${legs[legIdx].toLabel}</div>
+      <div id="time-picker-display" style="text-align:center;margin-bottom:16px;"></div>
+      <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-bottom:8px;">
+        <div style="text-align:center;">
+          <div style="font-size:10px;color:#666;margin-bottom:6px;">HOUR</div>
+          <button onclick="timePickerAdjust('h',1)" style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#ccc;width:48px;height:36px;font-size:18px;cursor:pointer;">▲</button>
+          <div id="tp-hour" style="font-size:24px;font-weight:700;color:#e5e5e5;padding:8px 0;"></div>
+          <button onclick="timePickerAdjust('h',-1)" style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#ccc;width:48px;height:36px;font-size:18px;cursor:pointer;">▼</button>
+        </div>
+        <div style="font-size:28px;color:#555;font-weight:700;padding-top:16px;">:</div>
+        <div style="text-align:center;">
+          <div style="font-size:10px;color:#666;margin-bottom:6px;">MIN</div>
+          <button onclick="timePickerAdjust('m',15)" style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#ccc;width:48px;height:36px;font-size:18px;cursor:pointer;">▲</button>
+          <div id="tp-min" style="font-size:24px;font-weight:700;color:#e5e5e5;padding:8px 0;"></div>
+          <button onclick="timePickerAdjust('m',-15)" style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#ccc;width:48px;height:36px;font-size:18px;cursor:pointer;">▼</button>
+        </div>
+        <div style="text-align:center;padding-top:16px;">
+          <button onclick="timePickerToggleAmPm()" id="tp-ampm"
+            style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#f5a623;width:48px;height:40px;font-size:14px;font-weight:700;cursor:pointer;"></button>
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;">
+        <button onclick="document.getElementById('time-picker-modal').remove()"
+          style="flex:1;padding:10px;background:#2a2a3a;border:1px solid #3a3a4a;border-radius:10px;color:#ccc;font-size:13px;cursor:pointer;">Cancel</button>
+        <button onclick="confirmTimePicker(${legIdx})"
+          style="flex:1;padding:10px;background:#f5a623;border:none;border-radius:10px;color:#0f0f14;font-size:13px;font-weight:700;cursor:pointer;">Set Time</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(backdrop);
+
+  // Time picker adjustment functions
+  window._tpH = selH;
+  window._tpM = selM;
+
+  window.timePickerAdjust = (unit, delta) => {
+    if (unit === 'h') {
+      window._tpH = (window._tpH + delta + 24) % 24;
+    } else {
+      window._tpM = (window._tpM + delta + 60) % 60;
+    }
+    updateTimePickerDisplay();
+  };
+
+  window.timePickerToggleAmPm = () => {
+    window._tpH = (window._tpH + 12) % 24;
+    updateTimePickerDisplay();
+  };
+
+  window.confirmTimePicker = (idx) => {
+    const h24 = String(window._tpH).padStart(2, '0');
+    const m = String(window._tpM).padStart(2, '0');
+    rwUpdateDeparture(idx, `${h24}:${m}`);
+    document.getElementById('time-picker-modal').remove();
+  };
+
+  function updateTimePickerDisplay() {
+    const ampm = window._tpH >= 12 ? 'PM' : 'AM';
+    const dh = window._tpH % 12 || 12;
+    const dm = String(window._tpM).padStart(2, '0');
+    const dispEl = document.getElementById('time-picker-display');
+    if (dispEl) dispEl.innerHTML = `<div style="font-size:42px;font-weight:800;color:#e5e5e5;letter-spacing:2px;font-variant-numeric:tabular-nums;">${dh}:${dm} <span style="font-size:18px;color:#888;">${ampm}</span></div>`;
+    const ampmBtn = document.getElementById('tp-ampm');
+    if (ampmBtn) ampmBtn.textContent = ampm;
+  }
+
+  renderTimePicker();
+  const ampmBtn = document.getElementById('tp-ampm');
+  if (ampmBtn) ampmBtn.textContent = selH >= 12 ? 'PM' : 'AM';
+  history.pushState({ ys: true }, '');
 }
 
 function openRouteWeather() {
   document.getElementById('route-weather-panel').classList.add('open');
-  // Set the date picker to current trip start
-  const dateInput = document.getElementById('rw-trip-start-date');
-  if (dateInput) dateInput.value = rwTripStartDate;
   if (!rwCache) {
     fetchRouteWeatherData();
   } else {
@@ -3143,17 +3406,18 @@ function renderRouteWeather() {
 
     html += `<div class="rw-leg-card" style="border-color:${borderColor};${bgGlow}">
       <div class="flex items-center justify-between mb-2">
-        <div>
+        <div style="flex:1;min-width:0;">
           <h3 class="font-bold text-sm text-warm-400">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
-          <p class="text-xs text-gray-500">${leg.dateLabel} &middot; ~${leg.driveHours}h drive</p>
+          <p class="text-xs text-gray-500">~${leg.driveHours}h drive</p>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           <span style="font-size:12px;font-weight:700;color:${borderColor};background:${borderColor}22;padding:3px 10px;border-radius:6px;border:1px solid ${borderColor}55;">${sevEmoji} ${sevLabel.toUpperCase()}</span>
-          <div class="flex items-center gap-2">
-            <label class="text-xs text-gray-500">Depart:</label>
-            <input type="time" value="${departTime}" onchange="rwUpdateDeparture(${legIdx}, this.value)"
-              style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:6px;padding:4px 6px;color:#e5e5e5;font-size:12px;font-family:Inter,sans-serif;">
-          </div>
+          <button onclick="openDatePicker(${legIdx})" style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:8px;padding:5px 10px;color:#e5e5e5;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+            <span style="color:#f5a623;">📅</span> ${leg.dateLabel}${rwLegDates[legIdx] ? ' <span style="color:#6ee7b7;font-size:9px;">✎</span>' : ''}
+          </button>
+          <button onclick="openTimePicker(${legIdx})" style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:8px;padding:5px 10px;color:#e5e5e5;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+            <span style="color:#a5b4fc;">⏰</span> Depart ${(() => { const [h,m] = departTime.split(':').map(Number); return (h%12||12)+':'+String(m).padStart(2,'0')+(h>=12?' PM':' AM'); })()}
+          </button>
         </div>
       </div>
       ${bannerHtml}
@@ -3818,7 +4082,12 @@ document.addEventListener('click', (e) => {
 // ============================================================
 function appBack() {
   // Close open overlays in priority order instead of navigating away
-  // Check chip detail backdrop first (topmost)
+  // Close date/time picker modals first (topmost layer)
+  const datePicker = document.getElementById('date-picker-modal');
+  if (datePicker) { datePicker.remove(); return true; }
+  const timePicker = document.getElementById('time-picker-modal');
+  if (timePicker) { timePicker.remove(); return true; }
+  // Check chip detail backdrop
   const chipDetail = document.querySelector('.rw-chip-detail-backdrop');
   if (chipDetail) { chipDetail.remove(); return true; }
   // Close hamburger menu
