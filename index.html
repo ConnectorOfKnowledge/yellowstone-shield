@@ -71,7 +71,7 @@ tailwind.config = {
 
   /* Sidebar */
   #poi-sidebar {
-    position: fixed; top: 72px; left: 0; bottom: 0; z-index: 80;
+    position: fixed; top: 120px; left: 0; bottom: 0; z-index: 80;
     background: rgba(26,26,36,0.96); backdrop-filter: blur(12px);
     border-right: 1px solid rgba(245,166,35,0.2);
     width: 260px; overflow-y: auto; transition: transform 0.3s ease;
@@ -137,8 +137,8 @@ tailwind.config = {
 
   /* GPS override warning */
   #gps-override-warning {
-    position: fixed; top: 78px; left: 50%; transform: translateX(-50%);
-    z-index: 95; display: none;
+    position: fixed; top: 126px; left: 50%; transform: translateX(-50%);
+    z-index: 96; display: none;
   }
 
   /* Route Weather Panel */
@@ -180,6 +180,29 @@ tailwind.config = {
     border-top-color: #f5a623; border-radius: 50%;
     animation: spin 0.8s linear infinite; margin: 40px auto;
   }
+
+  /* Stop Picker Panel */
+  #stop-picker-panel {
+    position: fixed; inset: 0; z-index: 9998;
+    background: rgba(15,15,20,0.97); backdrop-filter: blur(12px);
+    overflow-y: auto; display: none;
+  }
+  #stop-picker-panel.open { display: block; }
+  .stop-item {
+    background: #1e1e2e; border: 1px solid #24243a; border-radius: 12px;
+    padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+    transition: all 0.2s; touch-action: none;
+  }
+  .stop-item.dragging { opacity: 0.5; border-color: #f5a623; }
+  .stop-item.hotel-stop { border-left: 3px solid #f5a623; }
+  .stop-item.custom-stop { border-left: 3px solid #22c55e; }
+  .stop-item.origin-stop { border-left: 3px solid #3b82f6; }
+  .stop-item.dest-stop { border-left: 3px solid #ef4444; }
+  .stop-drag-handle {
+    cursor: grab; color: #666; font-size: 18px; padding: 4px;
+    touch-action: none; user-select: none;
+  }
+  .stop-drag-handle:active { cursor: grabbing; }
 
   /* Responsive */
   @media (min-width: 768px) {
@@ -237,8 +260,8 @@ tailwind.config = {
 <!-- ==================== MAIN APP ==================== -->
 <div id="main-app" class="hidden" style="height:100vh;width:100vw;">
 
-  <!-- Weather Bar -->
-  <div id="weather-bar" class="px-4 py-2">
+  <!-- Weather Bar (tap to open full route weather) -->
+  <div id="weather-bar" class="px-4 py-2" onclick="openRouteWeather()" style="cursor:pointer;">
     <div class="flex items-center justify-between text-sm">
       <div class="flex items-center gap-3">
         <span id="weather-icon" class="text-xl">--</span>
@@ -255,41 +278,54 @@ tailwind.config = {
     <div id="wind-warning" class="wind-warning hidden mt-1 px-3 py-1.5 bg-red-900/60 border border-red-500 rounded-lg text-xs text-red-300 font-semibold text-center">
       HIGH WIND WARNING -- Consider delaying departure
     </div>
-    <div id="weather-leg-info" class="text-xs text-gray-500 mt-0.5">Next leg: --</div>
+    <div class="flex items-center justify-between mt-0.5">
+      <div id="weather-leg-info" class="text-xs text-gray-500">Next leg: --</div>
+      <div class="text-xs text-warm-400/60 font-medium">Tap for full forecast ›</div>
+    </div>
   </div>
 
   <!-- Map -->
   <div id="map"></div>
 
-  <!-- Map Search Bar -->
-  <div id="map-search-container" style="position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:90;width:calc(100% - 120px);max-width:480px;">
-    <div style="position:relative;">
-      <input id="map-search-input" type="text" placeholder="Search hotels, gas stations, food..."
-        style="width:100%;padding:10px 40px 10px 36px;background:#1e1e2e;border:1px solid #3a3a4a;border-radius:12px;color:#e5e5e5;font-size:14px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.4);"
-        onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#3a3a4a'">
-      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:#888;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-      </svg>
-      <button id="map-search-clear" onclick="clearMapSearch()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#888;font-size:18px;cursor:pointer;padding:4px;">✕</button>
-    </div>
-  </div>
-
-  <!-- Top Left Controls -->
-  <div style="position:fixed;top:80px;left:8px;z-index:85;display:flex;gap:4px;align-items:center;transition:left 0.3s ease;" id="top-left-controls">
+  <!-- Top Control Bar (buttons + search in one row) -->
+  <div id="top-control-bar" style="position:fixed;top:72px;left:0;right:0;z-index:95;display:flex;align-items:center;gap:4px;padding:6px 8px;">
     <!-- Back Button (closes open overlays) -->
-    <button onclick="appBack()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Back">
+    <button onclick="appBack()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Back" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
     </button>
     <!-- Route Weather Button -->
-    <button onclick="openRouteWeather()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Route Weather">
+    <button onclick="openRouteWeather()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Route Weather" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
       </svg>
     </button>
-    <!-- Toggle Sidebar Button -->
-    <button id="toggle-sidebar-btn" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all">
+    <!-- Stop Picker Button -->
+    <button onclick="openStopPicker()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Manage Stops" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+    </button>
+    <!-- Toggle Sidebar / Filters Button -->
+    <button id="toggle-sidebar-btn" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Filters" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
       <svg id="sidebar-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       <svg id="sidebar-icon-close" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <!-- Search Bar (fills remaining space) -->
+    <div style="position:relative;flex:1;min-width:0;">
+      <input id="map-search-input" type="text" placeholder="Search places..."
+        style="width:100%;padding:8px 72px 8px 32px;background:#1e1e2e;border:1px solid #3a3a4a;border-radius:10px;color:#e5e5e5;font-size:13px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.4);"
+        onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#3a3a4a'">
+      <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#888;pointer-events:none;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <button id="map-search-go" onclick="triggerMapSearch()" style="position:absolute;right:30px;top:50%;transform:translateY(-50%);background:#f5a623;border:none;color:#0f0f14;font-size:11px;font-weight:700;cursor:pointer;padding:4px 10px;border-radius:6px;">Go</button>
+      <button id="map-search-clear" onclick="clearMapSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px;">✕</button>
+    </div>
+    <!-- Find My Location Button -->
+    <button onclick="findMyLocation()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" title="Find my location" style="min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>
+      </svg>
     </button>
   </div>
 
@@ -353,12 +389,7 @@ tailwind.config = {
     <div id="hotel-cards" class="px-4 pb-6 space-y-3"></div>
   </div>
 
-  <!-- Find My Location Button -->
-  <button id="find-location-btn" onclick="findMyLocation()" style="position:fixed;top:80px;right:16px;z-index:95;width:44px;height:44px;background:#1e1e2e;border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;" title="Find my location">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#e2e8f0" stroke-width="2">
-      <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>
-    </svg>
-  </button>
+  <!-- Find My Location Button (now in top control bar) -->
 
   <!-- Half-Tank Reminder -->
   <div id="half-tank-reminder" class="bg-warm-600/90 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg">
@@ -404,6 +435,28 @@ tailwind.config = {
       <div id="route-weather-content">
         <div class="rw-spinner"></div>
         <p class="text-center text-gray-500 text-sm">Loading route weather...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stop Picker Panel -->
+  <div id="stop-picker-panel" onclick="if(event.target===this)closeStopPicker()">
+    <div class="max-w-lg mx-auto px-4 py-6 pb-24">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-extrabold text-warm-400">Route Stops</h2>
+          <p class="text-gray-500 text-xs mt-0.5">Add, reorder, or remove stops</p>
+        </div>
+        <button onclick="closeStopPicker()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
+      </div>
+      <div id="stop-picker-list" class="space-y-2 mb-4"></div>
+      <div class="space-y-3">
+        <button onclick="addNewStop()" class="w-full py-3 rounded-xl font-semibold text-sm bg-dark-700 border border-dashed border-gray-600 text-gray-400 hover:border-road-green hover:text-road-green transition-all">
+          + Add a Stop
+        </button>
+        <button onclick="sendToGoogleMaps()" class="w-full py-3.5 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-900/40 active:scale-[0.98] transition-all">
+          📍 Open Full Route in Google Maps
+        </button>
       </div>
     </div>
   </div>
@@ -1284,9 +1337,9 @@ function setupSearchAreaButton() {
   }
 
   searchAreaBtn = document.createElement('button');
-  searchAreaBtn.style.cssText = 'display:none;position:absolute;top:80px;left:50%;transform:translateX(-50%);z-index:5;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
+  searchAreaBtn.style.cssText = 'display:none;position:fixed;top:124px;left:50%;transform:translateX(-50%);z-index:92;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
   updateSearchButtonLabel();
-  document.getElementById('map').appendChild(searchAreaBtn);
+  document.getElementById('main-app').appendChild(searchAreaBtn);
 
   searchAreaBtn.addEventListener('click', () => {
     if (!hasSeenSearchExplanation) {
@@ -2019,6 +2072,17 @@ function clearSearchMarkers() {
   searchMarkers = [];
 }
 
+function triggerMapSearch() {
+  const input = document.getElementById('map-search-input');
+  const clearBtn = document.getElementById('map-search-clear');
+  const query = input.value.trim();
+  if (query) {
+    textSearchMap(query);
+    clearBtn.style.display = 'block';
+    input.blur(); // dismiss keyboard on mobile
+  }
+}
+
 function clearMapSearch() {
   const input = document.getElementById('map-search-input');
   const clearBtn = document.getElementById('map-search-clear');
@@ -2311,6 +2375,209 @@ function rwUpdateDeparture(legIdx, newTime) {
 }
 
 // ============================================================
+// STOP PICKER
+// ============================================================
+function openStopPicker() {
+  document.getElementById('stop-picker-panel').classList.add('open');
+  renderStopPicker();
+}
+
+function closeStopPicker() {
+  document.getElementById('stop-picker-panel').classList.remove('open');
+}
+
+function renderStopPicker() {
+  const container = document.getElementById('stop-picker-list');
+
+  // Build all stops list: Origin, Hotels, Custom Stops, Destination
+  // Hotels are fixed in position (can't reorder them relative to each other for now)
+  // Custom waypoints can be reordered and removed
+  let html = '';
+
+  // Origin
+  html += `<div class="stop-item origin-stop">
+    <div class="text-blue-400 text-lg font-bold w-8 text-center">A</div>
+    <div class="flex-1 min-w-0">
+      <div class="text-sm text-gray-200 font-medium">Seven Valleys, PA</div>
+      <div class="text-xs text-gray-500">Starting point</div>
+    </div>
+  </div>`;
+
+  // Hotels
+  HOTELS.forEach((hotel, i) => {
+    const nightLabel = `Night ${hotel.night}`;
+    html += `<div class="stop-item hotel-stop">
+      <div class="text-warm-400 text-lg font-bold w-8 text-center">${hotel.night}</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm text-gray-200 font-medium truncate">${hotel.name}</div>
+        <div class="text-xs text-gray-500 truncate">${hotel.address}</div>
+        <div class="text-xs text-warm-400/70 mt-0.5">${nightLabel} - ${hotel.date}</div>
+      </div>
+      <div class="text-xs text-gray-600 px-2 py-1 rounded bg-dark-700">Hotel</div>
+    </div>`;
+
+    // Insert custom waypoints that should come after this hotel
+    // (We show custom stops in their added order, between hotels)
+  });
+
+  // Custom waypoints (after all hotels, before destination)
+  if (customWaypoints.length > 0) {
+    html += `<div class="px-1 pt-3 pb-1"><p class="text-[10px] uppercase tracking-wider text-road-green font-semibold">Custom Stops (drag to reorder)</p></div>`;
+    customWaypoints.forEach((cw, i) => {
+      html += `<div class="stop-item custom-stop" draggable="true" data-custom-idx="${i}"
+        ondragstart="onStopDragStart(event, ${i})" ondragover="onStopDragOver(event)" ondrop="onStopDrop(event, ${i})" ondragend="onStopDragEnd(event)"
+        ontouchstart="onStopTouchStart(event, ${i})" ontouchmove="onStopTouchMove(event)" ontouchend="onStopTouchEnd(event, ${i})">
+        <div class="stop-drag-handle" title="Drag to reorder">⠿</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm text-gray-200 font-medium truncate">${cw.name}</div>
+          <div class="text-xs text-gray-500 truncate">${cw.address || ''}</div>
+        </div>
+        <button onclick="removeStopFromPicker(${i})" class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-sm font-bold" title="Remove">✗</button>
+      </div>`;
+    });
+  }
+
+  // Destination
+  html += `<div class="stop-item dest-stop">
+    <div class="text-red-400 text-lg font-bold w-8 text-center">B</div>
+    <div class="flex-1 min-w-0">
+      <div class="text-sm text-gray-200 font-medium">Gardiner, Yellowstone NP</div>
+      <div class="text-xs text-gray-500">Final destination</div>
+    </div>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+// Drag and drop for reordering custom stops
+let dragFromIdx = null;
+
+function onStopDragStart(e, idx) {
+  dragFromIdx = idx;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onStopDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function onStopDrop(e, toIdx) {
+  e.preventDefault();
+  if (dragFromIdx === null || dragFromIdx === toIdx) return;
+
+  const item = customWaypoints.splice(dragFromIdx, 1)[0];
+  customWaypoints.splice(toIdx, 0, item);
+  localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+
+  redrawRouteWithCustomWaypoints();
+  renderCustomStops();
+  renderStopPicker();
+}
+
+function onStopDragEnd(e) {
+  dragFromIdx = null;
+  document.querySelectorAll('.stop-item.dragging').forEach(el => el.classList.remove('dragging'));
+}
+
+// Touch-based drag for mobile
+let touchDragIdx = null;
+let touchClone = null;
+
+function onStopTouchStart(e, idx) {
+  const touch = e.touches[0];
+  touchDragIdx = idx;
+  // Visual feedback
+  e.currentTarget.classList.add('dragging');
+}
+
+function onStopTouchMove(e) {
+  if (touchDragIdx === null) return;
+  e.preventDefault(); // prevent scroll while dragging
+}
+
+function onStopTouchEnd(e, idx) {
+  if (touchDragIdx === null) return;
+  document.querySelectorAll('.stop-item.dragging').forEach(el => el.classList.remove('dragging'));
+
+  // Find which custom-stop element the finger ended on
+  const touch = e.changedTouches[0];
+  const elements = document.querySelectorAll('.stop-item.custom-stop');
+  let targetIdx = null;
+
+  elements.forEach((el, i) => {
+    const rect = el.getBoundingClientRect();
+    if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+      targetIdx = parseInt(el.dataset.customIdx);
+    }
+  });
+
+  if (targetIdx !== null && targetIdx !== touchDragIdx) {
+    const item = customWaypoints.splice(touchDragIdx, 1)[0];
+    customWaypoints.splice(targetIdx, 0, item);
+    localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+    redrawRouteWithCustomWaypoints();
+    renderCustomStops();
+    renderStopPicker();
+  }
+
+  touchDragIdx = null;
+}
+
+function removeStopFromPicker(idx) {
+  customWaypoints.splice(idx, 1);
+  localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+  redrawRouteWithCustomWaypoints();
+  renderCustomStops();
+  renderStopPicker();
+}
+
+function addNewStop() {
+  // Close stop picker, focus the search bar so she can find a place
+  closeStopPicker();
+  const input = document.getElementById('map-search-input');
+  if (input) {
+    input.focus();
+    input.placeholder = 'Search for a stop to add...';
+    setTimeout(() => { input.placeholder = 'Search places...'; }, 5000);
+  }
+}
+
+function sendToGoogleMaps() {
+  // Build a Google Maps directions URL with all waypoints
+  const origin = encodeURIComponent(ORIGIN);
+  const destination = encodeURIComponent(DESTINATION);
+
+  // Collect all waypoints: hotels + custom
+  const allStops = [];
+
+  // Hotels
+  HOTELS.forEach(h => {
+    if (h.lat && h.lng) {
+      allStops.push(`${h.lat},${h.lng}`);
+    }
+  });
+
+  // Custom waypoints
+  customWaypoints.forEach(cw => {
+    allStops.push(`${cw.lat},${cw.lng}`);
+  });
+
+  // Google Maps URL format: origin/wp1/wp2/.../destination
+  // Max ~10 waypoints in the URL
+  let url;
+  if (allStops.length > 0) {
+    const waypointsStr = allStops.join('/');
+    url = `https://www.google.com/maps/dir/${encodeURIComponent(ORIGIN)}/${waypointsStr}/${encodeURIComponent(DESTINATION)}`;
+  } else {
+    url = `https://www.google.com/maps/dir/${encodeURIComponent(ORIGIN)}/${encodeURIComponent(DESTINATION)}`;
+  }
+
+  window.open(url, '_blank');
+}
+
+// ============================================================
 // APP-LEVEL BACK BUTTON
 // ============================================================
 function appBack() {
@@ -2318,6 +2585,11 @@ function appBack() {
   const emergencyModal = document.getElementById('emergency-modal');
   if (emergencyModal && emergencyModal.style.display === 'block') {
     closeEmergencyModal();
+    return;
+  }
+  const stopPicker = document.getElementById('stop-picker-panel');
+  if (stopPicker && stopPicker.classList.contains('open')) {
+    closeStopPicker();
     return;
   }
   const rwPanel = document.getElementById('route-weather-panel');
