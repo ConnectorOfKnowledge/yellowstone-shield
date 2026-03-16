@@ -276,13 +276,9 @@ tailwind.config = {
 
   <!-- Top Left Controls -->
   <div style="position:fixed;top:80px;left:8px;z-index:85;display:flex;gap:4px;align-items:center;transition:left 0.3s ease;" id="top-left-controls">
-    <!-- Back Button -->
-    <button onclick="window.history.back()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Back">
+    <!-- Back Button (closes open overlays) -->
+    <button onclick="appBack()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Back">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-    </button>
-    <!-- Forward Button -->
-    <button onclick="window.history.forward()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Forward">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
     </button>
     <!-- Route Weather Button -->
     <button onclick="openRouteWeather()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all" title="Route Weather">
@@ -526,13 +522,15 @@ let activePOIs = new Set();
 let routeWaypoints = [];
 let lastGasStopMiles = 0;
 let totalMilesDriven = 0;
+let mapInitialized = false;
+let customWaypoints = JSON.parse(localStorage.getItem('ys_custom_waypoints') || '[]');
 
 // ============================================================
 // INITIALIZATION
 // ============================================================
 function loadGoogleMaps() {
   const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=initApp`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&callback=initApp`;
   script.async = true;
   script.defer = true;
   document.head.appendChild(script);
@@ -650,6 +648,9 @@ function showMainApp() {
 // MAP
 // ============================================================
 function initMap() {
+  if (mapInitialized) return;
+  mapInitialized = true;
+
   map = new google.maps.Map(document.getElementById('map'), {
     center: { lat: 41.5, lng: -90 },
     zoom: 5,
@@ -964,7 +965,7 @@ function initHotelPanel() {
         </div>
         ${hotel.confirmation !== '--' ? `<div class="text-xs text-road-teal mb-2">Confirmation: ${hotel.confirmation}</div>` : '<div class="text-xs text-gray-600 mb-2">Not yet booked</div>'}
         <textarea class="w-full bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-xs text-gray-300 placeholder-gray-600 resize-none" rows="2"
-          placeholder="Add notes..." onchange="saveHotelNote(${i}, this.value)">${hotel.notes || ''}</textarea>
+          placeholder="Add notes..." oninput="saveHotelNote(${i}, this.value)">${hotel.notes || ''}</textarea>
         ${!isTBD ? `<div class="flex gap-2 mt-2">
           <button class="flex-1 py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
             onclick="getDirectionsTo(${hotel.lat}, ${hotel.lng})">📍 Directions</button>
@@ -1056,7 +1057,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (toggle) toggle.checked = showOnlyOpen;
 });
 let hasSeenSearchExplanation = localStorage.getItem('ys_search_explained') === 'true';
-let customWaypoints = JSON.parse(localStorage.getItem('ys_custom_waypoints') || '[]');
 
 const ESSENTIAL_TYPES = ['gas_station', 'rest_stop', 'restaurant', 'supermarket'];
 const SAFETY_TYPES = ['police', 'hospital', 'fire_station', 'car_repair'];
@@ -1642,7 +1642,7 @@ async function fetchWeather() {
       const leaveHour = Math.floor(leaveByHour);
       const leaveMin = Math.round((leaveByHour - leaveHour) * 60);
       const ampm = leaveHour >= 12 ? 'PM' : 'AM';
-      const displayHour = leaveHour > 12 ? leaveHour - 12 : leaveHour;
+      const displayHour = leaveHour % 12 || 12;
       document.getElementById('weather-depart').textContent =
         `Leave by: ${displayHour}:${String(leaveMin).padStart(2, '0')} ${ampm}`;
 
@@ -1712,13 +1712,13 @@ function findEmergencyServices() {
   const searchLocation = userPosition ||
     { lat: map.getCenter().lat(), lng: map.getCenter().lng() };
 
-  if (!userPosition) {
-    container.innerHTML = `<div class="text-center text-yellow-400 py-2 text-xs mb-2">
+  const gpsWarning = !userPosition
+    ? `<div class="text-center text-yellow-400 py-2 text-xs mb-2">
       ⚠️ GPS unavailable. Showing results near map center. Pan the map to your area and try again.
-    </div>`;
-  }
+    </div>`
+    : '';
 
-  container.innerHTML = '<div class="text-center text-gray-500 py-4"><div class="loader mx-auto mb-2" style="width:28px;height:28px;border-width:3px;"></div>Searching nearby...</div>';
+  container.innerHTML = gpsWarning + '<div class="text-center text-gray-500 py-4"><div class="loader mx-auto mb-2" style="width:28px;height:28px;border-width:3px;"></div>Searching nearby...</div>';
 
   const types = [
     { type: 'police', label: 'Police Station', icon: '🚔', color: 'blue' },
@@ -1769,12 +1769,13 @@ function renderEmergencyResults(results) {
 
   let html = '';
   results.forEach(r => {
-    // Calculate distance
-    const dist = google.maps.geometry
-      ? google.maps.geometry.spherical.computeDistanceBetween(
-          new google.maps.LatLng(userPosition), r.location
-        ) / 1609.34
-      : null;
+    // Calculate distance (only if GPS position is available)
+    let dist = null;
+    if (userPosition && google.maps.geometry) {
+      dist = google.maps.geometry.spherical.computeDistanceBetween(
+        new google.maps.LatLng(userPosition.lat, userPosition.lng), r.location
+      ) / 1609.34;
+    }
 
     html += `<div class="bg-dark-700 rounded-xl p-3 border border-dark-600">
       <div class="flex items-start gap-3">
@@ -2001,9 +2002,10 @@ function addSearchResultMarker(place) {
         <button onclick="navigator.clipboard.writeText('${addr}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='📋 Copy',1500);"
           style="flex:1;text-align:center;font-size:11px;color:#0d9488;background:#f0fdfa;padding:5px 4px;border-radius:6px;border:none;cursor:pointer;min-width:50px;">📋 Copy</button>
       </div>
-      <button onclick="toggleCustomWaypoint('${place.name.replace(/'/g, "\\'")}','${addr}',${lat},${lng},'${pid}',this)"
-        style="width:100%;margin-top:6px;text-align:center;font-size:11px;color:${isOnRoute ? '#dc2626' : '#16a34a'};background:${isOnRoute ? '#fef2f2' : '#f0fdf4'};padding:6px 4px;border-radius:6px;border:none;cursor:pointer;font-weight:600;">
-        ${isOnRoute ? '✕ Remove from route' : '+ Add to my route'}
+      <button onclick="toggleRouteWaypoint('add-route-search-${pid}', ${lat}, ${lng}, '${place.name.replace(/'/g, "\\'")}', '${addr}')"
+        id="add-route-search-${pid}"
+        style="width:100%;margin-top:6px;text-align:center;font-size:11px;color:${isOnRoute ? '#dc2626' : '#16a34a'};background:${isOnRoute ? '#fef2f2' : '#f0fdf4'};padding:6px 4px;border-radius:6px;border:1px solid ${isOnRoute ? '#dc2626' : '#22c55e'};cursor:pointer;font-weight:600;">
+        ${isOnRoute ? '✗ Remove from route' : '+ Add to my route'}
       </button>
     </div>`
   });
@@ -2030,7 +2032,7 @@ function clearMapSearch() {
 // ============================================================
 let rwCache = null; // cached hourly weather data
 let rwDepartureTimes = JSON.parse(localStorage.getItem('ys_departure_times') || 'null') || [
-  '08:00', '08:00', '08:00', '08:00', '05:00'
+  '08:00', '08:00', '08:00', '08:00', '08:00', '05:00'
 ];
 
 const RW_LEGS = [
@@ -2047,8 +2049,11 @@ const RW_LEGS = [
     fromLabel: 'Brandon, SD', toLabel: 'Baymont, Rapid City, SD',
     startLat: 43.5947, startLng: -96.5717, endLat: 44.0581, endLng: -103.1994 },
   { day: 5, date: '2026-03-21', dateLabel: 'Mar 21', driveHours: 5,
-    fromLabel: 'Rapid City, SD', toLabel: 'Gardiner, Yellowstone',
-    startLat: 44.0581, startLng: -103.1994, endLat: 45.0328, endLng: -110.7059 }
+    fromLabel: 'Rapid City, SD', toLabel: 'Billings, MT',
+    startLat: 44.0581, startLng: -103.1994, endLat: 45.7833, endLng: -108.5007 },
+  { day: 6, date: '2026-03-22', dateLabel: 'Mar 22', driveHours: 2.75,
+    fromLabel: 'Billings, MT', toLabel: 'Gardiner, Yellowstone',
+    startLat: 45.7833, startLng: -108.5007, endLat: 45.0328, endLng: -110.7059 }
 ];
 
 function openRouteWeather() {
@@ -2226,7 +2231,7 @@ function renderRouteWeather() {
 
       // Format arrival time
       const ampm = arrivalHour >= 12 ? 'PM' : 'AM';
-      const displayHour = arrivalHour > 12 ? arrivalHour - 12 : (arrivalHour === 0 ? 12 : arrivalHour);
+      const displayHour = arrivalHour % 12 || 12;
       const timeStr = `${displayHour}:${String(arrivalMinute).padStart(2, '0')} ${ampm}`;
 
       // Find matching hourly index
@@ -2306,6 +2311,34 @@ function rwUpdateDeparture(legIdx, newTime) {
 }
 
 // ============================================================
+// APP-LEVEL BACK BUTTON
+// ============================================================
+function appBack() {
+  // Close open overlays in priority order instead of navigating away
+  const emergencyModal = document.getElementById('emergency-modal');
+  if (emergencyModal && emergencyModal.style.display === 'block') {
+    closeEmergencyModal();
+    return;
+  }
+  const rwPanel = document.getElementById('route-weather-panel');
+  if (rwPanel && rwPanel.classList.contains('open')) {
+    closeRouteWeather();
+    return;
+  }
+  const sidebar = document.getElementById('poi-sidebar');
+  if (sidebar && !sidebar.classList.contains('collapsed')) {
+    document.getElementById('toggle-sidebar-btn').click();
+    return;
+  }
+  const hotelPanel = document.getElementById('hotel-panel');
+  if (hotelPanel && !hotelPanel.classList.contains('collapsed')) {
+    hotelPanel.classList.add('collapsed');
+    return;
+  }
+  // Nothing open -- do nothing (don't call history.back)
+}
+
+// ============================================================
 // BOOT
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
@@ -2324,6 +2357,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }, 10000);
 
   loadGoogleMaps();
+
+  // Refresh weather every 30 minutes
+  setInterval(() => { fetchWeather(); }, 30 * 60 * 1000);
 });
 </script>
 </body>
