@@ -1695,17 +1695,44 @@ function searchPOIsAlongRouteEssentials(type) {
   const placeType = type === 'rest_stop' ? 'parking' : type;
   const seenPlaceIds = new Set();
 
-  // Search radius: 8km (~5 miles) -- tight corridor along the actual route
+  // Search radius: 8km to catch candidates (accounts for gaps between 12km sample points)
+  // Then post-filter to 1 mile (1609m) actual distance from route
   const searchRadius = 8000;
+  const MAX_ROUTE_DISTANCE = 1609; // 1 mile in meters
 
-  // With ~240 points, batch in groups of 10 with pauses to avoid rate limits
-  // Google Places allows ~10 QPS, so 10 requests then 1.5s pause
+  // Strict type validation: Google sometimes returns loosely related places
+  // (e.g., ATMs for gas_station searches). Only keep places whose types match.
+  const STRICT_TYPE_MAP = {
+    gas_station: ['gas_station'],
+    restaurant: ['restaurant', 'meal_takeaway', 'meal_delivery', 'cafe', 'bakery'],
+    supermarket: ['supermarket', 'grocery_or_supermarket'],
+    hospital: ['hospital'],
+    police: ['police'],
+    fire_station: ['fire_station'],
+    car_repair: ['car_repair'],
+    parking: ['parking', 'rv_park'] // rest stops
+  };
+  const allowedTypes = STRICT_TYPE_MAP[placeType] || [placeType];
+
+  // Helper: check minimum distance from a place to the route polyline
+  function distToRoute(placeLocation) {
+    let minDist = Infinity;
+    for (let i = 0; i < searchPoints.length; i++) {
+      const d = google.maps.geometry.spherical.computeDistanceBetween(placeLocation, searchPoints[i]);
+      if (d < minDist) minDist = d;
+      if (minDist < MAX_ROUTE_DISTANCE) return minDist; // early exit
+    }
+    return minDist;
+  }
+
+  // Batch in groups of 10 with pauses to avoid rate limits
   const BATCH_SIZE = 10;
-  const BATCH_DELAY = 1500; // ms between batches
-  const INTRA_DELAY = 100;  // ms between requests within a batch
+  const BATCH_DELAY = 1500;
+  const INTRA_DELAY = 100;
   let totalFound = 0;
+  let totalRejected = 0;
 
-  showToast(`🔍 Searching ${type.replace('_', ' ')} within 5 miles of route...`);
+  showToast(`🔍 Searching ${type.replace('_', ' ')} within 1 mile of route...`);
 
   function processBatch(startIdx) {
     const endIdx = Math.min(startIdx + BATCH_SIZE, searchPoints.length);
@@ -1724,6 +1751,21 @@ function searchPOIsAlongRouteEssentials(type) {
               // Deduplicate by place_id
               if (seenPlaceIds.has(place.place_id)) return;
               seenPlaceIds.add(place.place_id);
+
+              // Strict type check: place must actually BE the type we searched for
+              const placeTypes = place.types || [];
+              if (!placeTypes.some(t => allowedTypes.includes(t))) {
+                totalRejected++;
+                return;
+              }
+
+              // Distance check: must be within 1 mile of the actual route
+              const dist = distToRoute(place.geometry.location);
+              if (dist > MAX_ROUTE_DISTANCE) {
+                totalRejected++;
+                return;
+              }
+
               // Filter closed places if toggle is on
               if (showOnlyOpen && place.opening_hours && !place.opening_hours.isOpen()) return;
 
@@ -1740,7 +1782,7 @@ function searchPOIsAlongRouteEssentials(type) {
     if (endIdx < searchPoints.length) {
       setTimeout(() => processBatch(endIdx), BATCH_DELAY);
     } else {
-      // All batches done -- show result count after final batch completes
+      // All batches done
       setTimeout(() => {
         showToast(`✅ Found ${totalFound} ${type.replace('_', ' ')}${totalFound !== 1 ? 's' : ''} along route`);
       }, BATCH_DELAY);
