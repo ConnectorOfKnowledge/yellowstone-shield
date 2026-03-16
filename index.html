@@ -2143,12 +2143,16 @@ async function fetchWeather() {
     `Next leg: ${fromLabel} → ${nextHotel.name}`;
 
   // Reverse geocode to get city name for the weather location
-  if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
+  // Cache: only re-geocode if position moved > 3 miles (saves API calls when stationary)
+  const _gcKey = `${currentLat.toFixed(2)},${currentLng.toFixed(2)}`;
+  if (fetchWeather._lastGeoKey === _gcKey && fetchWeather._lastGeoLabel) {
+    const locEl = document.getElementById('weather-location');
+    if (locEl) locEl.textContent = fetchWeather._lastGeoLabel;
+  } else if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
     try {
       const geocoder = new google.maps.Geocoder();
       geocoder.geocode({ location: { lat: currentLat, lng: currentLng } }, (results, status) => {
         if (status === 'OK' && results && results.length > 0) {
-          // Find the locality (city) from address components
           let city = '', state = '';
           for (const result of results) {
             for (const comp of result.address_components) {
@@ -2157,16 +2161,16 @@ async function fetchWeather() {
             }
             if (city && state) break;
           }
+          const label = city && state
+            ? `📍 ${city}, ${state}${usingGPS ? ' (GPS)' : ''}`
+            : `📍 ${fromLabel}`;
+          fetchWeather._lastGeoKey = _gcKey;
+          fetchWeather._lastGeoLabel = label;
           const locEl = document.getElementById('weather-location');
-          if (locEl) {
-            locEl.textContent = city && state
-              ? `📍 ${city}, ${state}${usingGPS ? ' (GPS)' : ''}`
-              : `📍 ${fromLabel}`;
-          }
+          if (locEl) locEl.textContent = label;
         }
       });
     } catch(e) {
-      // Geocoding failed silently -- show fallback label
       const locEl = document.getElementById('weather-location');
       if (locEl) locEl.textContent = `📍 ${fromLabel}`;
     }
