@@ -116,7 +116,7 @@ tailwind.config = {
 
   /* Half-tank reminder */
   #half-tank-reminder {
-    position: fixed; top: 78px; right: 16px; z-index: 95;
+    position: fixed; top: 130px; right: 16px; z-index: 95;
     display: none;
   }
 
@@ -288,6 +288,13 @@ tailwind.config = {
     </div>
     <div id="hotel-cards" class="px-4 pb-6 space-y-3"></div>
   </div>
+
+  <!-- Find My Location Button -->
+  <button id="find-location-btn" onclick="findMyLocation()" style="position:fixed;top:80px;right:16px;z-index:95;width:44px;height:44px;background:#1e1e2e;border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;" title="Find my location">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#e2e8f0" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>
+    </svg>
+  </button>
 
   <!-- Half-Tank Reminder -->
   <div id="half-tank-reminder" class="bg-warm-600/90 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg">
@@ -547,6 +554,7 @@ function showMainApp() {
   loadHotelNotes();
   initMap();
   initHotelPanel();
+  renderCustomStops();
   initSidebarToggle();
   startLocationWatch();
   fetchWeather();
@@ -593,17 +601,24 @@ function initMap() {
 }
 
 function drawRoute() {
-  const waypoints = HOTELS
+  const hotelWaypoints = HOTELS
     .filter(h => h.lat && h.lng)
     .map(h => ({
       location: new google.maps.LatLng(h.lat, h.lng),
       stopover: true
     }));
 
+  const customWps = customWaypoints.map(cw => ({
+    location: new google.maps.LatLng(cw.lat, cw.lng),
+    stopover: true
+  }));
+
+  const allWaypoints = [...hotelWaypoints, ...customWps];
+
   directionsService.route({
     origin: ORIGIN,
     destination: DESTINATION,
-    waypoints: waypoints,
+    waypoints: allWaypoints,
     travelMode: 'DRIVING',
     optimizeWaypoints: false
   }, (result, status) => {
@@ -724,6 +739,79 @@ function startLocationWatch() {
       console.log('Geolocation error:', err.message);
     },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+  );
+}
+
+function findMyLocation() {
+  const btn = document.getElementById('find-location-btn');
+  btn.style.borderColor = '#f5a623';
+  btn.style.boxShadow = '0 0 8px rgba(245,166,35,0.4)';
+
+  if (!navigator.geolocation) {
+    btn.style.borderColor = 'rgba(245,166,35,0.4)';
+    btn.style.boxShadow = 'none';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      userPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+
+      if (!userMarker) {
+        userMarker = new google.maps.Marker({
+          position: userPosition,
+          map: map,
+          title: 'You are here',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#3b82f6',
+            fillOpacity: 1,
+            strokeColor: '#bfdbfe',
+            strokeWeight: 3
+          },
+          zIndex: 999
+        });
+      } else {
+        userMarker.setPosition(userPosition);
+      }
+
+      map.setCenter(userPosition);
+      map.setZoom(13);
+
+      // Flash the user marker
+      let flashCount = 0;
+      const flashInterval = setInterval(() => {
+        if (flashCount >= 6) {
+          clearInterval(flashInterval);
+          userMarker.setOptions({ icon: { ...userMarker.getIcon(), fillOpacity: 1, strokeOpacity: 1 } });
+          return;
+        }
+        const visible = flashCount % 2 === 0;
+        userMarker.setOptions({
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: visible ? 14 : 10,
+            fillColor: '#3b82f6',
+            fillOpacity: visible ? 0.6 : 1,
+            strokeColor: '#bfdbfe',
+            strokeWeight: visible ? 4 : 3
+          }
+        });
+        flashCount++;
+      }, 250);
+
+      btn.style.borderColor = 'rgba(245,166,35,0.4)';
+      btn.style.boxShadow = 'none';
+    },
+    () => {
+      btn.style.borderColor = '#dc2626';
+      setTimeout(() => {
+        btn.style.borderColor = 'rgba(245,166,35,0.4)';
+        btn.style.boxShadow = 'none';
+      }, 2000);
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
   );
 }
 
@@ -859,6 +947,123 @@ let searchAreaBtn = null;
 let mapIdleListener = null;
 let searchRadiusCircle = null;
 let hasSeenSearchExplanation = localStorage.getItem('ys_search_explained') === 'true';
+let customWaypoints = JSON.parse(localStorage.getItem('ys_custom_waypoints') || '[]');
+
+const ESSENTIAL_TYPES = ['gas_station', 'rest_stop', 'restaurant', 'supermarket'];
+const SAFETY_TYPES = ['police', 'hospital', 'fire_station', 'car_repair'];
+
+const POI_ICON_MAP = {
+  gas_station: '⛽', rest_stop: '🅿️', restaurant: '🍔', supermarket: '🛒',
+  police: '🚔', hospital: '🏥', fire_station: '🚒', car_repair: '🔧'
+};
+
+function isEssentialType(type) {
+  return ESSENTIAL_TYPES.includes(type);
+}
+
+function getAheadWaypoints() {
+  if (!routeWaypoints || routeWaypoints.length === 0) return [];
+
+  // Find the reference point: user position or map center
+  let refLat, refLng;
+  if (userPosition) {
+    refLat = userPosition.lat;
+    refLng = userPosition.lng;
+  } else {
+    const c = map.getCenter();
+    refLat = c.lat();
+    refLng = c.lng();
+  }
+
+  // Find the closest waypoint index to the reference position
+  let closestIdx = 0;
+  let closestDist = Infinity;
+  for (let i = 0; i < routeWaypoints.length; i++) {
+    const wp = routeWaypoints[i];
+    const dLat = wp.lat() - refLat;
+    const dLng = wp.lng() - refLng;
+    const dist = dLat * dLat + dLng * dLng;
+    if (dist < closestDist) {
+      closestDist = dist;
+      closestIdx = i;
+    }
+  }
+
+  // Get waypoints AHEAD (from closest to end)
+  const ahead = routeWaypoints.slice(closestIdx);
+  if (ahead.length === 0) return routeWaypoints.slice(-5);
+
+  // Sample ~8-10 evenly spaced points along the remaining route
+  const targetPoints = 9;
+  const step = Math.max(1, Math.floor(ahead.length / targetPoints));
+  const sampled = [];
+  for (let i = 0; i < ahead.length; i += step) {
+    sampled.push(ahead[i]);
+    if (sampled.length >= targetPoints) break;
+  }
+  // Always include the last point
+  if (sampled.length > 0 && sampled[sampled.length - 1] !== ahead[ahead.length - 1]) {
+    sampled.push(ahead[ahead.length - 1]);
+  }
+  return sampled;
+}
+
+function createPOIMarker(place, type) {
+  const isOnRoute = customWaypoints.some(cw =>
+    Math.abs(cw.lat - place.geometry.location.lat()) < 0.0001 &&
+    Math.abs(cw.lng - place.geometry.location.lng()) < 0.0001
+  );
+
+  const marker = new google.maps.Marker({
+    position: place.geometry.location,
+    map: map,
+    title: place.name,
+    label: { text: POI_ICON_MAP[type] || '📍', fontSize: '14px' },
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 10,
+      fillColor: isOnRoute ? '#166534' : '#24243a',
+      fillOpacity: 0.9,
+      strokeColor: isOnRoute ? '#22c55e' : '#f5a623',
+      strokeWeight: isOnRoute ? 2 : 1
+    }
+  });
+
+  const placeAddr = place.vicinity || place.name;
+  const placeLat = place.geometry.location.lat();
+  const placeLng = place.geometry.location.lng();
+  const placeIdStr = place.place_id;
+  const escapedName = place.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const escapedAddr = placeAddr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+  const addBtnId = `add-route-${placeIdStr}`;
+  const isAdded = customWaypoints.some(cw =>
+    Math.abs(cw.lat - placeLat) < 0.0001 && Math.abs(cw.lng - placeLng) < 0.0001
+  );
+
+  const info = new google.maps.InfoWindow({
+    content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:260px;">
+      <strong style="font-size:14px;">${place.name}</strong><br>
+      <span style="font-size:12px;color:#555;">${placeAddr}</span>
+      ${place.rating ? `<br><span style="font-size:11px;">⭐ ${place.rating} (${place.user_ratings_total || '?'} reviews)</span>` : ''}
+      ${place.opening_hours ? `<br><span style="font-size:11px;color:${place.opening_hours.isOpen() ? '#16a34a' : '#dc2626'};">${place.opening_hours.isOpen() ? '✓ Open now' : '✗ Closed'}</span>` : ''}
+      <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
+        <a href="https://www.google.com/maps/dir/?api=1&destination=${placeLat},${placeLng}&destination_place_id=${placeIdStr}" target="_blank"
+          style="flex:1;text-align:center;font-size:11px;color:#3b82f6;background:#eff6ff;padding:5px 4px;border-radius:6px;text-decoration:none;min-width:60px;">📍 Directions</a>
+        <a href="https://www.google.com/maps/place/?q=place_id:${placeIdStr}" target="_blank"
+          style="flex:1;text-align:center;font-size:11px;color:#7c3aed;background:#f5f3ff;padding:5px 4px;border-radius:6px;text-decoration:none;min-width:50px;">🔍 Verify</a>
+        <button onclick="navigator.clipboard.writeText('${escapedAddr}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='📋 Copy',1500);"
+          style="flex:1;text-align:center;font-size:11px;color:#0d9488;background:#f0fdfa;padding:5px 4px;border-radius:6px;border:none;cursor:pointer;min-width:50px;">📋 Copy</button>
+      </div>
+      <button id="${addBtnId}" onclick="toggleRouteWaypoint('${addBtnId}', ${placeLat}, ${placeLng}, '${escapedName}', '${escapedAddr}')"
+        style="width:100%;margin-top:6px;padding:6px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${isAdded ? '#dc2626' : '#22c55e'};background:${isAdded ? '#fef2f2' : '#f0fdf4'};color:${isAdded ? '#dc2626' : '#16a34a'};">
+        ${isAdded ? '✗ Remove from route' : '+ Add to my route'}
+      </button>
+    </div>`
+  });
+  marker.addListener('click', () => info.open(map, marker));
+  return marker;
+}
 
 function searchPOIsInView(type) {
   if (!placesService) return;
@@ -880,14 +1085,8 @@ function searchPOIsInView(type) {
   else if (zoom >= 8) radius = 32000;
   else if (zoom >= 6) radius = 50000;
 
-  const iconMap = {
-    gas_station: '⛽', rest_stop: '🅿️', restaurant: '🍔', supermarket: '🛒',
-    police: '🚔', hospital: '🏥', fire_station: '🚒', car_repair: '🔧'
-  };
-
   const placeType = type === 'rest_stop' ? 'parking' : type;
 
-  // Search at the center of the current view
   const request = {
     location: { lat: center.lat(), lng: center.lng() },
     radius: radius,
@@ -896,72 +1095,88 @@ function searchPOIsInView(type) {
 
   placesService.nearbySearch(request, (results, status) => {
     if (status === google.maps.places.PlacesServiceStatus.OK) {
+      poiMarkers[type] = poiMarkers[type] || [];
       results.slice(0, 20).forEach(place => {
-        // Only show if within visible bounds
         if (!bounds.contains(place.geometry.location)) return;
-
-        const marker = new google.maps.Marker({
-          position: place.geometry.location,
-          map: map,
-          title: place.name,
-          label: { text: iconMap[type] || '📍', fontSize: '14px' },
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: '#24243a',
-            fillOpacity: 0.9,
-            strokeColor: '#f5a623',
-            strokeWeight: 1
-          }
-        });
-
-        const placeAddr = place.vicinity || place.name;
-        const placeLat = place.geometry.location.lat();
-        const placeLng = place.geometry.location.lng();
-        const placeIdStr = place.place_id;
-        const info = new google.maps.InfoWindow({
-          content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:240px;">
-            <strong style="font-size:14px;">${place.name}</strong><br>
-            <span style="font-size:12px;color:#555;">${placeAddr}</span>
-            ${place.rating ? `<br><span style="font-size:11px;">⭐ ${place.rating} (${place.user_ratings_total || '?'} reviews)</span>` : ''}
-            ${place.opening_hours ? `<br><span style="font-size:11px;color:${place.opening_hours.isOpen() ? '#16a34a' : '#dc2626'};">${place.opening_hours.isOpen() ? '✓ Open now' : '✗ Closed'}</span>` : ''}
-            <div style="display:flex;gap:6px;margin-top:8px;">
-              <a href="https://www.google.com/maps/dir/?api=1&destination=${placeLat},${placeLng}&destination_place_id=${placeIdStr}" target="_blank"
-                style="flex:1;text-align:center;font-size:11px;color:#3b82f6;background:#eff6ff;padding:5px 4px;border-radius:6px;text-decoration:none;">📍 Directions</a>
-              <a href="https://www.google.com/maps/place/?q=place_id:${placeIdStr}" target="_blank"
-                style="flex:1;text-align:center;font-size:11px;color:#7c3aed;background:#f5f3ff;padding:5px 4px;border-radius:6px;text-decoration:none;">🔍 Verify</a>
-              <button onclick="navigator.clipboard.writeText('${placeAddr.replace(/'/g, "\\'")}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='📋 Copy',1500);"
-                style="flex:1;text-align:center;font-size:11px;color:#0d9488;background:#f0fdfa;padding:5px 4px;border-radius:6px;border:none;cursor:pointer;">📋 Copy</button>
-            </div>
-          </div>`
-        });
-        marker.addListener('click', () => info.open(map, marker));
-        poiMarkers[type] = poiMarkers[type] || [];
+        const marker = createPOIMarker(place, type);
         poiMarkers[type].push(marker);
       });
     }
   });
 }
 
-function searchPOIsAlongRoute(type) {
-  // Do initial search in current view
-  searchPOIsInView(type);
+function searchPOIsAlongRouteEssentials(type) {
+  if (!placesService) return;
 
-  // Set up "Search this area" button on map move
+  // Clear existing markers for this type
+  if (poiMarkers[type]) {
+    poiMarkers[type].forEach(m => m.setMap(null));
+    poiMarkers[type] = [];
+  }
+  poiMarkers[type] = [];
+
+  const aheadPoints = getAheadWaypoints();
+
+  // If no route waypoints available, fall back to viewport search
+  if (aheadPoints.length === 0) {
+    searchPOIsInView(type);
+    return;
+  }
+
+  const placeType = type === 'rest_stop' ? 'parking' : type;
+  const seenPlaceIds = new Set();
+
+  // Search at each sampled waypoint along the route
+  let completedSearches = 0;
+  const totalSearches = aheadPoints.length;
+
+  aheadPoints.forEach((wp, idx) => {
+    // Stagger requests slightly to avoid rate limits
+    setTimeout(() => {
+      const request = {
+        location: { lat: wp.lat(), lng: wp.lng() },
+        radius: 8000, // ~5 miles from route
+        type: placeType
+      };
+
+      placesService.nearbySearch(request, (results, status) => {
+        completedSearches++;
+        if (status === google.maps.places.PlacesServiceStatus.OK) {
+          results.slice(0, 5).forEach(place => {
+            // Deduplicate by place_id
+            if (seenPlaceIds.has(place.place_id)) return;
+            seenPlaceIds.add(place.place_id);
+
+            const marker = createPOIMarker(place, type);
+            poiMarkers[type].push(marker);
+          });
+        }
+      });
+    }, idx * 200); // 200ms stagger between requests
+  });
+}
+
+function searchPOIsAlongRoute(type) {
+  if (isEssentialType(type)) {
+    searchPOIsAlongRouteEssentials(type);
+  } else {
+    searchPOIsInView(type);
+  }
   setupSearchAreaButton();
 }
 
 function setupSearchAreaButton() {
-  if (searchAreaBtn) return; // Already set up
+  if (searchAreaBtn) {
+    updateSearchButtonLabel();
+    return;
+  }
 
-  // Create the "Search this area" button
   searchAreaBtn = document.createElement('button');
-  searchAreaBtn.textContent = '🔍 Search this area';
   searchAreaBtn.style.cssText = 'display:none;position:absolute;top:80px;left:50%;transform:translateX(-50%);z-index:5;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
+  updateSearchButtonLabel();
   document.getElementById('map').appendChild(searchAreaBtn);
 
   searchAreaBtn.addEventListener('click', () => {
-    // Show first-time explanation
     if (!hasSeenSearchExplanation) {
       hasSeenSearchExplanation = true;
       localStorage.setItem('ys_search_explained', 'true');
@@ -969,26 +1184,40 @@ function setupSearchAreaButton() {
     }
 
     searchAreaBtn.style.display = 'none';
-
-    // Flash the search radius circle
     flashSearchRadius();
 
-    // Re-search all active POI types in the new view
     activePOIs.forEach(type => {
-      if (type !== 'sightseeing') {
+      if (type === 'sightseeing') return;
+      if (isEssentialType(type)) {
+        searchPOIsAlongRouteEssentials(type);
+      } else {
         searchPOIsInView(type);
       }
     });
   });
 
-  // Show button when map is moved/zoomed and there are active POI filters
   if (!mapIdleListener) {
     mapIdleListener = map.addListener('idle', () => {
       const hasActivePOIs = [...activePOIs].some(t => t !== 'sightseeing');
       if (hasActivePOIs && searchAreaBtn) {
+        updateSearchButtonLabel();
         searchAreaBtn.style.display = 'block';
       }
     });
+  }
+}
+
+function updateSearchButtonLabel() {
+  if (!searchAreaBtn) return;
+  const hasEssentials = [...activePOIs].some(t => isEssentialType(t));
+  const hasSafety = [...activePOIs].some(t => SAFETY_TYPES.includes(t));
+
+  if (hasEssentials && !hasSafety) {
+    searchAreaBtn.textContent = '🔍 Search along route';
+  } else if (!hasEssentials && hasSafety) {
+    searchAreaBtn.textContent = '🔍 Search this area';
+  } else {
+    searchAreaBtn.textContent = '🔍 Search along route';
   }
 }
 
@@ -1090,6 +1319,125 @@ function clearPOIMarkers(type) {
     poiMarkers[type].forEach(m => m.setMap(null));
     poiMarkers[type] = [];
   }
+}
+
+// ============================================================
+// CUSTOM WAYPOINTS (Add to Route)
+// ============================================================
+function toggleRouteWaypoint(btnId, lat, lng, name, address) {
+  const existingIdx = customWaypoints.findIndex(cw =>
+    Math.abs(cw.lat - lat) < 0.0001 && Math.abs(cw.lng - lng) < 0.0001
+  );
+
+  if (existingIdx >= 0) {
+    // Remove
+    customWaypoints.splice(existingIdx, 1);
+  } else {
+    // Add
+    customWaypoints.push({ lat, lng, name, address });
+  }
+
+  localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+  redrawRouteWithCustomWaypoints();
+  renderCustomStops();
+
+  // Update button appearance
+  const btn = document.getElementById(btnId);
+  if (btn) {
+    const isNowAdded = customWaypoints.some(cw =>
+      Math.abs(cw.lat - lat) < 0.0001 && Math.abs(cw.lng - lng) < 0.0001
+    );
+    btn.textContent = isNowAdded ? '✗ Remove from route' : '+ Add to my route';
+    btn.style.borderColor = isNowAdded ? '#dc2626' : '#22c55e';
+    btn.style.background = isNowAdded ? '#fef2f2' : '#f0fdf4';
+    btn.style.color = isNowAdded ? '#dc2626' : '#16a34a';
+  }
+}
+
+function removeCustomWaypoint(lat, lng) {
+  customWaypoints = customWaypoints.filter(cw =>
+    !(Math.abs(cw.lat - lat) < 0.0001 && Math.abs(cw.lng - lng) < 0.0001)
+  );
+  localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+  redrawRouteWithCustomWaypoints();
+  renderCustomStops();
+}
+
+function redrawRouteWithCustomWaypoints() {
+  const hotelWaypoints = HOTELS
+    .filter(h => h.lat && h.lng)
+    .map(h => ({
+      location: new google.maps.LatLng(h.lat, h.lng),
+      stopover: true
+    }));
+
+  const customWps = customWaypoints.map(cw => ({
+    location: new google.maps.LatLng(cw.lat, cw.lng),
+    stopover: true
+  }));
+
+  const allWaypoints = [...hotelWaypoints, ...customWps];
+
+  directionsService.route({
+    origin: ORIGIN,
+    destination: DESTINATION,
+    waypoints: allWaypoints,
+    travelMode: 'DRIVING',
+    optimizeWaypoints: false
+  }, (result, status) => {
+    if (status === 'OK') {
+      directionsRenderer.setDirections(result);
+      // Re-extract route waypoints
+      const legs = result.routes[0].legs;
+      routeWaypoints = [];
+      for (const leg of legs) {
+        routeWaypoints.push(leg.start_location);
+        const steps = leg.steps;
+        for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
+          routeWaypoints.push(steps[i].start_location);
+        }
+      }
+      routeWaypoints.push(legs[legs.length - 1].end_location);
+    }
+  });
+}
+
+function renderCustomStops() {
+  let section = document.getElementById('custom-stops-section');
+
+  if (customWaypoints.length === 0) {
+    if (section) section.style.display = 'none';
+    return;
+  }
+
+  if (!section) {
+    section = document.createElement('div');
+    section.id = 'custom-stops-section';
+    const hotelCards = document.getElementById('hotel-cards');
+    hotelCards.parentElement.insertBefore(section, hotelCards);
+  }
+
+  section.style.display = 'block';
+  let html = `<div class="px-4 pb-3">
+    <div class="flex items-center justify-between mb-2">
+      <h4 class="text-xs font-bold text-road-green uppercase tracking-wider">Custom Stops</h4>
+      <span class="text-xs text-gray-500">${customWaypoints.length} stop${customWaypoints.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="space-y-2">`;
+
+  customWaypoints.forEach((cw, i) => {
+    html += `<div class="flex items-center gap-2 bg-dark-700 rounded-lg px-3 py-2 border border-road-green/30">
+      <div class="flex-1 min-w-0">
+        <div class="text-sm text-gray-200 truncate font-medium">${cw.name}</div>
+        <div class="text-xs text-gray-500 truncate">${cw.address}</div>
+      </div>
+      <button onclick="removeCustomWaypoint(${cw.lat}, ${cw.lng})"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-xs font-bold" title="Remove stop">✗</button>
+    </div>`;
+  });
+
+  html += '</div></div>';
+  section.innerHTML = html;
 }
 
 // ============================================================
@@ -1363,16 +1711,36 @@ function getPlacePhone(placeId) {
 // TEXT DAD
 // ============================================================
 function textDad() {
-  if (userPosition) {
-    // Try reverse geocode
+  function sendTextWithPosition(pos) {
     const geocoder = new google.maps.Geocoder();
-    geocoder.geocode({ location: userPosition }, (results, status) => {
-      let address = `${userPosition.lat.toFixed(4)}, ${userPosition.lng.toFixed(4)}`;
+    const mapsLink = `https://www.google.com/maps?q=${pos.lat},${pos.lng}`;
+    geocoder.geocode({ location: pos }, (results, status) => {
+      let address = '';
       if (status === 'OK' && results[0]) {
         address = results[0].formatted_address;
       }
-      window.location.href = `sms:2232549070?body=${encodeURIComponent(`Hey Dad, just checking in! I'm at: ${address}`)}`;
+      const locationPart = address
+        ? `I'm at: ${address}\n\nMap: ${mapsLink}`
+        : `I'm at: ${mapsLink}`;
+      window.location.href = `sms:2232549070?body=${encodeURIComponent(`Hey Dad, just checking in! ${locationPart}`)}`;
     });
+  }
+
+  if (userPosition) {
+    sendTextWithPosition(userPosition);
+  } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        if (userMarker) userMarker.setPosition(userPosition);
+        sendTextWithPosition(userPosition);
+      },
+      () => {
+        // Geolocation failed entirely, send without location
+        window.location.href = `sms:2232549070?body=${encodeURIComponent("Hey Dad, just checking in! I'm on the road.")}`;
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
   } else {
     window.location.href = `sms:2232549070?body=${encodeURIComponent("Hey Dad, just checking in! I'm on the road.")}`;
   }
@@ -1382,16 +1750,36 @@ function textDad() {
 // SOS - HELP BUTTON
 // ============================================================
 function sendSOS() {
-  if (userPosition) {
+  function sendSOSWithPosition(pos) {
     const geocoder = new google.maps.Geocoder();
-    geocoder.geocode({ location: userPosition }, (results, status) => {
-      let address = `${userPosition.lat.toFixed(4)}, ${userPosition.lng.toFixed(4)}`;
+    const mapsLink = `https://www.google.com/maps?q=${pos.lat},${pos.lng}`;
+    geocoder.geocode({ location: pos }, (results, status) => {
+      let address = '';
       if (status === 'OK' && results[0]) {
         address = results[0].formatted_address;
       }
-      const mapsLink = `https://www.google.com/maps?q=${userPosition.lat},${userPosition.lng}`;
-      window.location.href = `sms:2232549070?body=${encodeURIComponent(`Dad, I need help. Can you call me when you see this?\n\nI'm at: ${address}\n\nMap: ${mapsLink}`)}`;
+      const locationPart = address
+        ? `I'm at: ${address}\n\nMap: ${mapsLink}`
+        : `I'm at: ${mapsLink}`;
+      window.location.href = `sms:2232549070?body=${encodeURIComponent(`Dad, I need help. Can you call me when you see this?\n\n${locationPart}`)}`;
     });
+  }
+
+  if (userPosition) {
+    sendSOSWithPosition(userPosition);
+  } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        if (userMarker) userMarker.setPosition(userPosition);
+        sendSOSWithPosition(userPosition);
+      },
+      () => {
+        // Geolocation failed entirely, send without location
+        window.location.href = `sms:2232549070?body=${encodeURIComponent("Dad, I need help. Can you call me when you see this?")}`;
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
   } else {
     window.location.href = `sms:2232549070?body=${encodeURIComponent("Dad, I need help. Can you call me when you see this?")}`;
   }
