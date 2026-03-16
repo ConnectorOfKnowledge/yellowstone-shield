@@ -1058,9 +1058,10 @@ function extractRouteData(result) {
     }
   }
 
-  // Sample evenly along the full path for POI searches (~every 30 miles / 48 km)
-  // This gives ~60 search points for a 1800-mile trip -- good coverage
-  const TARGET_SPACING_KM = 48;
+  // Sample evenly along the full path for POI searches (~every 12 km / 7.5 miles)
+  // With an 8km (5mi) search radius, this ensures full coverage within 5 miles of the route
+  // Gives ~240 search points for a 1800-mile trip
+  const TARGET_SPACING_KM = 12;
   routeWaypoints = [allPathPoints[0]];
   let accumDist = 0;
   for (let i = 1; i < allPathPoints.length; i++) {
@@ -1375,6 +1376,8 @@ function initSidebarToggle() {
   btn.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
     closeHamburgerMenu();
+    // Hide floating buttons when sidebar is open so they don't overlay
+    setFloatingBtnsVisible(sidebar.classList.contains('collapsed'));
   });
 
   // POI filter names mapped to search-friendly terms
@@ -1453,6 +1456,16 @@ function closePOISidebar() {
   if (!sidebar.classList.contains('collapsed')) {
     sidebar.classList.add('collapsed');
   }
+  setFloatingBtnsVisible(true);
+}
+
+// Hide/show the floating text/SOS/emergency buttons so they don't overlay panels
+function setFloatingBtnsVisible(visible) {
+  const ids = ['text-dad-btn', 'sos-btn', 'emergency-btn'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? '' : 'none';
+  });
 }
 
 // Close POI sidebar when tapping on the map (outside sidebar)
@@ -1664,7 +1677,7 @@ function searchPOIsAlongRouteEssentials(type) {
   }
   poiMarkers[type] = [];
 
-  // Use ALL route waypoints (evenly spaced ~30mi apart along entire route)
+  // Use ALL route waypoints (densely spaced ~12km apart along entire route)
   const searchPoints = routeWaypoints;
 
   // If no route waypoints available, fall back to viewport search
@@ -1676,37 +1689,59 @@ function searchPOIsAlongRouteEssentials(type) {
   const placeType = type === 'rest_stop' ? 'parking' : type;
   const seenPlaceIds = new Set();
 
-  // Search radius: 32km (~20 miles) to ensure overlap between sample points
-  const searchRadius = 32000;
+  // Search radius: 8km (~5 miles) -- tight corridor along the actual route
+  const searchRadius = 8000;
 
-  showToast(`🔍 Searching ${type.replace('_', ' ')} along full route (${searchPoints.length} zones)...`);
+  // With ~240 points, batch in groups of 10 with pauses to avoid rate limits
+  // Google Places allows ~10 QPS, so 10 requests then 1.5s pause
+  const BATCH_SIZE = 10;
+  const BATCH_DELAY = 1500; // ms between batches
+  const INTRA_DELAY = 100;  // ms between requests within a batch
+  let totalFound = 0;
 
-  // Search at each waypoint along the ENTIRE route
-  searchPoints.forEach((wp, idx) => {
-    // Stagger requests to avoid API rate limits (~3 per second)
-    setTimeout(() => {
-      const request = {
-        location: { lat: wp.lat(), lng: wp.lng() },
-        radius: searchRadius,
-        type: placeType
-      };
+  showToast(`🔍 Searching ${type.replace('_', ' ')} within 5 miles of route...`);
 
-      placesService.nearbySearch(request, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK) {
-          results.slice(0, 10).forEach(place => {
-            // Deduplicate by place_id
-            if (seenPlaceIds.has(place.place_id)) return;
-            seenPlaceIds.add(place.place_id);
-            // Filter closed places if toggle is on
-            if (showOnlyOpen && place.opening_hours && !place.opening_hours.isOpen()) return;
+  function processBatch(startIdx) {
+    const endIdx = Math.min(startIdx + BATCH_SIZE, searchPoints.length);
+    for (let i = startIdx; i < endIdx; i++) {
+      const wp = searchPoints[i];
+      setTimeout(() => {
+        const request = {
+          location: { lat: wp.lat(), lng: wp.lng() },
+          radius: searchRadius,
+          type: placeType
+        };
 
-            const marker = createPOIMarker(place, type);
-            poiMarkers[type].push(marker);
-          });
-        }
-      });
-    }, idx * 350); // 350ms stagger to stay under rate limits
-  });
+        placesService.nearbySearch(request, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK) {
+            results.forEach(place => {
+              // Deduplicate by place_id
+              if (seenPlaceIds.has(place.place_id)) return;
+              seenPlaceIds.add(place.place_id);
+              // Filter closed places if toggle is on
+              if (showOnlyOpen && place.opening_hours && !place.opening_hours.isOpen()) return;
+
+              const marker = createPOIMarker(place, type);
+              poiMarkers[type].push(marker);
+              totalFound++;
+            });
+          }
+        });
+      }, (i - startIdx) * INTRA_DELAY);
+    }
+
+    // Schedule next batch
+    if (endIdx < searchPoints.length) {
+      setTimeout(() => processBatch(endIdx), BATCH_DELAY);
+    } else {
+      // All batches done -- show result count after final batch completes
+      setTimeout(() => {
+        showToast(`✅ Found ${totalFound} ${type.replace('_', ' ')}${totalFound !== 1 ? 's' : ''} along route`);
+      }, BATCH_DELAY);
+    }
+  }
+
+  processBatch(0);
 }
 
 function searchPOIsAlongRoute(type) {
@@ -4839,10 +4874,12 @@ function toggleHamburgerMenu() {
     menu.style.display = 'block';
     iconOpen.classList.add('hidden');
     iconClose.classList.remove('hidden');
+    setFloatingBtnsVisible(false);
   } else {
     menu.style.display = 'none';
     iconOpen.classList.remove('hidden');
     iconClose.classList.add('hidden');
+    setFloatingBtnsVisible(true);
   }
 }
 
@@ -4854,6 +4891,11 @@ function closeHamburgerMenu() {
   menu.style.display = 'none';
   iconOpen.classList.remove('hidden');
   iconClose.classList.add('hidden');
+  // Restore floating buttons unless POI sidebar is still open
+  const sidebar = document.getElementById('poi-sidebar');
+  if (!sidebar || sidebar.classList.contains('collapsed')) {
+    setFloatingBtnsVisible(true);
+  }
 }
 
 // Close hamburger when tapping anywhere else on the map
