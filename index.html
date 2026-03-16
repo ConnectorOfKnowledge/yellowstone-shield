@@ -2644,22 +2644,28 @@ let rwDepartureTimes = JSON.parse(localStorage.getItem('ys_departure_times') || 
 const RW_LEGS_BASE = [
   { day: 1, baseDate: '2026-03-17', driveHours: 5.5,
     fromLabel: 'Seven Valleys, PA', toLabel: 'Comfort Inn, Maumee, OH',
-    startLat: 39.8473, startLng: -76.7619, endLat: 41.5710, endLng: -83.6740 },
+    startLat: 39.8473, startLng: -76.7619, endLat: 41.5710, endLng: -83.6740,
+    roadNote: '🛣️ All highway -- I-76 W to I-80 W through PA and OH. Flat, easy driving. One toll plaza (OH Turnpike).' },
   { day: 2, baseDate: '2026-03-18', driveHours: 7.5,
     fromLabel: 'Maumee, OH', toLabel: 'Drury Inn, Coralville, IA',
-    startLat: 41.5710, startLng: -83.6740, endLat: 41.6764, endLng: -91.5642 },
+    startLat: 41.5710, startLng: -83.6740, endLat: 41.6764, endLng: -91.5642,
+    roadNote: '🛣️ Longest day. I-80/90 through Indiana (Gary area -- stay on highway, do not exit). Flat farmland through IL and IA. Watch for crosswinds.' },
   { day: 3, baseDate: '2026-03-19', driveHours: 6.5,
     fromLabel: 'Coralville, IA', toLabel: 'Holiday Inn, Brandon, SD',
-    startLat: 41.6764, startLng: -91.5642, endLat: 43.5947, endLng: -96.5717 },
+    startLat: 41.6764, startLng: -91.5642, endLat: 43.5947, endLng: -96.5717,
+    roadNote: '🛣️ I-80 W to I-29 N to I-90 W. Wide open prairie, very few exits. Fill up before leaving Iowa -- gas stations thin out in western IA/SD.' },
   { day: 4, baseDate: '2026-03-20', driveHours: 5.5,
     fromLabel: 'Brandon, SD', toLabel: 'Baymont, Rapid City, SD',
-    startLat: 43.5947, startLng: -96.5717, endLat: 44.0581, endLng: -103.1994 },
+    startLat: 43.5947, startLng: -96.5717, endLat: 44.0581, endLng: -103.1994,
+    roadNote: '🛣️ Straight shot on I-90 W across South Dakota. Badlands visible from highway. Rest stops every 40-60 mi. Strong crosswinds common in open prairie.' },
   { day: 5, baseDate: '2026-03-21', driveHours: 5,
     fromLabel: 'Rapid City, SD', toLabel: 'Billings, MT',
-    startLat: 44.0581, startLng: -103.1994, endLat: 45.7833, endLng: -108.5007 },
+    startLat: 44.0581, startLng: -103.1994, endLat: 45.7833, endLng: -108.5007,
+    roadNote: '🛣️ I-90 W into Wyoming and Montana. Elevation climbs through Sheridan, WY. Scenery gets mountainous. Cell service spotty in eastern MT.' },
   { day: 6, baseDate: '2026-03-22', driveHours: 2.75,
     fromLabel: 'Billings, MT', toLabel: 'Gardiner, Yellowstone',
-    startLat: 45.7833, startLng: -108.5007, endLat: 45.0328, endLng: -110.7059 }
+    startLat: 45.7833, startLng: -108.5007, endLat: 45.0328, endLng: -110.7059,
+    roadNote: '🏔️ Shortest day but most scenic. I-90 to Livingston, then US-89 S through Paradise Valley. Two-lane mountain road for last 50 mi -- watch for ice and wildlife.' }
 ];
 
 // Per-leg date overrides (saved in localStorage)
@@ -3420,6 +3426,7 @@ function renderRouteWeather() {
           </button>
         </div>
       </div>
+      ${leg.roadNote ? `<div style="font-size:11px;color:#9ca3af;padding:6px 10px;margin-bottom:6px;background:#0f0f1a;border-radius:8px;border-left:3px solid #3a3a4a;line-height:1.5;">${leg.roadNote}</div>` : ''}
       ${bannerHtml}
       ${nightWarningHtml}
       <div class="rw-chips-row">${chipsHtml || '<span class="text-gray-500 text-xs py-4">No forecast data available for this leg</span>'}</div>
