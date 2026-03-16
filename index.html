@@ -294,7 +294,7 @@ tailwind.config = {
             <span id="weather-temp" class="font-bold text-warm-400">--</span>
             <span id="weather-desc" class="text-gray-400 text-xs">Loading weather...</span>
           </div>
-          <div id="weather-location" style="font-size:10px;color:#6b7280;margin-top:1px;">📍 Locating...</div>
+          <div id="weather-location" style="font-size:12px;color:#6b7280;margin-top:1px;">📍 Locating...</div>
         </div>
       </div>
       <div class="text-right">
@@ -308,7 +308,7 @@ tailwind.config = {
     <div class="flex items-center justify-between mt-0.5">
       <div id="weather-leg-info" class="text-xs text-gray-500">Next leg: --</div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span id="weather-updated" style="font-size:9px;color:#555;">--</span>
+        <span id="weather-updated" style="font-size:11px;color:#555;">--</span>
         <span class="text-xs text-warm-400/60 font-medium">Tap for forecast ›</span>
       </div>
     </div>
@@ -506,7 +506,10 @@ tailwind.config = {
           <h2 class="text-xl font-extrabold text-warm-400">Route Stops</h2>
           <p class="text-gray-500 text-xs mt-0.5">Add, reorder, or remove stops</p>
         </div>
-        <button onclick="closeStopPicker()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
+        <div class="flex items-center gap-2">
+          <button onclick="resetRouteToDefault()" class="px-3 py-2 rounded-lg text-xs font-semibold bg-dark-700 border border-dark-600 text-gray-400 hover:text-orange-400 hover:border-orange-500/50 transition-all" title="Reset to original route">↩ Reset</button>
+          <button onclick="closeStopPicker()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
+        </div>
       </div>
       <div id="stop-picker-list" class="space-y-2 mb-4"></div>
       <div class="space-y-3">
@@ -1926,6 +1929,7 @@ async function showWeatherOverlay() {
     const resp = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,precipitation,snowfall,visibility&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`
     );
+    if (!resp.ok) throw new Error(`Weather API returned ${resp.status}`);
     const data = await resp.json();
 
     // Clear loading markers
@@ -2164,6 +2168,9 @@ function renderCustomStops() {
 // WEATHER
 // ============================================================
 async function fetchWeather() {
+  // Reset wind warning at start of each refresh (will re-show if still windy)
+  document.getElementById('wind-warning').classList.add('hidden');
+
   // Use user's actual GPS position if available, otherwise estimate from trip dates
   let currentLat, currentLng, fromLabel;
   const today = new Date();
@@ -2256,6 +2263,7 @@ async function fetchWeather() {
       fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`),
       fetch(`https://api.open-meteo.com/v1/forecast?latitude=${nextHotel.lat}&longitude=${nextHotel.lng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&hourly=temperature_2m,weather_code,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`)
     ]);
+    if (!hereResp.ok || !destResp.ok) throw new Error(`Weather API returned ${hereResp.status || destResp.status}`);
     const hereData = await hereResp.json();
     const destData = await destResp.json();
 
@@ -3090,6 +3098,7 @@ async function fetchRouteWeatherData() {
     const resp = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation,snowfall,snow_depth,visibility,relative_humidity_2m,dew_point_2m,cloud_cover&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`
     );
+    if (!resp.ok) throw new Error(`Weather API returned ${resp.status}`);
     const data = await resp.json();
 
     // Open-Meteo returns an array when multiple locations are given
@@ -3982,6 +3991,24 @@ function renderStopPicker() {
     </div>
   </div>`;
 
+  // Parked stops section (custom stops removed during reset, recoverable)
+  if (parkedStops.length > 0) {
+    html += `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed #333;">
+      <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Removed Stops</div>
+      <div style="font-size:10px;color:#555;margin-bottom:8px;">Tap + to add back to route, or ✗ to delete permanently</div>`;
+    parkedStops.forEach((stop, pi) => {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#111118;border:1px dashed #333;border-radius:10px;margin-bottom:6px;">
+        <div class="flex-1 min-w-0">
+          <div style="font-size:13px;color:#9ca3af;font-weight:500;">${stop.name}</div>
+          <div style="font-size:11px;color:#555;">${stop.address}</div>
+        </div>
+        <button onclick="restoreParkedStop(${pi})" style="width:32px;height:32px;border-radius:50%;background:#1a2a1a;border:1px solid #2d5a2d;color:#4ade80;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Add back to route">+</button>
+        <button onclick="deleteParkedStop(${pi})" style="width:32px;height:32px;border-radius:50%;background:#2a1a1a;border:1px solid #5a2d2d;color:#f87171;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Delete permanently">✗</button>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
   container.innerHTML = html;
   initDragAndDrop();
 }
@@ -4142,17 +4169,61 @@ function dragCancel() {
 function removeStopByIndex(idx) {
   const stop = currentRouteStops[idx];
   if (stop.type === 'custom') {
-    customWaypoints = customWaypoints.filter(cw =>
-      !(Math.abs(cw.lat - stop.lat) < 0.0001 && Math.abs(cw.lng - stop.lng) < 0.0001)
-    );
-    localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+    // Park it instead of permanently deleting -- she can drag it back
+    parkedStops.push(stop);
   }
   currentRouteStops.splice(idx, 1);
   // Don't auto-update map -- user hits Save button when ready
   renderStopPicker();
 }
 
+// Track custom stops that were parked (removed during reset but recoverable)
+let parkedStops = [];
+
+function resetRouteToDefault() {
+  // Move any custom stops to the parked section (recoverable, not deleted)
+  parkedStops = currentRouteStops.filter(s => s.type === 'custom');
+  // Rebuild with just hotels in their original order
+  currentRouteStops = [];
+  HOTELS.forEach((h, i) => {
+    currentRouteStops.push({ type: 'hotel', hotelIdx: i, lat: h.lat, lng: h.lng, name: h.name, address: h.address, date: h.date, night: h.night, confirmation: h.confirmation });
+  });
+  renderStopPicker();
+  showToast('↩ Route reset to original. Custom stops moved to bottom -- drag them back if needed.');
+}
+
+function restoreParkedStop(parkIdx) {
+  const stop = parkedStops.splice(parkIdx, 1)[0];
+  if (stop) {
+    currentRouteStops.push(stop);
+    renderStopPicker();
+  }
+}
+
+function deleteParkedStop(parkIdx) {
+  const stop = parkedStops.splice(parkIdx, 1)[0];
+  if (stop) {
+    // Also remove from customWaypoints storage
+    customWaypoints = customWaypoints.filter(cw =>
+      !(Math.abs(cw.lat - stop.lat) < 0.0001 && Math.abs(cw.lng - stop.lng) < 0.0001)
+    );
+    localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+    renderStopPicker();
+  }
+}
+
 function saveAndUpdateRoute() {
+  // Permanently delete any remaining parked stops (user chose not to restore them)
+  parkedStops.forEach(stop => {
+    customWaypoints = customWaypoints.filter(cw =>
+      !(Math.abs(cw.lat - stop.lat) < 0.0001 && Math.abs(cw.lng - stop.lng) < 0.0001)
+    );
+  });
+  if (parkedStops.length > 0) {
+    localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
+  }
+  parkedStops = [];
+
   saveRouteStopsOrder(currentRouteStops);
   applyRouteStopsToMap();
   // Invalidate weather cache so Drive Weather re-fetches for new route
