@@ -755,12 +755,20 @@ function initHotelPanel() {
         </svg>
       </div>
       <div class="hotel-details hidden px-3 pb-3">
-        <div class="text-xs text-gray-400 mb-1">${hotel.address}</div>
+        <div class="flex items-center gap-2 mb-1">
+          <div class="text-xs text-gray-400 flex-1">${hotel.address}</div>
+          ${!isTBD ? `<button class="text-xs text-road-teal hover:text-white px-2 py-1 bg-dark-600 rounded flex-shrink-0 transition-all"
+            onclick="event.stopPropagation(); navigator.clipboard.writeText('${hotel.address.replace(/'/g, "\\'")}').then(() => { this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500); })">Copy</button>` : ''}
+        </div>
         ${hotel.confirmation !== '--' ? `<div class="text-xs text-road-teal mb-2">Confirmation: ${hotel.confirmation}</div>` : '<div class="text-xs text-gray-600 mb-2">Not yet booked</div>'}
         <textarea class="w-full bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-xs text-gray-300 placeholder-gray-600 resize-none" rows="2"
           placeholder="Add notes..." onchange="saveHotelNote(${i}, this.value)">${hotel.notes || ''}</textarea>
-        ${!isTBD ? `<button class="mt-2 w-full py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
-          onclick="getDirectionsTo(${hotel.lat}, ${hotel.lng})">Get Directions</button>` : ''}
+        ${!isTBD ? `<div class="flex gap-2 mt-2">
+          <button class="flex-1 py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
+            onclick="getDirectionsTo(${hotel.lat}, ${hotel.lng})">📍 Directions</button>
+          <button class="flex-1 py-2 bg-dark-600 text-gray-300 border border-dark-500 rounded-lg text-xs font-semibold hover:text-white transition-all"
+            onclick="window.open('https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel.name + ' ' + hotel.address)}','_blank')">🔍 View on Maps</button>
+        </div>` : ''}
       </div>
     </div>`;
   });
@@ -819,17 +827,28 @@ function initSidebarToggle() {
   });
 }
 
-function searchPOIsAlongRoute(type) {
-  if (!placesService || routeWaypoints.length === 0) return;
+let searchAreaBtn = null;
+let mapIdleListener = null;
 
-  poiMarkers[type] = poiMarkers[type] || [];
+function searchPOIsInView(type) {
+  if (!placesService) return;
 
-  // Search at sampled waypoints along the route
-  const searchPoints = [];
-  const step = Math.max(1, Math.floor(routeWaypoints.length / 8));
-  for (let i = 0; i < routeWaypoints.length; i += step) {
-    searchPoints.push(routeWaypoints[i]);
+  // Clear existing markers for this type
+  if (poiMarkers[type]) {
+    poiMarkers[type].forEach(m => m.setMap(null));
+    poiMarkers[type] = [];
   }
+
+  const bounds = map.getBounds();
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+
+  // Adjust search radius based on zoom level
+  let radius = 50000; // default ~30 miles
+  if (zoom >= 12) radius = 8000;
+  else if (zoom >= 10) radius = 16000;
+  else if (zoom >= 8) radius = 32000;
+  else if (zoom >= 6) radius = 50000;
 
   const iconMap = {
     gas_station: '⛽', rest_stop: '🅿️', restaurant: '🍔', supermarket: '🛒',
@@ -838,51 +857,86 @@ function searchPOIsAlongRoute(type) {
 
   const placeType = type === 'rest_stop' ? 'parking' : type;
 
-  searchPoints.forEach(point => {
-    const request = {
-      location: point,
-      radius: 16000, // ~10 miles
-      type: placeType
-    };
+  // Search at the center of the current view
+  const request = {
+    location: { lat: center.lat(), lng: center.lng() },
+    radius: radius,
+    type: placeType
+  };
 
-    placesService.nearbySearch(request, (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK) {
-        results.slice(0, 3).forEach(place => {
-          // Check for duplicates
-          const isDup = poiMarkers[type].some(m =>
-            m.getPosition().lat().toFixed(4) === place.geometry.location.lat().toFixed(4) &&
-            m.getPosition().lng().toFixed(4) === place.geometry.location.lng().toFixed(4)
-          );
-          if (isDup) return;
+  placesService.nearbySearch(request, (results, status) => {
+    if (status === google.maps.places.PlacesServiceStatus.OK) {
+      results.slice(0, 20).forEach(place => {
+        // Only show if within visible bounds
+        if (!bounds.contains(place.geometry.location)) return;
 
-          const marker = new google.maps.Marker({
-            position: place.geometry.location,
-            map: map,
-            title: place.name,
-            label: { text: iconMap[type] || '📍', fontSize: '14px' },
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: '#24243a',
-              fillOpacity: 0.9,
-              strokeColor: '#f5a623',
-              strokeWeight: 1
-            }
-          });
-
-          const info = new google.maps.InfoWindow({
-            content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:200px;">
-              <strong>${place.name}</strong><br>
-              <span style="font-size:12px;">${place.vicinity || ''}</span>
-              ${place.rating ? `<br><span style="font-size:11px;">Rating: ${place.rating} ⭐</span>` : ''}
-            </div>`
-          });
-          marker.addListener('click', () => info.open(map, marker));
-          poiMarkers[type].push(marker);
+        const marker = new google.maps.Marker({
+          position: place.geometry.location,
+          map: map,
+          title: place.name,
+          label: { text: iconMap[type] || '📍', fontSize: '14px' },
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#24243a',
+            fillOpacity: 0.9,
+            strokeColor: '#f5a623',
+            strokeWeight: 1
+          }
         });
+
+        const info = new google.maps.InfoWindow({
+          content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:220px;">
+            <strong>${place.name}</strong><br>
+            <span style="font-size:12px;">${place.vicinity || ''}</span>
+            ${place.rating ? `<br><span style="font-size:11px;">Rating: ${place.rating} ⭐</span>` : ''}
+            <br><a href="https://www.google.com/maps/dir/?api=1&destination=${place.geometry.location.lat()},${place.geometry.location.lng()}&destination_place_id=${place.place_id}" target="_blank" style="font-size:12px;color:#3b82f6;">Get Directions</a>
+          </div>`
+        });
+        marker.addListener('click', () => info.open(map, marker));
+        poiMarkers[type] = poiMarkers[type] || [];
+        poiMarkers[type].push(marker);
+      });
+    }
+  });
+}
+
+function searchPOIsAlongRoute(type) {
+  // Do initial search in current view
+  searchPOIsInView(type);
+
+  // Set up "Search this area" button on map move
+  setupSearchAreaButton();
+}
+
+function setupSearchAreaButton() {
+  if (searchAreaBtn) return; // Already set up
+
+  // Create the "Search this area" button
+  searchAreaBtn = document.createElement('button');
+  searchAreaBtn.textContent = '🔍 Search this area';
+  searchAreaBtn.style.cssText = 'display:none;position:absolute;top:80px;left:50%;transform:translateX(-50%);z-index:100;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
+  document.getElementById('map').appendChild(searchAreaBtn);
+
+  searchAreaBtn.addEventListener('click', () => {
+    searchAreaBtn.style.display = 'none';
+    // Re-search all active POI types in the new view
+    activePOIs.forEach(type => {
+      if (type !== 'sightseeing') {
+        searchPOIsInView(type);
       }
     });
   });
+
+  // Show button when map is moved/zoomed and there are active POI filters
+  if (!mapIdleListener) {
+    mapIdleListener = map.addListener('idle', () => {
+      const hasActivePOIs = [...activePOIs].some(t => t !== 'sightseeing');
+      if (hasActivePOIs && searchAreaBtn) {
+        searchAreaBtn.style.display = 'block';
+      }
+    });
+  }
 }
 
 function showSightseeingMarkers() {
