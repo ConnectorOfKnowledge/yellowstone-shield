@@ -372,6 +372,11 @@ tailwind.config = {
         <span style="font-size:18px;">📍</span>
         <span style="font-size:13px;font-weight:600;">Map Filters</span>
       </button>
+      <div style="border-top:1px solid #24243a;margin:4px 0;"></div>
+      <button onclick="openBugReport();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+        <span style="font-size:18px;">🐛</span>
+        <span style="font-size:13px;font-weight:600;">Report a Bug</span>
+      </button>
     </div>
   </div>
 
@@ -612,6 +617,77 @@ tailwind.config = {
         </button>
       </div>
       <div id="stop-picker-list" class="space-y-2 mb-4"></div>
+    </div>
+  </div>
+
+  <!-- Bug Report Modal -->
+  <div id="bug-report-modal" style="display:none;position:fixed;inset:0;z-index:10005;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeBugReport()">
+    <div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:calc(100% - 24px);max-width:400px;max-height:90vh;overflow-y:auto;background:#1a1a2e;border-radius:16px;padding:20px;border:1px solid rgba(245,166,35,0.3);box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:#f5a623;">🐛 Report a Bug</h2>
+          <p style="font-size:11px;color:#888;margin-top:2px;">Help us fix issues quickly</p>
+        </div>
+        <button onclick="closeBugReport()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#2a2a3a;border:1px solid #3a3a4a;color:#888;font-size:18px;cursor:pointer;">✕</button>
+      </div>
+
+      <form id="bug-report-form" onsubmit="submitBugReport(event)">
+        <!-- Title -->
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:#ccc;margin-bottom:4px;">What happened?</label>
+          <input id="bug-title" type="text" required placeholder="Brief summary..." style="width:100%;padding:10px 12px;background:#12121e;border:1px solid #3a3a4a;border-radius:10px;color:#e5e5e5;font-size:14px;outline:none;" onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#3a3a4a'">
+        </div>
+
+        <!-- Description -->
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:#ccc;margin-bottom:4px;">Details (optional)</label>
+          <textarea id="bug-description" rows="3" placeholder="Steps to reproduce, what you expected..." style="width:100%;padding:10px 12px;background:#12121e;border:1px solid #3a3a4a;border-radius:10px;color:#e5e5e5;font-size:14px;outline:none;resize:vertical;" onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#3a3a4a'"></textarea>
+        </div>
+
+        <!-- Type selector -->
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:#ccc;margin-bottom:6px;">Type</label>
+          <div id="bug-type-selector" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <!-- Priority selector -->
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:#ccc;margin-bottom:6px;">Priority</label>
+          <div id="bug-priority-selector" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <!-- Screenshot -->
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:13px;font-weight:600;color:#ccc;margin-bottom:6px;">Screenshot (optional)</label>
+          <div id="bug-screenshot-area" style="border:1px dashed #3a3a4a;border-radius:10px;padding:12px;text-align:center;cursor:pointer;position:relative;" onclick="document.getElementById('bug-screenshot-input').click()">
+            <div id="bug-screenshot-placeholder" style="color:#666;font-size:13px;">📷 Tap to attach a screenshot</div>
+            <img id="bug-screenshot-preview" style="display:none;max-width:100%;border-radius:8px;max-height:150px;">
+            <input id="bug-screenshot-input" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleBugScreenshot(this)">
+          </div>
+          <button id="bug-screenshot-clear" type="button" onclick="clearBugScreenshot()" style="display:none;margin-top:6px;font-size:11px;color:#888;background:none;border:none;cursor:pointer;text-decoration:underline;">Remove screenshot</button>
+        </div>
+
+        <!-- Auto-captured info -->
+        <div style="background:#12121e;border-radius:8px;padding:8px 10px;margin-bottom:16px;font-size:11px;color:#666;">
+          <div>📍 Page: <span id="bug-page-url"></span></div>
+          <div>📱 Device: <span id="bug-user-agent"></span></div>
+        </div>
+
+        <!-- Error message -->
+        <div id="bug-error" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:#f87171;"></div>
+
+        <!-- Submit button -->
+        <button type="submit" id="bug-submit-btn" style="width:100%;padding:14px;border-radius:12px;font-weight:700;font-size:15px;color:white;border:none;cursor:pointer;background:linear-gradient(135deg,#f5a623,#e08e0b);box-shadow:0 4px 16px rgba(245,166,35,0.3);">
+          📨 Submit Report
+        </button>
+      </form>
+
+      <!-- Success state -->
+      <div id="bug-success" style="display:none;text-align:center;padding:30px 0;">
+        <div style="font-size:48px;margin-bottom:12px;">✅</div>
+        <div style="font-size:16px;font-weight:700;color:#4ade80;">Bug report submitted!</div>
+        <div style="font-size:13px;color:#888;margin-top:4px;">Thanks -- we'll look into it.</div>
+      </div>
     </div>
   </div>
 
@@ -4744,6 +4820,161 @@ window.addEventListener('DOMContentLoaded', () => {
   loadGoogleMaps();
 
 });
+
+// ============================================================
+// BUG REPORTER (TicketDeck - vanilla JS)
+// ============================================================
+const TD_API_URL = 'https://dgnikbbugiuuwokwenlm.supabase.co/functions/v1/ticket';
+const TD_API_KEY = 'sb_publishable_L2VH13C5NYtdSBoENpoh9Q_d7iJHDOF';
+const TD_PROJECT = 'yellowstone-shield';
+
+let bugReportType = 'bug';
+let bugReportPriority = 'medium';
+let bugScreenshotData = null;
+
+const BUG_TYPES = [
+  { value: 'bug', label: 'Bug', emoji: '🐛' },
+  { value: 'feature', label: 'Feature', emoji: '✨' },
+  { value: 'improvement', label: 'Improvement', emoji: '🔧' },
+  { value: 'question', label: 'Question', emoji: '❓' }
+];
+
+const BUG_PRIORITIES = [
+  { value: 'low', label: 'Low', color: '#6b7280' },
+  { value: 'medium', label: 'Medium', color: '#f59e0b' },
+  { value: 'high', label: 'High', color: '#f97316' },
+  { value: 'critical', label: 'Critical', color: '#ef4444' }
+];
+
+function openBugReport() {
+  const modal = document.getElementById('bug-report-modal');
+  modal.style.display = 'block';
+  document.getElementById('bug-report-form').style.display = 'block';
+  document.getElementById('bug-success').style.display = 'none';
+  document.getElementById('bug-error').style.display = 'none';
+  document.getElementById('bug-title').value = '';
+  document.getElementById('bug-description').value = '';
+  bugReportType = 'bug';
+  bugReportPriority = 'medium';
+  clearBugScreenshot();
+
+  // Render type buttons
+  const typeContainer = document.getElementById('bug-type-selector');
+  typeContainer.innerHTML = BUG_TYPES.map(t =>
+    `<button type="button" onclick="selectBugType('${t.value}')" id="bug-type-${t.value}" style="padding:8px 14px;border-radius:8px;border:1px solid #3a3a4a;background:${t.value === bugReportType ? '#f5a62330' : '#12121e'};color:#ccc;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;${t.value === bugReportType ? 'border-color:#f5a623;' : ''}">${t.emoji} ${t.label}</button>`
+  ).join('');
+
+  // Render priority buttons
+  const priContainer = document.getElementById('bug-priority-selector');
+  priContainer.innerHTML = BUG_PRIORITIES.map(p =>
+    `<button type="button" onclick="selectBugPriority('${p.value}')" id="bug-pri-${p.value}" style="padding:8px 14px;border-radius:8px;border:1px solid ${p.value === bugReportPriority ? p.color : '#3a3a4a'};background:${p.value === bugReportPriority ? p.color + '20' : '#12121e'};color:#ccc;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:${p.color};"></span>${p.label}</button>`
+  ).join('');
+
+  // Auto-fill device info
+  document.getElementById('bug-page-url').textContent = window.location.href;
+  const ua = navigator.userAgent;
+  const shortUA = /iPhone/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /iPad/.test(ua) ? 'iPad' : 'Desktop';
+  document.getElementById('bug-user-agent').textContent = shortUA;
+}
+
+function closeBugReport() {
+  document.getElementById('bug-report-modal').style.display = 'none';
+}
+
+function selectBugType(val) {
+  bugReportType = val;
+  BUG_TYPES.forEach(t => {
+    const btn = document.getElementById('bug-type-' + t.value);
+    if (btn) {
+      btn.style.background = t.value === val ? '#f5a62330' : '#12121e';
+      btn.style.borderColor = t.value === val ? '#f5a623' : '#3a3a4a';
+    }
+  });
+}
+
+function selectBugPriority(val) {
+  bugReportPriority = val;
+  BUG_PRIORITIES.forEach(p => {
+    const btn = document.getElementById('bug-pri-' + p.value);
+    if (btn) {
+      btn.style.background = p.value === val ? p.color + '20' : '#12121e';
+      btn.style.borderColor = p.value === val ? p.color : '#3a3a4a';
+    }
+  });
+}
+
+function handleBugScreenshot(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    bugScreenshotData = reader.result;
+    document.getElementById('bug-screenshot-preview').src = reader.result;
+    document.getElementById('bug-screenshot-preview').style.display = 'block';
+    document.getElementById('bug-screenshot-placeholder').style.display = 'none';
+    document.getElementById('bug-screenshot-clear').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearBugScreenshot() {
+  bugScreenshotData = null;
+  document.getElementById('bug-screenshot-preview').style.display = 'none';
+  document.getElementById('bug-screenshot-placeholder').style.display = 'block';
+  document.getElementById('bug-screenshot-clear').style.display = 'none';
+  document.getElementById('bug-screenshot-input').value = '';
+}
+
+async function submitBugReport(e) {
+  e.preventDefault();
+  const title = document.getElementById('bug-title').value.trim();
+  if (!title) return;
+
+  const btn = document.getElementById('bug-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+  document.getElementById('bug-error').style.display = 'none';
+
+  try {
+    const body = {
+      project: TD_PROJECT,
+      title,
+      description: document.getElementById('bug-description').value.trim(),
+      type: bugReportType,
+      priority: bugReportPriority,
+      screenshot: bugScreenshotData,
+      page_url: window.location.href,
+      user_agent: navigator.userAgent,
+      metadata: {
+        screen: window.innerWidth + 'x' + window.innerHeight,
+        location: userPosition ? `${userPosition.lat.toFixed(4)},${userPosition.lng.toFixed(4)}` : 'unknown'
+      }
+    };
+
+    const resp = await fetch(TD_API_URL + '?action=create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: TD_API_KEY },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(text || 'Server error ' + resp.status);
+    }
+
+    // Show success
+    document.getElementById('bug-report-form').style.display = 'none';
+    document.getElementById('bug-success').style.display = 'block';
+    setTimeout(() => closeBugReport(), 2000);
+  } catch (err) {
+    const errEl = document.getElementById('bug-error');
+    errEl.textContent = 'Failed to submit: ' + (err.message || 'Unknown error');
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📨 Submit Report';
+  }
+}
 </script>
 </body>
 </html>
