@@ -677,16 +677,16 @@ function buildChecklist() {
   container.innerHTML = html;
   updateChecklistProgress();
 
-  document.getElementById('confirm-checklist-btn').addEventListener('click', () => {
+  document.getElementById('confirm-checklist-btn').onclick = () => {
     localStorage.setItem('ys_checklist_complete', 'true');
     document.getElementById('checklist-screen').classList.add('hidden');
     showMainApp();
-  });
+  };
 
-  document.getElementById('bypass-btn').addEventListener('click', () => {
+  document.getElementById('bypass-btn').onclick = () => {
     document.getElementById('checklist-screen').classList.add('hidden');
     showMainApp();
-  });
+  };
 }
 
 function escapeAttr(str) {
@@ -726,6 +726,35 @@ function updateChecklistProgress() {
 // ============================================================
 // MAIN APP
 // ============================================================
+function showToast(message, duration = 4000) {
+  // Remove existing toast if any
+  const existing = document.getElementById('ys-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'ys-toast';
+  toast.style.cssText = 'position:fixed;bottom:140px;left:50%;transform:translateX(-50%);z-index:9999;max-width:320px;background:rgba(30,30,46,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:12px;padding:12px 16px;color:#e5e5e5;font-size:12px;line-height:1.5;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5);backdrop-filter:blur(8px);animation:toast-in 0.3s ease;';
+  toast.textContent = message;
+  toast.onclick = () => toast.remove();
+  document.body.appendChild(toast);
+
+  // Add animation keyframe if not already present
+  if (!document.getElementById('toast-style')) {
+    const style = document.createElement('style');
+    style.id = 'toast-style';
+    style.textContent = '@keyframes toast-in { from { opacity:0;transform:translateX(-50%) translateY(20px); } to { opacity:1;transform:translateX(-50%) translateY(0); } }';
+    document.head.appendChild(style);
+  }
+
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s';
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, duration);
+}
+
 function showMainApp() {
   document.getElementById('main-app').classList.remove('hidden');
   loadHotelNotes();
@@ -736,6 +765,8 @@ function showMainApp() {
   initMapSearch();
   startLocationWatch();
   fetchWeather();
+  // Refresh weather every 30 minutes (only after map is initialized)
+  setInterval(() => { fetchWeather(); }, 30 * 60 * 1000);
 }
 
 // ============================================================
@@ -1232,19 +1263,16 @@ document.addEventListener('click', (e) => {
 
 let searchAreaBtn = null;
 let mapIdleListener = null;
-let searchRadiusCircle = null;
 let showOnlyOpen = localStorage.getItem('ys_open_only') !== 'false'; // Defaults to ON
 
 function toggleOpenOnly(checked) {
   showOnlyOpen = checked;
   localStorage.setItem('ys_open_only', checked);
-  // Re-search all active POIs with the new filter
-  activePOIs.forEach(type => {
-    if (type !== 'sightseeing') {
-      clearPOIMarkers(type);
-      searchPOIsAlongRouteEssentials(type);
-    }
-  });
+  // Re-run current search to apply the filter
+  const input = document.getElementById('map-search-input');
+  if (input && input.value.trim()) {
+    textSearchMap(input.value.trim());
+  }
 }
 
 // Initialize the toggle state on load
@@ -1925,7 +1953,10 @@ async function fetchWeather() {
     if (i === tripDates.length - 1) nextLegIndex = i;
   }
 
-  const nextHotel = HOTELS[nextLegIndex];
+  // Use hotel for legs 0-4, destination for leg 5+
+  const nextHotel = nextLegIndex < HOTELS.length
+    ? HOTELS[nextLegIndex]
+    : { name: 'Gardiner, Yellowstone', lat: 45.0328, lng: -110.7059 };
   if (!nextHotel || !nextHotel.lat) {
     document.getElementById('weather-desc').textContent = 'No upcoming leg';
     return;
@@ -2432,15 +2463,16 @@ let rwTripStartDate = localStorage.getItem('ys_trip_start_date') || '2026-03-17'
 
 // Build RW_LEGS dynamically from base data + start date offset
 function getRWLegs() {
-  const baseStart = new Date('2026-03-17');
-  const actualStart = new Date(rwTripStartDate);
+  // Use noon to avoid timezone/DST off-by-one bugs
+  const baseStart = new Date('2026-03-17T12:00:00');
+  const actualStart = new Date(rwTripStartDate + 'T12:00:00');
   const dayOffset = Math.round((actualStart - baseStart) / 86400000);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   return RW_LEGS_BASE.map(base => {
-    const origDate = new Date(base.baseDate);
+    const origDate = new Date(base.baseDate + 'T12:00:00');
     const newDate = new Date(origDate.getTime() + dayOffset * 86400000);
-    const dateStr = newDate.toISOString().split('T')[0];
+    const dateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
     const dateLabel = `${months[newDate.getMonth()]} ${newDate.getDate()}`;
     return { ...base, date: dateStr, dateLabel };
   });
@@ -3471,14 +3503,6 @@ function applyRouteStopsToMap() {
   });
 }
 
-function removeStopFromPicker(idx) {
-  customWaypoints.splice(idx, 1);
-  localStorage.setItem('ys_custom_waypoints', JSON.stringify(customWaypoints));
-  redrawRouteWithCustomWaypoints();
-  renderCustomStops();
-  renderStopPicker();
-}
-
 function addNewStop() {
   // Close stop picker, focus the search bar so she can find a place
   closeStopPicker();
@@ -3524,7 +3548,7 @@ function sendToGoogleMaps() {
 
   if (wasTruncated) {
     const names = stopsToSend.map(s => s.name).join(', ');
-    alert(`Google Maps only supports up to ${MAX_GOOGLE_WAYPOINTS} waypoints in a single route. Sending the next ${stopsToSend.length} stops: ${names}.\n\nThe remaining stops were not included.`);
+    showToast(`Google Maps max ${MAX_GOOGLE_WAYPOINTS} stops. Sending: ${names}. Remaining stops were not included.`, 6000);
   }
 
   let url;
@@ -3635,8 +3659,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   loadGoogleMaps();
 
-  // Refresh weather every 30 minutes
-  setInterval(() => { fetchWeather(); }, 30 * 60 * 1000);
 });
 </script>
 </body>
