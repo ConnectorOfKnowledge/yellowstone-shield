@@ -167,6 +167,26 @@ tailwind.config = {
   .rw-chip .rw-loc { color: #a0a0a0; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rw-chip .rw-temp { font-weight: 700; color: #e5e5e5; font-size: 13px; }
   .rw-chip .rw-wind { color: #a0a0a0; font-size: 10px; }
+  .rw-chip { cursor: pointer; position: relative; }
+  .rw-chip-detail {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    z-index: 10001; width: calc(100% - 32px); max-width: 360px;
+    background: #1a1a2e; border-radius: 16px; padding: 20px;
+    border: 1px solid rgba(245,166,35,0.3);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    color: #e5e5e5; font-size: 13px; line-height: 1.6;
+  }
+  .rw-chip-detail-backdrop {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+  }
+  .rw-detail-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .rw-detail-row:last-child { border-bottom: none; }
+  .rw-detail-label { color: #888; font-size: 12px; }
+  .rw-detail-value { font-weight: 600; font-size: 13px; }
   .rw-severity-green { background: #064e3b; }
   .rw-severity-yellow { background: #713f12; }
   .rw-severity-orange { background: #7c2d12; }
@@ -2108,7 +2128,7 @@ async function fetchRouteWeatherData() {
 
   try {
     const resp = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m,precipitation_probability,precipitation&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&hourly=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation,snowfall,snow_depth,visibility,relative_humidity_2m,dew_point_2m,cloud_cover&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16`
     );
     const data = await resp.json();
 
@@ -2263,11 +2283,19 @@ function renderRouteWeather() {
       if (hIdx < 0) return;
 
       const temp = Math.round(forecast.hourly.temperature_2m[hIdx]);
+      const feelsLike = Math.round(forecast.hourly.apparent_temperature ? forecast.hourly.apparent_temperature[hIdx] : temp);
       const code = forecast.hourly.weather_code[hIdx];
       const wind = Math.round(forecast.hourly.wind_speed_10m[hIdx]);
       const gusts = Math.round(forecast.hourly.wind_gusts_10m[hIdx] || 0);
+      const windDir = forecast.hourly.wind_direction_10m ? Math.round(forecast.hourly.wind_direction_10m[hIdx]) : 0;
       const precip = forecast.hourly.precipitation[hIdx] || 0;
       const precipProb = forecast.hourly.precipitation_probability ? forecast.hourly.precipitation_probability[hIdx] : 0;
+      const snowfall = forecast.hourly.snowfall ? forecast.hourly.snowfall[hIdx] : 0;
+      const snowDepth = forecast.hourly.snow_depth ? forecast.hourly.snow_depth[hIdx] : 0;
+      const visibility = forecast.hourly.visibility ? forecast.hourly.visibility[hIdx] : null;
+      const humidity = forecast.hourly.relative_humidity_2m ? forecast.hourly.relative_humidity_2m[hIdx] : null;
+      const dewPoint = forecast.hourly.dew_point_2m ? Math.round(forecast.hourly.dew_point_2m[hIdx]) : null;
+      const cloudCover = forecast.hourly.cloud_cover ? forecast.hourly.cloud_cover[hIdx] : null;
       const emoji = getWeatherEmoji(code);
       const severity = rwGetSeverity(code, gusts, precip);
       const desc = getWeatherDescription(code);
@@ -2285,13 +2313,22 @@ function renderRouteWeather() {
         hazards.push({ time: timeStr, city, description: reason, severity, temp, gusts });
       }
 
-      chipsHtml += `<div class="rw-chip rw-severity-${severity}">
+      // Store chip data for the detail popup
+      const chipId = `rw-chip-${legIdx}-${ptIdx}`;
+      const chipData = JSON.stringify({
+        time: timeStr, city, emoji, desc, severity, temp, feelsLike,
+        wind, gusts, windDir, precip, precipProb, snowfall, snowDepth,
+        visibility, humidity, dewPoint, cloudCover, code
+      }).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+
+      chipsHtml += `<div class="rw-chip rw-severity-${severity}" id="${chipId}" onclick="openChipDetail('${chipId}')" data-chip='${chipData}'>
         <span class="rw-emoji">${emoji}</span>
         <span class="rw-time">${timeStr}</span>
         <span class="rw-loc" title="${city}">nr. ${city}</span>
         <span class="rw-temp">${temp}°F</span>
         <span class="rw-wind">${wind} mph${gusts > 25 ? ' (G' + gusts + ')' : ''}</span>
         <span style="font-size:9px;color:rgba(255,255,255,0.5);margin-top:1px;">${desc}</span>
+        <span style="font-size:8px;color:rgba(245,166,35,0.5);margin-top:2px;">tap for details</span>
       </div>`;
     });
 
@@ -2405,6 +2442,190 @@ function rwUpdateDeparture(legIdx, newTime) {
   localStorage.setItem('ys_departure_times', JSON.stringify(rwDepartureTimes));
   // Re-render with cached data (no re-fetch)
   renderRouteWeather();
+}
+
+function openChipDetail(chipId) {
+  const chip = document.getElementById(chipId);
+  if (!chip) return;
+  const d = JSON.parse(chip.dataset.chip);
+
+  // Build the travel advisory -- the heart of the detail popup
+  const advisory = buildTravelAdvisory(d);
+
+  // Wind direction label
+  const windDirLabel = getWindDirLabel(d.windDir);
+
+  // Visibility in miles (Open-Meteo returns meters)
+  const visMiles = d.visibility !== null ? (d.visibility / 1609.34).toFixed(1) : null;
+  const visLabel = visMiles !== null ? (parseFloat(visMiles) >= 10 ? '10+ miles (clear)' : `${visMiles} miles`) : 'N/A';
+  const visColor = visMiles !== null ? (parseFloat(visMiles) >= 5 ? '#4ade80' : parseFloat(visMiles) >= 1 ? '#facc15' : '#f87171') : '#888';
+
+  // Snowfall in inches (Open-Meteo returns cm)
+  const snowInches = d.snowfall > 0 ? (d.snowfall / 2.54).toFixed(1) : 0;
+  const snowDepthIn = d.snowDepth > 0 ? (d.snowDepth / 2.54).toFixed(1) : 0;
+
+  // Precip in inches (Open-Meteo returns mm)
+  const precipIn = d.precip > 0 ? (d.precip / 25.4).toFixed(2) : 0;
+
+  const borderColor = rwSeverityBorderColor(d.severity);
+  const sevLabel = rwSeverityLabel(d.severity);
+
+  // Build popup
+  const backdrop = document.createElement('div');
+  backdrop.className = 'rw-chip-detail-backdrop';
+  backdrop.onclick = () => backdrop.remove();
+
+  const popup = document.createElement('div');
+  popup.className = 'rw-chip-detail';
+  popup.style.borderColor = borderColor;
+  popup.onclick = (e) => e.stopPropagation();
+
+  popup.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <div style="font-size:28px;display:inline-block;vertical-align:middle;">${d.emoji}</div>
+        <span style="font-size:18px;font-weight:800;color:#f5a623;margin-left:8px;vertical-align:middle;">${d.temp}°F</span>
+        <span style="font-size:12px;color:#888;margin-left:4px;vertical-align:middle;">feels ${d.feelsLike}°F</span>
+      </div>
+      <button onclick="this.closest('.rw-chip-detail-backdrop').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;padding:4px;">✕</button>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <div style="font-weight:700;font-size:15px;color:#e5e5e5;">${d.desc}</div>
+      <div style="font-size:12px;color:#888;">${d.time} near ${d.city}</div>
+      <div style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:white;background:${borderColor};">${sevLabel.toUpperCase()}</div>
+    </div>
+
+    <div style="background:${borderColor}15;border:1px solid ${borderColor}40;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:12px;color:${borderColor};margin-bottom:4px;">🚗 Travel Advisory</div>
+      <div style="font-size:12px;line-height:1.7;color:#d4d4d4;">${advisory}</div>
+    </div>
+
+    <div style="font-size:12px;">
+      <div class="rw-detail-row">
+        <span class="rw-detail-label">🌡️ Temperature</span>
+        <span class="rw-detail-value">${d.temp}°F (feels like ${d.feelsLike}°F)</span>
+      </div>
+      <div class="rw-detail-row">
+        <span class="rw-detail-label">💨 Wind</span>
+        <span class="rw-detail-value">${d.wind} mph ${windDirLabel}${d.gusts > 15 ? ` (gusts ${d.gusts} mph)` : ''}</span>
+      </div>
+      <div class="rw-detail-row">
+        <span class="rw-detail-label">👁️ Visibility</span>
+        <span class="rw-detail-value" style="color:${visColor};">${visLabel}</span>
+      </div>
+      <div class="rw-detail-row">
+        <span class="rw-detail-label">🌧️ Precipitation</span>
+        <span class="rw-detail-value">${d.precipProb}% chance${precipIn > 0 ? ` (${precipIn} in)` : ''}</span>
+      </div>
+      ${snowInches > 0 || snowDepthIn > 0 ? `<div class="rw-detail-row">
+        <span class="rw-detail-label">❄️ Snow</span>
+        <span class="rw-detail-value" style="color:#93c5fd;">${snowInches > 0 ? snowInches + ' in falling' : ''}${snowInches > 0 && snowDepthIn > 0 ? ', ' : ''}${snowDepthIn > 0 ? snowDepthIn + ' in on ground' : ''}</span>
+      </div>` : ''}
+      <div class="rw-detail-row">
+        <span class="rw-detail-label">☁️ Cloud Cover</span>
+        <span class="rw-detail-value">${d.cloudCover !== null ? d.cloudCover + '%' : 'N/A'}</span>
+      </div>
+      <div class="rw-detail-row">
+        <span class="rw-detail-label">💧 Humidity</span>
+        <span class="rw-detail-value">${d.humidity !== null ? d.humidity + '%' : 'N/A'}${d.dewPoint !== null ? ` (dew point ${d.dewPoint}°F)` : ''}</span>
+      </div>
+    </div>
+  `;
+
+  backdrop.appendChild(popup);
+  document.body.appendChild(backdrop);
+}
+
+function getWindDirLabel(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16] || '';
+}
+
+function buildTravelAdvisory(d) {
+  const points = [];
+
+  // Temperature-based advisories
+  if (d.temp <= 20) {
+    points.push('🥶 <strong>Extreme cold.</strong> Keep your heater running and have blankets accessible. If you stop, the car will cool fast.');
+  } else if (d.temp <= 32) {
+    points.push('🧊 <strong>Below freezing.</strong> Roads may have black ice, especially on bridges and overpasses. Brake gently and avoid sudden moves.');
+  } else if (d.temp <= 40 && d.dewPoint !== null && d.temp - d.dewPoint < 5) {
+    points.push('🌫️ <strong>Frost/fog risk.</strong> Temperature is close to the dew point. Watch for patchy fog and frost on the road surface.');
+  }
+
+  if (d.feelsLike <= 10 && d.temp > 20) {
+    points.push('🌬️ <strong>Wind chill is brutal.</strong> Feels like ' + d.feelsLike + '°F. If you have to stop or get out, bundle up immediately.');
+  }
+
+  // Snow
+  const snowIn = d.snowfall > 0 ? (d.snowfall / 2.54).toFixed(1) : 0;
+  const snowDepthIn = d.snowDepth > 0 ? (d.snowDepth / 2.54).toFixed(1) : 0;
+  if (parseFloat(snowIn) >= 2) {
+    points.push('❄️ <strong>' + snowIn + ' inches of snow expected.</strong> Roads will be slippery and slow. Reduce speed, increase following distance, and avoid passing trucks kicking up snow.');
+  } else if (parseFloat(snowIn) > 0) {
+    points.push('🌨️ <strong>Light snow (' + snowIn + ' in).</strong> Roads may get slushy. Watch for reduced traction on curves and hills.');
+  }
+  if (parseFloat(snowDepthIn) > 6) {
+    points.push('🏔️ <strong>' + snowDepthIn + ' inches of snow on the ground.</strong> Plowed roads may still have packed snow. Stay in tire tracks.');
+  }
+
+  // Freezing rain (weather codes 66-67)
+  if (d.code >= 66 && d.code <= 67) {
+    points.push('🧊 <strong>Freezing rain.</strong> This is one of the most dangerous driving conditions. Ice forms on contact with the road. If possible, pull over and wait it out.');
+  }
+
+  // Visibility
+  const visMiles = d.visibility !== null ? d.visibility / 1609.34 : null;
+  if (visMiles !== null && visMiles < 0.5) {
+    points.push('⚠️ <strong>Near-zero visibility (' + visMiles.toFixed(1) + ' mi).</strong> Pull over if you can\'t see the road ahead. Use hazard lights.');
+  } else if (visMiles !== null && visMiles < 2) {
+    points.push('🌫️ <strong>Low visibility (' + visMiles.toFixed(1) + ' mi).</strong> Use low beams (not high beams). Slow down and increase following distance.');
+  } else if (visMiles !== null && visMiles < 5) {
+    points.push('👁️ <strong>Reduced visibility (' + visMiles.toFixed(1) + ' mi).</strong> Stay alert. Keep headlights on.');
+  }
+
+  // Wind
+  if (d.gusts > 50) {
+    points.push('💨 <strong>Dangerous wind gusts (' + d.gusts + ' mph).</strong> High-profile vehicles can tip over. Keep both hands on the wheel, reduce speed, and be ready for sudden crosswinds especially on overpasses.');
+  } else if (d.gusts > 35) {
+    points.push('💨 <strong>Strong wind gusts (' + d.gusts + ' mph).</strong> You\'ll feel the car getting pushed. Grip the wheel firmly, especially when passing trucks or on open stretches.');
+  } else if (d.wind > 20) {
+    points.push('🍃 <strong>Moderate wind (' + d.wind + ' mph).</strong> You may notice crosswind on open highway stretches. Nothing dangerous, just stay aware.');
+  }
+
+  // Precipitation
+  if (d.code === 95 || d.code === 96 || d.code === 99) {
+    points.push('⛈️ <strong>Thunderstorm.</strong> Heavy rain, possible hail, and gusty winds. Slow down, turn on headlights, and avoid standing water on the road.');
+  } else if (d.code === 65 || d.code === 82) {
+    points.push('🌧️ <strong>Heavy rain.</strong> Hydroplaning risk is high. Slow down, avoid cruise control, and stay in the center lanes where water drains better.');
+  } else if ((d.code >= 61 && d.code <= 63) || (d.code >= 80 && d.code <= 81)) {
+    points.push('🌦️ <strong>Rain.</strong> Roads will be wet. Increase following distance and watch for spray from trucks.');
+  }
+
+  // Humidity + fog
+  if (d.humidity > 95 && d.cloudCover > 90 && visMiles !== null && visMiles < 5) {
+    points.push('🌫️ <strong>Dense moisture.</strong> High humidity with full cloud cover often means fog. Keep defroster running to prevent windshield fogging.');
+  }
+
+  // Good conditions
+  if (points.length === 0) {
+    if (d.severity === 'green') {
+      const goodPoints = [];
+      if (visMiles !== null && visMiles >= 10) goodPoints.push('excellent visibility');
+      if (d.wind < 10) goodPoints.push('calm winds');
+      if (d.temp >= 40 && d.temp <= 75) goodPoints.push('comfortable temperature');
+      if (d.cloudCover !== null && d.cloudCover < 30) goodPoints.push('clear skies');
+      if (d.precipProb < 10) goodPoints.push('no precipitation expected');
+
+      points.push('✅ <strong>Great driving conditions!</strong> ' + (goodPoints.length > 0 ? goodPoints.join(', ').replace(/^./, c => c.toUpperCase()) + '.' : 'Clear and safe for travel.'));
+      points.push('👍 Enjoy the drive. This is an ideal window for making good time.');
+    } else {
+      points.push('⚡ Conditions are manageable but stay alert. No major hazards expected at this point.');
+    }
+  }
+
+  return points.join('<br><br>');
 }
 
 // ============================================================
