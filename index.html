@@ -71,7 +71,7 @@ tailwind.config = {
 
   /* Sidebar */
   #poi-sidebar {
-    position: fixed; top: 120px; left: 0; bottom: 0; z-index: 80;
+    position: fixed; top: 140px; left: 0; bottom: 0; z-index: 80;
     background: rgba(26,26,36,0.96); backdrop-filter: blur(12px);
     border-right: 1px solid rgba(245,166,35,0.2);
     width: 260px; overflow-y: auto; transition: transform 0.3s ease;
@@ -315,7 +315,7 @@ tailwind.config = {
   <div id="map"></div>
 
   <!-- Top Control Bar: Hamburger + Search -->
-  <div id="top-control-bar" style="position:fixed;top:72px;left:0;right:0;z-index:95;display:flex;align-items:center;gap:6px;padding:6px 8px;">
+  <div id="top-control-bar" style="position:fixed;top:88px;left:0;right:0;z-index:95;display:flex;align-items:center;gap:6px;padding:6px 8px;">
     <!-- Hamburger Menu Button -->
     <button id="hamburger-btn" onclick="toggleHamburgerMenu()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" style="min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;">
       <svg id="hamburger-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -335,7 +335,7 @@ tailwind.config = {
   </div>
 
   <!-- Hamburger Dropdown Menu -->
-  <div id="hamburger-menu" style="display:none;position:fixed;top:124px;left:8px;z-index:96;width:220px;background:rgba(26,26,36,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+  <div id="hamburger-menu" style="display:none;position:fixed;top:140px;left:8px;z-index:96;width:220px;background:rgba(26,26,36,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
     <div style="padding:6px;">
       <button onclick="openRouteWeather();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">🌦️</span>
