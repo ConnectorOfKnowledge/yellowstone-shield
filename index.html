@@ -404,6 +404,13 @@ tailwind.config = {
         </div>
       </div>
 
+      <div class="mb-3">
+        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Awareness</p>
+        <div class="space-y-1">
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="crime_zones">🛡️ Crime Awareness Zones</button>
+        </div>
+      </div>
+
       <div class="mt-4 px-1 py-2 border-t border-dark-600">
         <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Safety Protocols</p>
         <p class="text-[11px] text-gray-400 leading-relaxed">Half-Tank Rule: Refuel every 180-200 miles regardless of gauge.</p>
@@ -580,6 +587,60 @@ const SIGHTSEEING_SPOTS = [
   { name: 'Dignity Statue', lat: 43.8098, lng: -99.3210, desc: 'Chamberlain, SD' },
   { name: 'Badlands National Park', lat: 43.8554, lng: -102.3397, desc: 'Interior, SD' },
   { name: 'Wall Drug', lat: 43.9925, lng: -102.2413, desc: 'Wall, SD' }
+];
+
+// ============================================================
+// CRIME ZONE DATA (pre-compiled high-crime areas along route)
+// ============================================================
+// Each zone: name, severity (red=high, yellow=caution), center point,
+// radius in meters, and tips for the driver.
+// Sources: FBI UCR data, NeighborhoodScout, CrimeGrade.org, city crime reports
+const CRIME_ZONES = [
+  {
+    name: 'Gary / East Chicago, IN',
+    severity: 'red',
+    lat: 41.5934, lng: -87.3464,
+    radiusM: 12000, // ~7.5 miles covers Gary + East Chicago
+    stats: 'Violent crime: 11.8 per 1,000. Indiana\'s highest murder rate.',
+    tip: 'Stay on I-90/I-80. Do NOT exit for gas between exits 10-17. Windows up, doors locked. If you need fuel, wait until past Portage, IN or stop before Hammond.',
+    avoidExits: 'Exits 10-17 (Grant St through Broadway)'
+  },
+  {
+    name: 'South Chicago, IL',
+    severity: 'yellow',
+    lat: 41.7144, lng: -87.5553,
+    radiusM: 8000,
+    stats: 'Chicago South Side: elevated violent crime. Car-jacking risk near highway ramps.',
+    tip: 'Stay on the expressway. Do not exit on the south side. Keep moving through. Traffic is normal daytime; avoid stopping on shoulders.',
+    avoidExits: 'Avoid exiting between 87th St and 130th St'
+  },
+  {
+    name: 'Toledo, OH (north side)',
+    severity: 'yellow',
+    lat: 41.6636, lng: -83.5819,
+    radiusM: 6000,
+    stats: '38 homicides in 2025. Robberies down 26% but still elevated.',
+    tip: 'Your hotel is in Maumee (safe suburb). If you exit in Toledo for gas or food, stick to the Maumee/Perrysburg side (south of I-80/90). Avoid the north Toledo exits.',
+    avoidExits: 'Avoid exits onto Lagrange St or Stickney Ave'
+  },
+  {
+    name: 'Rapid City, SD (north side)',
+    severity: 'yellow',
+    lat: 44.0883, lng: -103.2310,
+    radiusM: 4000,
+    stats: 'SD highest crime city. Property crime concentrated in north Rapid City.',
+    tip: 'Your hotel is on Cheyenne Blvd (south side, safe area). Avoid walking alone at night in the downtown area or north of Main St. Lock valuables in the trunk.',
+    avoidExits: ''
+  },
+  {
+    name: 'Billings, MT (south side)',
+    severity: 'yellow',
+    lat: 45.7700, lng: -108.5500,
+    radiusM: 4000,
+    stats: 'Montana\'s highest property crime rate. Vehicle break-ins are common.',
+    tip: 'Lock your car. Don\'t leave ANYTHING visible. Park in lit areas near your hotel. The south-central area around Minnesota Ave has the most incidents. Your hotel area near I-90 is fine.',
+    avoidExits: ''
+  }
 ];
 
 const CHECKLIST_DATA = {
@@ -1196,7 +1257,7 @@ function initSidebarToggle() {
         toggle.classList.remove('active');
         activePOIs.delete(type);
         clearPOIMarkers(type);
-        if (type !== 'weather_overlay' && type !== 'sightseeing') {
+        if (type !== 'weather_overlay' && type !== 'sightseeing' && type !== 'crime_zones') {
           clearSearchMarkers();
           // Clear the search bar if it matches this filter term
           const input = document.getElementById('map-search-input');
@@ -1209,10 +1270,10 @@ function initSidebarToggle() {
       } else {
         // Weather overlay and sightseeing coexist with other filters;
         // other POI types deactivate each other (one search at a time)
-        if (type !== 'weather_overlay' && type !== 'sightseeing') {
+        if (type !== 'weather_overlay' && type !== 'sightseeing' && type !== 'crime_zones') {
           document.querySelectorAll('.poi-toggle.active').forEach(otherToggle => {
             const otherType = otherToggle.dataset.poi;
-            if (otherType === 'weather_overlay' || otherType === 'sightseeing') return; // leave these active
+            if (otherType === 'weather_overlay' || otherType === 'sightseeing' || otherType === 'crime_zones') return; // leave these active
             otherToggle.classList.remove('active');
             activePOIs.delete(otherType);
             clearPOIMarkers(otherType);
@@ -1227,6 +1288,8 @@ function initSidebarToggle() {
           showSightseeingMarkers();
         } else if (type === 'weather_overlay') {
           showWeatherOverlay();
+        } else if (type === 'crime_zones') {
+          showCrimeZones();
         } else {
           // Use the main search bar with the filter term
           const searchTerm = POI_SEARCH_TERMS[type] || type.replace(/_/g, ' ');
@@ -1592,9 +1655,100 @@ function showSightseeingMarkers() {
 
 function clearPOIMarkers(type) {
   if (poiMarkers[type]) {
-    poiMarkers[type].forEach(m => m.setMap(null));
+    poiMarkers[type].forEach(m => {
+      if (m.setMap) m.setMap(null);        // Markers
+      if (m.close) m.close();              // InfoWindows
+    });
     poiMarkers[type] = [];
   }
+}
+
+// ============================================================
+// CRIME AWARENESS ZONES (circle overlays + info windows)
+// ============================================================
+function showCrimeZones() {
+  // Clear any existing crime zone overlays
+  clearPOIMarkers('crime_zones');
+  poiMarkers['crime_zones'] = [];
+
+  const CRIME_COLORS = {
+    red:    { fill: '#ef4444', stroke: '#fca5a5' },
+    yellow: { fill: '#f59e0b', stroke: '#fcd34d' }
+  };
+
+  CRIME_ZONES.forEach(zone => {
+    const colors = CRIME_COLORS[zone.severity] || CRIME_COLORS.yellow;
+
+    // Draw circle overlay
+    const circle = new google.maps.Circle({
+      map: map,
+      center: { lat: zone.lat, lng: zone.lng },
+      radius: zone.radiusM,
+      fillColor: colors.fill,
+      fillOpacity: 0.15,
+      strokeColor: colors.stroke,
+      strokeOpacity: 0.7,
+      strokeWeight: 2,
+      clickable: true,
+      zIndex: 5
+    });
+
+    // Build info window content
+    const sevLabel = zone.severity === 'red'
+      ? '<span style="color:#ef4444;font-weight:700;">⛔ HIGH RISK</span>'
+      : '<span style="color:#f59e0b;font-weight:700;">⚠️ CAUTION</span>';
+
+    const avoidSection = zone.avoidExits
+      ? `<div style="margin-top:6px;padding:4px 8px;background:#2a1a1a;border-radius:6px;font-size:11px;">
+           <strong style="color:#fca5a5;">🚫 Avoid:</strong> ${zone.avoidExits}
+         </div>`
+      : '';
+
+    const infoContent = `
+      <div style="max-width:280px;font-family:Inter,system-ui,sans-serif;color:#e5e7eb;background:#1a1a2e;padding:12px;border-radius:8px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px;">${sevLabel}</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px;">${zone.name}</div>
+        <div style="font-size:12px;color:#9ca3af;margin-bottom:8px;">${zone.stats}</div>
+        <div style="font-size:12px;line-height:1.5;padding:8px;background:#0f0f1a;border-radius:6px;border-left:3px solid ${colors.fill};">
+          <strong style="color:#fbbf24;">💡 Safety Tip:</strong><br>${zone.tip}
+        </div>
+        ${avoidSection}
+      </div>
+    `;
+
+    const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+
+    // Center marker with shield icon for tap target
+    const marker = new google.maps.Marker({
+      position: { lat: zone.lat, lng: zone.lng },
+      map: map,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 14,
+        fillColor: colors.fill,
+        fillOpacity: 0.9,
+        strokeColor: '#fff',
+        strokeWeight: 2
+      },
+      label: { text: '🛡️', fontSize: '16px' },
+      title: zone.name,
+      zIndex: 10
+    });
+
+    // Both the circle and center marker open the info window
+    marker.addListener('click', () => {
+      infoWindow.open(map, marker);
+    });
+    circle.addListener('click', () => {
+      infoWindow.open(map, marker);
+    });
+
+    poiMarkers['crime_zones'].push(circle);
+    poiMarkers['crime_zones'].push(marker);
+    poiMarkers['crime_zones'].push(infoWindow);
+  });
+
+  showToast('🛡️ Crime awareness zones loaded. Tap shields for details.');
 }
 
 // ============================================================
@@ -3608,36 +3762,59 @@ document.addEventListener('click', (e) => {
 // APP-LEVEL BACK BUTTON
 // ============================================================
 function appBack() {
-  // Close hamburger menu first if open
-  if (hamburgerOpen) { closeHamburgerMenu(); return; }
   // Close open overlays in priority order instead of navigating away
+  // Check chip detail backdrop first (topmost)
+  const chipDetail = document.querySelector('.rw-chip-detail-backdrop');
+  if (chipDetail) { chipDetail.remove(); return true; }
+  // Close hamburger menu
+  if (hamburgerOpen) { closeHamburgerMenu(); return true; }
+  // Close emergency modal
   const emergencyModal = document.getElementById('emergency-modal');
   if (emergencyModal && emergencyModal.style.display === 'block') {
-    closeEmergencyModal();
-    return;
+    closeEmergencyModal(); return true;
   }
+  // Close stop picker
   const stopPicker = document.getElementById('stop-picker-panel');
   if (stopPicker && stopPicker.classList.contains('open')) {
-    closeStopPicker();
-    return;
+    closeStopPicker(); return true;
   }
+  // Close route weather
   const rwPanel = document.getElementById('route-weather-panel');
   if (rwPanel && rwPanel.classList.contains('open')) {
-    closeRouteWeather();
-    return;
+    closeRouteWeather(); return true;
   }
+  // Close POI sidebar
   const sidebar = document.getElementById('poi-sidebar');
   if (sidebar && !sidebar.classList.contains('collapsed')) {
-    document.getElementById('toggle-sidebar-btn').click();
-    return;
+    closePOISidebar(); return true;
   }
+  // Close hotel panel
   const hotelPanel = document.getElementById('hotel-panel');
   if (hotelPanel && !hotelPanel.classList.contains('collapsed')) {
-    hotelPanel.classList.add('collapsed');
-    return;
+    hotelPanel.classList.add('collapsed'); return true;
   }
-  // Nothing open -- do nothing (don't call history.back)
+  // Close any open Google Maps info windows
+  if (typeof google !== 'undefined') {
+    // Search markers may have open info windows
+    searchMarkers.forEach(m => { try { google.maps.event.trigger(m, 'closeclick'); } catch(e) {} });
+  }
+  // Nothing open
+  return false;
 }
+
+// Wire appBack to Android hardware back button and browser back
+// Push a state entry so we can intercept the back button
+window.addEventListener('popstate', (e) => {
+  const handled = appBack();
+  if (handled) {
+    // Re-push state so back button works again next time
+    history.pushState({ ys: true }, '');
+  }
+});
+// Push initial state on load
+window.addEventListener('load', () => {
+  history.pushState({ ys: true }, '');
+});
 
 // ============================================================
 // BOOT
