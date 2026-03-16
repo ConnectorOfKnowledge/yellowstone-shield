@@ -212,6 +212,9 @@ tailwind.config = {
   .stop-item {
     background: #1e1e2e; border: 1px solid #24243a; border-radius: 12px;
     padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+    transition: opacity 0.15s, border-color 0.15s;
+  }
+  .drag-handle:active { color: #f5a623 !important;
     transition: all 0.2s; touch-action: none;
   }
   .stop-item.dragging { opacity: 0.5; border-color: #f5a623; }
@@ -3924,6 +3927,9 @@ function renderStopPicker() {
   const stops = currentRouteStops;
   let html = '';
 
+  // Drag hint
+  html += `<div style="text-align:center;font-size:10px;color:#555;margin-bottom:8px;">Hold ≡ to drag and reorder stops</div>`;
+
   // Origin (fixed, not movable)
   html += `<div class="stop-item origin-stop">
     <div class="text-blue-400 text-lg font-bold w-8 text-center">A</div>
@@ -3942,13 +3948,10 @@ function renderStopPicker() {
       ? `<div class="text-xs text-gray-600 px-2 py-1 rounded bg-dark-700">Hotel</div>`
       : `<button onclick="removeStopByIndex(${i})" class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-sm font-bold" title="Remove">✗</button>`;
 
-    const canMoveUp = i > 0;
-    const canMoveDown = i < stops.length - 1;
-
-    html += `<div class="stop-item ${borderClass}" data-stop-idx="${i}">
-      <div style="display:flex;flex-direction:column;gap:2px;margin-right:4px;">
-        <button onclick="moveStopUp(${i})" style="background:none;border:none;color:${canMoveUp ? '#f5a623' : '#333'};font-size:16px;cursor:${canMoveUp ? 'pointer' : 'default'};padding:0;line-height:1;" ${canMoveUp ? '' : 'disabled'} title="Move up">▲</button>
-        <button onclick="moveStopDown(${i})" style="background:none;border:none;color:${canMoveDown ? '#f5a623' : '#333'};font-size:16px;cursor:${canMoveDown ? 'pointer' : 'default'};padding:0;line-height:1;" ${canMoveDown ? '' : 'disabled'} title="Move down">▼</button>
+    html += `<div class="stop-item ${borderClass}" data-stop-idx="${i}" id="stop-drag-${i}">
+      <div class="drag-handle" data-drag-idx="${i}"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:28px;margin-right:4px;cursor:grab;color:#555;font-size:18px;line-height:0.6;user-select:none;touch-action:none;">
+        <span style="letter-spacing:3px;">≡</span>
       </div>
       <div class="flex-1 min-w-0">
         <div class="text-sm text-gray-200 font-medium truncate">${stop.name}</div>
@@ -3969,32 +3972,208 @@ function renderStopPicker() {
   </div>`;
 
   container.innerHTML = html;
+  initDragAndDrop();
 }
 
-function moveStopUp(idx) {
-  if (idx <= 0) return;
-  const temp = currentRouteStops[idx];
-  currentRouteStops[idx] = currentRouteStops[idx - 1];
-  currentRouteStops[idx - 1] = temp;
-  saveRouteStopsOrder(currentRouteStops);
-  applyRouteStopsToMap();
-  renderStopPicker();
-}
+// Touch/mouse drag-and-drop for stop reordering
+function initDragAndDrop() {
+  const handles = document.querySelectorAll('.drag-handle');
+  let dragIdx = null;
+  let dragEl = null;
+  let dragClone = null;
+  let longPressTimer = null;
+  let isDragging = false;
+  let startY = 0;
+  let offsetY = 0;
+  const LONG_PRESS_MS = 400;
 
-function moveStopDown(idx) {
-  if (idx >= currentRouteStops.length - 1) return;
-  const temp = currentRouteStops[idx];
-  currentRouteStops[idx] = currentRouteStops[idx + 1];
-  currentRouteStops[idx + 1] = temp;
-  saveRouteStopsOrder(currentRouteStops);
-  applyRouteStopsToMap();
-  renderStopPicker();
+  function getStopElements() {
+    return Array.from(document.querySelectorAll('[data-stop-idx]'));
+  }
+
+  function startDrag(idx, clientY) {
+    isDragging = true;
+    dragIdx = idx;
+    dragEl = document.getElementById(`stop-drag-${idx}`);
+    if (!dragEl) return;
+
+    const rect = dragEl.getBoundingClientRect();
+    offsetY = clientY - rect.top;
+
+    // Create floating clone
+    dragClone = dragEl.cloneNode(true);
+    dragClone.style.cssText = `
+      position:fixed; left:${rect.left}px; top:${rect.top}px;
+      width:${rect.width}px; z-index:99999;
+      background:#2a2a3e; border:2px solid #f5a623;
+      border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.6);
+      opacity:0.95; pointer-events:none; transition:none;
+      padding:12px 14px; display:flex; align-items:center; gap:10px;
+    `;
+    dragClone.id = 'drag-clone';
+    document.body.appendChild(dragClone);
+
+    // Dim the original
+    dragEl.style.opacity = '0.3';
+    dragEl.style.border = '2px dashed #f5a623';
+
+    // Prevent scrolling while dragging
+    document.getElementById('stop-picker-panel').style.overflow = 'hidden';
+
+    // Haptic feedback if available
+    if (navigator.vibrate) navigator.vibrate(30);
+  }
+
+  function moveDrag(clientY) {
+    if (!isDragging || !dragClone) return;
+
+    dragClone.style.top = `${clientY - offsetY}px`;
+
+    // Check which stop we're hovering over
+    const stopEls = getStopElements();
+    for (let i = 0; i < stopEls.length; i++) {
+      if (i === dragIdx) continue;
+      const rect = stopEls[i].getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      if (clientY < midY && i < dragIdx) {
+        // Move drag item up
+        const temp = currentRouteStops[dragIdx];
+        currentRouteStops.splice(dragIdx, 1);
+        currentRouteStops.splice(i, 0, temp);
+        dragIdx = i;
+        rerenderDragItems();
+        break;
+      } else if (clientY > midY && i > dragIdx) {
+        // Move drag item down
+        const temp = currentRouteStops[dragIdx];
+        currentRouteStops.splice(dragIdx, 1);
+        currentRouteStops.splice(i, 0, temp);
+        dragIdx = i;
+        rerenderDragItems();
+        break;
+      }
+    }
+  }
+
+  function rerenderDragItems() {
+    // Quick re-render of just the stop items (not full render, to preserve drag state)
+    const stops = currentRouteStops;
+    const container = document.getElementById('stop-picker-list');
+    const items = container.querySelectorAll('[data-stop-idx]');
+
+    items.forEach((item, i) => {
+      const stop = stops[i];
+      if (!stop) return;
+      item.dataset.stopIdx = i;
+      item.id = `stop-drag-${i}`;
+      const nameEl = item.querySelector('.text-sm.text-gray-200');
+      const addrEl = item.querySelector('.text-xs.text-gray-500');
+      if (nameEl) nameEl.textContent = stop.name;
+      if (addrEl) addrEl.textContent = stop.address;
+      // Update drag handle index
+      const handle = item.querySelector('.drag-handle');
+      if (handle) handle.dataset.dragIdx = i;
+      // Dim the dragged item
+      if (i === dragIdx) {
+        item.style.opacity = '0.3';
+        item.style.border = '2px dashed #f5a623';
+      } else {
+        item.style.opacity = '1';
+        item.style.border = '1px solid #24243a';
+      }
+    });
+  }
+
+  function endDrag() {
+    if (!isDragging) return;
+    isDragging = false;
+
+    // Remove clone
+    if (dragClone) { dragClone.remove(); dragClone = null; }
+
+    // Restore original
+    if (dragEl) {
+      dragEl.style.opacity = '1';
+      dragEl.style.border = '1px solid #24243a';
+    }
+
+    // Re-enable scrolling
+    document.getElementById('stop-picker-panel').style.overflow = 'auto';
+
+    // Save new order and update route
+    saveRouteStopsOrder(currentRouteStops);
+    applyRouteStopsToMap();
+    renderStopPicker(); // Full re-render to clean up
+  }
+
+  function cancelDrag() {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (isDragging) endDrag();
+  }
+
+  handles.forEach(handle => {
+    const idx = parseInt(handle.dataset.dragIdx);
+
+    // Touch events
+    handle.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      startY = touch.clientY;
+      longPressTimer = setTimeout(() => {
+        startDrag(idx, touch.clientY);
+      }, LONG_PRESS_MS);
+    }, { passive: false });
+
+    handle.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      // Cancel long press if finger moves too much before activation
+      if (!isDragging && Math.abs(touch.clientY - startY) > 10) {
+        cancelDrag();
+        return;
+      }
+      if (isDragging) {
+        e.preventDefault();
+        moveDrag(touch.clientY);
+      }
+    }, { passive: false });
+
+    handle.addEventListener('touchend', () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      if (isDragging) endDrag();
+    });
+
+    handle.addEventListener('touchcancel', cancelDrag);
+
+    // Mouse events (for desktop testing)
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startY = e.clientY;
+      longPressTimer = setTimeout(() => {
+        startDrag(idx, e.clientY);
+
+        const onMouseMove = (me) => {
+          me.preventDefault();
+          moveDrag(me.clientY);
+        };
+        const onMouseUp = () => {
+          endDrag();
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      }, LONG_PRESS_MS);
+    });
+
+    handle.addEventListener('mouseup', () => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    });
+  });
 }
 
 function removeStopByIndex(idx) {
   const stop = currentRouteStops[idx];
   if (stop.type === 'custom') {
-    // Also remove from customWaypoints
     customWaypoints = customWaypoints.filter(cw =>
       !(Math.abs(cw.lat - stop.lat) < 0.0001 && Math.abs(cw.lng - stop.lng) < 0.0001)
     );
