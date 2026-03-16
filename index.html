@@ -1916,10 +1916,9 @@ async function fetchWeather() {
   // Use user's actual GPS position if available, otherwise estimate from trip dates
   let currentLat, currentLng, fromLabel;
   const today = new Date();
-  const tripDates = [
-    new Date('2026-03-17'), new Date('2026-03-18'),
-    new Date('2026-03-19'), new Date('2026-03-20')
-  ];
+  // Use adjustable trip dates from getRWLegs
+  const currentLegs = getRWLegs();
+  const tripDates = currentLegs.map(l => new Date(l.date));
 
   // Determine which leg we're on
   let nextLegIndex = 0;
@@ -2319,6 +2318,11 @@ function textSearchMap(query) {
         bounds.extend(place.geometry.location);
       });
       map.fitBounds(bounds);
+      // Prevent zooming out too far -- keep minimum zoom at 9 (county level)
+      const listener = google.maps.event.addListener(map, 'idle', () => {
+        google.maps.event.removeListener(listener);
+        if (map.getZoom() < 9) map.setZoom(9);
+      });
     }
   });
 }
@@ -2549,8 +2553,6 @@ function rwGetSeverity(weatherCode, gustsMph, precipMm, tempF) {
   if (weatherCode >= 45 && weatherCode <= 48) return 'yellow'; // fog (genuinely reduces vis)
   // Below freezing = potential black ice on bridges, worth noting
   if (tempF !== undefined && tempF <= 32) return 'yellow';
-  // Very cold (below 20) even without precipitation -- road surface risks
-  if (tempF !== undefined && tempF <= 20) return 'yellow';
 
   // GOOD (green): everything else including overcast, partly cloudy,
   // light drizzle, light rain, light showers -- all perfectly fine to drive in
