@@ -359,14 +359,16 @@ const HOTELS = [
     confirmation: '#20572629', lat: 44.0581, lng: -103.1994, notes: ''
   },
   {
-    night: 5, date: 'TBD', name: 'Day 5 - TBD',
-    address: 'To be determined', confirmation: '--',
-    lat: null, lng: null, notes: 'Hotel not yet booked'
+    night: 5, date: 'Mar 21', name: 'TBD - Billings, MT (not yet booked)',
+    address: 'Recommended: Hilltop Inn by Riversage, Billings, MT 59101',
+    confirmation: 'CALL TO BOOK - Confirm 18+ check-in',
+    lat: 45.7833, lng: -108.5007, notes: 'Need to book! Options: Hilltop Inn by Riversage (free breakfast, right off I-90) or My Place Hotel. Call directly for best rate.'
   }
 ];
 
-const DESTINATION = 'Yellowstone National Park';
-const DEST_LATLNG = { lat: 44.4280, lng: -110.5885 };
+const DESTINATION = 'Gardiner Office, Yellowstone National Park';
+const DEST_LATLNG = { lat: 45.0328, lng: -110.7059 };
+const CHECKIN_TIME = '8:00 AM - 10:00 AM'; // Gardiner office check-in window
 
 const SIGHTSEEING_SPOTS = [
   { name: 'Jolly Green Giant', lat: 43.6527, lng: -94.0899, desc: 'Blue Earth, MN' },
@@ -964,8 +966,10 @@ async function fetchWeather() {
     `Next leg: ${fromLabel} → ${nextHotel.name}`;
 
   // Estimated drive hours per leg (more accurate than flat 6.5)
-  const legDistances = [350, 480, 430, 350, 450]; // approx miles per leg
+  const legDistances = [350, 480, 430, 350, 175]; // approx miles per leg (last leg is Billings to Gardiner)
   const estDriveHours = Math.round(((legDistances[nextLegIndex] || 400) / 60) * 10) / 10 + 0.5; // buffer
+  // Last leg: she must arrive at Gardiner by 8 AM, not 5 PM
+  const isFinalLeg = nextLegIndex === HOTELS.length - 1 || nextLegIndex >= 4;
 
   try {
     // Fetch weather at BOTH current location and destination
@@ -1002,7 +1006,8 @@ async function fetchWeather() {
       }
 
       // Calculate departure time based on actual leg distance
-      const arriveBy = 17; // 5 PM
+      // Final leg to Gardiner: must arrive by 8 AM. All other legs: arrive by 5 PM
+      const arriveBy = isFinalLeg ? 8 : 17;
       const leaveByHour = arriveBy - estDriveHours;
       const leaveHour = Math.floor(leaveByHour);
       const leaveMin = Math.round((leaveByHour - leaveHour) * 60);
