@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Yellowstone Shield - Road Trip Command Center</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      colors: {
+        dark: { 900: '#0f0f14', 800: '#1a1a24', 700: '#24243a', 600: '#2e2e48' },
+        warm: { 400: '#f5a623', 500: '#e8912d', 600: '#d97706' },
+        road: { blue: '#3b82f6', teal: '#14b8a6', green: '#22c55e' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; }
+  body { background: #0f0f14; color: #e2e8f0; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #4a4a6a; border-radius: 3px; }
+
+  /* Checklist */
+  #checklist-screen { position: fixed; inset: 0; z-index: 9999; background: #0f0f14; overflow-y: auto; }
+  .check-category { border-left: 3px solid #f5a623; }
+  .check-item input[type="checkbox"] {
+    appearance: none; width: 22px; height: 22px; border: 2px solid #4a4a6a;
+    border-radius: 6px; cursor: pointer; flex-shrink: 0; transition: all 0.2s;
+    display: grid; place-content: center;
+  }
+  .check-item input[type="checkbox"]:checked {
+    background: #22c55e; border-color: #22c55e;
+  }
+  .check-item input[type="checkbox"]:checked::after {
+    content: '✓'; color: white; font-size: 14px; font-weight: 700;
+  }
+  .check-item.checked label { opacity: 0.5; text-decoration: line-through; }
+
+  /* Map */
+  #map { width: 100%; height: 100%; }
+
+  /* Weather bar */
+  #weather-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: linear-gradient(180deg, rgba(15,15,20,0.95) 0%, rgba(15,15,20,0.85) 100%);
+    backdrop-filter: blur(12px); border-bottom: 1px solid rgba(245,166,35,0.2);
+  }
+
+  /* Hotel panel */
+  #hotel-panel {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+    background: rgba(26,26,36,0.96); backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(245,166,35,0.2); border-radius: 16px 16px 0 0;
+    transition: transform 0.3s ease; max-height: 70vh; overflow-y: auto;
+  }
+  #hotel-panel.collapsed { transform: translateY(calc(100% - 52px)); }
+  .hotel-card { transition: all 0.2s; }
+  .hotel-card:active { transform: scale(0.98); }
+
+  /* Sidebar */
+  #poi-sidebar {
+    position: fixed; top: 72px; left: 0; bottom: 0; z-index: 80;
+    background: rgba(26,26,36,0.96); backdrop-filter: blur(12px);
+    border-right: 1px solid rgba(245,166,35,0.2);
+    width: 260px; overflow-y: auto; transition: transform 0.3s ease;
+    padding-top: 8px;
+  }
+  #poi-sidebar.collapsed { transform: translateX(-260px); }
+  .poi-toggle { transition: all 0.15s; }
+  .poi-toggle.active { background: rgba(245,166,35,0.2); border-color: #f5a623; }
+
+  /* Emergency */
+  #emergency-btn {
+    position: fixed; bottom: 70px; right: 16px; z-index: 200;
+    width: 64px; height: 64px; border-radius: 50%; background: #dc2626;
+    border: 3px solid #fca5a5; box-shadow: 0 0 20px rgba(220,38,38,0.5);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; animation: pulse-red 2s infinite;
+  }
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 20px rgba(220,38,38,0.5); }
+    50% { box-shadow: 0 0 30px rgba(220,38,38,0.8); }
+  }
+  #emergency-modal {
+    position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px); overflow-y: auto; display: none;
+  }
+
+  /* Text Dad */
+  #text-dad-btn {
+    position: fixed; bottom: 70px; left: 16px; z-index: 200;
+    width: 56px; height: 56px; border-radius: 50%; background: #0d9488;
+    border: 2px solid #5eead4; box-shadow: 0 0 16px rgba(13,148,136,0.4);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+
+  /* Toggle sidebar btn */
+  #toggle-sidebar-btn {
+    position: fixed; top: 80px; left: 8px; z-index: 85;
+    transition: left 0.3s ease;
+  }
+  #toggle-sidebar-btn.shifted { left: 268px; }
+
+  /* Half-tank reminder */
+  #half-tank-reminder {
+    position: fixed; top: 78px; right: 16px; z-index: 95;
+    display: none;
+  }
+
+  /* Wind warning */
+  .wind-warning { animation: flash-warn 1s infinite; }
+  @keyframes flash-warn {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  /* Loading overlay */
+  #loading-overlay {
+    position: fixed; inset: 0; z-index: 10000; background: #0f0f14;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .loader { width: 48px; height: 48px; border: 4px solid #24243a; border-top-color: #f5a623; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* GPS override warning */
+  #gps-override-warning {
+    position: fixed; top: 78px; left: 50%; transform: translateX(-50%);
+    z-index: 95; display: none;
+  }
+
+  /* Responsive */
+  @media (min-width: 768px) {
+    #hotel-panel { left: auto; width: 400px; right: 0; border-radius: 16px 0 0 0; }
+    #emergency-btn { bottom: 24px; right: 24px; }
+    #text-dad-btn { bottom: 24px; left: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+  <div class="loader mb-4"></div>
+  <p class="text-warm-400 font-semibold text-lg">Yellowstone Shield</p>
+  <p class="text-gray-500 text-sm mt-1">Loading command center...</p>
+</div>
+
+<!-- ==================== CHECKLIST SCREEN ==================== -->
+<div id="checklist-screen" class="hidden">
+  <div class="max-w-lg mx-auto px-4 py-6 pb-32">
+    <div class="text-center mb-6">
+      <div class="text-4xl mb-2">🛡️</div>
+      <h1 class="text-2xl font-extrabold text-warm-400">Yellowstone Shield</h1>
+      <p class="text-gray-400 text-sm mt-1">Vehicle Prep Checklist</p>
+      <p class="text-gray-500 text-xs mt-1">Complete all items before departure</p>
+    </div>
+
+    <div id="checklist-progress" class="mb-6">
+      <div class="flex justify-between text-xs text-gray-400 mb-1">
+        <span id="progress-text">0 / 0 items</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="w-full h-2 bg-dark-700 rounded-full overflow-hidden">
+        <div id="progress-bar" class="h-full bg-gradient-to-r from-warm-400 to-road-green rounded-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div id="checklist-categories" class="space-y-4"></div>
+
+    <div class="mt-6 space-y-3">
+      <button id="confirm-checklist-btn" disabled
+        class="w-full py-3 rounded-xl font-bold text-lg bg-road-green text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+        All Checks Complete - Let's Roll!
+      </button>
+      <button id="bypass-btn"
+        class="w-full py-2.5 rounded-xl font-medium text-sm bg-dark-700 text-gray-400 hover:text-gray-200 border border-dark-600 transition-all">
+        Bypass -- still planning
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MAIN APP ==================== -->
+<div id="main-app" class="hidden" style="height:100vh;width:100vw;">
+
+  <!-- Weather Bar -->
+  <div id="weather-bar" class="px-4 py-2">
+    <div class="flex items-center justify-between text-sm">
+      <div class="flex items-center gap-3">
+        <span id="weather-icon" class="text-xl">--</span>
+        <div>
+          <span id="weather-temp" class="font-bold text-warm-400">--</span>
+          <span id="weather-desc" class="text-gray-400 ml-2 text-xs">Loading weather...</span>
+        </div>
+      </div>
+      <div class="text-right">
+        <div id="weather-wind" class="text-xs text-gray-400">Wind: --</div>
+        <div id="weather-depart" class="text-xs font-semibold text-road-teal">Leave by: --</div>
+      </div>
+    </div>
+    <div id="wind-warning" class="wind-warning hidden mt-1 px-3 py-1.5 bg-red-900/60 border border-red-500 rounded-lg text-xs text-red-300 font-semibold text-center">
+      HIGH WIND WARNING -- Consider delaying departure
+    </div>
+    <div id="weather-leg-info" class="text-xs text-gray-500 mt-0.5">Next leg: --</div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Toggle Sidebar Button -->
+  <button id="toggle-sidebar-btn" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all">
+    <svg id="sidebar-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    <svg id="sidebar-icon-close" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>
+
+  <!-- POI Sidebar -->
+  <div id="poi-sidebar" class="collapsed">
+    <div class="px-3 py-2">
+      <h3 class="text-xs font-bold text-warm-400 uppercase tracking-wider mb-3 px-1">Points of Interest</h3>
+
+      <div class="mb-3">
+        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Essentials</p>
+        <div class="space-y-1">
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="gas_station">⛽ Gas Stations</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="rest_stop">🅿️ Rest Stops</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="restaurant">🍔 Restaurants</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="supermarket">🛒 Grocery Stores</button>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Safety</p>
+        <div class="space-y-1">
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="police">🚔 Police Stations</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="hospital">🏥 Hospitals</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="fire_station">🚒 Fire Stations</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="car_repair">🔧 Auto Repair</button>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Fun Stops</p>
+        <div class="space-y-1">
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sightseeing">📸 Sightseeing</button>
+        </div>
+      </div>
+
+      <div class="mt-4 px-1 py-2 border-t border-dark-600">
+        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Safety Protocols</p>
+        <p class="text-[11px] text-gray-400 leading-relaxed">Half-Tank Rule: Refuel every 180-200 miles regardless of gauge.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hotel Panel -->
+  <div id="hotel-panel" class="collapsed">
+    <div id="hotel-panel-handle" class="flex items-center justify-center py-2 cursor-pointer">
+      <div class="w-10 h-1 bg-gray-600 rounded-full"></div>
+    </div>
+    <div class="flex items-center justify-between px-4 pb-2">
+      <h3 class="text-sm font-bold text-warm-400">Hotel Stops</h3>
+      <span id="hotel-count" class="text-xs text-gray-500">4 stops</span>
+    </div>
+    <div id="hotel-cards" class="px-4 pb-6 space-y-3"></div>
+  </div>
+
+  <!-- Half-Tank Reminder -->
+  <div id="half-tank-reminder" class="bg-warm-600/90 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg">
+    ⛽ Half-Tank Rule: Time to refuel!
+  </div>
+
+  <!-- GPS Override Warning -->
+  <div id="gps-override-warning" class="bg-red-700/90 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-lg max-w-xs text-center">
+    ⚠️ Stay on I-90 for cell service and safety. Avoid US-212.
+  </div>
+
+  <!-- Emergency Button -->
+  <button id="emergency-btn" onclick="openEmergencyModal()">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+    </svg>
+  </button>
+
+  <!-- Text Dad Button -->
+  <button id="text-dad-btn" onclick="textDad()">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+    </svg>
+  </button>
+
+  <!-- Emergency Modal -->
+  <div id="emergency-modal" onclick="if(event.target===this)closeEmergencyModal()">
+    <div class="max-w-lg mx-auto px-4 py-8">
+      <div class="text-center mb-4">
+        <h2 class="text-2xl font-extrabold text-red-400">EMERGENCY</h2>
+        <p class="text-gray-400 text-sm">Nearest help from your location</p>
+      </div>
+
+      <a href="tel:911" class="block w-full py-4 bg-red-600 hover:bg-red-500 rounded-xl text-center text-white font-extrabold text-xl mb-4 shadow-lg shadow-red-900/50 transition-all active:scale-95">
+        📞 CALL 911
+      </a>
+
+      <div id="emergency-results" class="space-y-3">
+        <div class="text-center text-gray-500 py-8">
+          <div class="loader mx-auto mb-2" style="width:32px;height:32px;border-width:3px;"></div>
+          Finding nearest services...
+        </div>
+      </div>
+
+      <button onclick="closeEmergencyModal()" class="w-full mt-4 py-3 bg-dark-700 rounded-xl text-gray-400 font-medium">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Google Maps API -->
+<script>
+// ============================================================
+// CONFIGURATION
+// ============================================================
+const GOOGLE_MAPS_API_KEY = 'GOOGLE_MAPS_API_KEY_HERE';
+
+// Trip data
+const ORIGIN = 'Seven Valleys, PA 17360';
+const ORIGIN_LATLNG = { lat: 39.8473, lng: -76.7619 };
+
+const HOTELS = [
+  {
+    night: 1, date: 'Mar 17', name: 'Comfort Inn',
+    address: '1702 Tollgate Dr, Maumee, OH 43537',
+    confirmation: '--', lat: 41.5710, lng: -83.6740, notes: ''
+  },
+  {
+    night: 2, date: 'Mar 18', name: 'Drury Inn & Suites',
+    address: '815 1st Ave, Coralville, IA 52241',
+    confirmation: '#11496711', lat: 41.6764, lng: -91.5642, notes: ''
+  },
+  {
+    night: 3, date: 'Mar 19', name: 'Holiday Inn Express',
+    address: '1103 N Splitrock Blvd, Brandon, SD 57005',
+    confirmation: '#20164946378', lat: 43.5947, lng: -96.5717, notes: ''
+  },
+  {
+    night: 4, date: 'Mar 20', name: 'Baymont by Wyndham',
+    address: '4040 Cheyenne Blvd, Rapid City, SD 57703',
+    confirmation: '#20572629', lat: 44.0581, lng: -103.1994, notes: ''
+  },
+  {
+    night: 5, date: 'TBD', name: 'Day 5 - TBD',
+    address: 'To be determined', confirmation: '--',
+    lat: null, lng: null, notes: 'Hotel not yet booked'
+  }
+];
+
+const DESTINATION = 'Yellowstone National Park';
+const DEST_LATLNG = { lat: 44.4280, lng: -110.5885 };
+
+const SIGHTSEEING_SPOTS = [
+  { name: 'Jolly Green Giant', lat: 43.6527, lng: -94.0899, desc: 'Blue Earth, MN' },
+  { name: 'Corn Palace', lat: 43.7094, lng: -98.0287, desc: 'Mitchell, SD' },
+  { name: 'Dignity Statue', lat: 43.8098, lng: -99.3210, desc: 'Chamberlain, SD' },
+  { name: 'Badlands National Park', lat: 43.8554, lng: -102.3397, desc: 'Interior, SD' },
+  { name: 'Wall Drug', lat: 43.9925, lng: -102.2413, desc: 'Wall, SD' }
+];
+
+const CHECKLIST_DATA = {
+  'Documents & Wallet': [
+    'Driver\'s license', 'Vehicle registration', 'Proof of insurance',
+    'AAA membership card', 'E-ZPass (mounted on windshield)',
+    'Cash (at least $50 in small bills)', 'Job/employer paperwork for Yellowstone'
+  ],
+  'Vehicle': [
+    'Oil level checked', 'Tire pressure checked (all 4 + spare)',
+    'Tire tread depth (penny test)', 'Coolant/antifreeze level',
+    'Windshield washer fluid topped off', 'Wiper blades in good condition',
+    'Headlights, taillights, brake lights working', 'Gas tank full before departure'
+  ],
+  'Emergency Kit': [
+    'Jumper cables or jump starter', 'Flashlight with fresh batteries',
+    'Basic first aid kit', 'Blanket (it\'s March in Montana)',
+    'Bottled water', 'Non-perishable snacks', 'Ice scraper/snow brush'
+  ],
+  'Tech & Communication': [
+    'Phone charger (car adapter)', 'Portable battery pack (charged)',
+    'Dad\'s number saved (223-254-9070)',
+    'Offline Google Maps downloaded for full route',
+    'Location sharing turned on'
+  ]
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let map, directionsService, directionsRenderer, placesService;
+let userMarker, userPosition = null;
+let watchId = null;
+let poiMarkers = {};
+let activePOIs = new Set();
+let routeWaypoints = [];
+let lastGasStopMiles = 0;
+let totalMilesDriven = 0;
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+function loadGoogleMaps() {
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=initApp`;
+  script.async = true;
+  script.defer = true;
+  document.head.appendChild(script);
+}
+
+function initApp() {
+  document.getElementById('loading-overlay').style.display = 'none';
+
+  const checklistDone = localStorage.getItem('ys_checklist_complete') === 'true';
+  if (checklistDone) {
+    showMainApp();
+  } else {
+    showChecklist();
+  }
+}
+
+// ============================================================
+// CHECKLIST
+// ============================================================
+function showChecklist() {
+  document.getElementById('checklist-screen').classList.remove('hidden');
+  document.getElementById('main-app').classList.add('hidden');
+  buildChecklist();
+}
+
+function buildChecklist() {
+  const container = document.getElementById('checklist-categories');
+  const savedState = JSON.parse(localStorage.getItem('ys_checklist_state') || '{}');
+  let html = '';
+  let totalItems = 0;
+
+  for (const [category, items] of Object.entries(CHECKLIST_DATA)) {
+    html += `<div class="check-category bg-dark-800 rounded-xl pl-4 pr-3 py-3">
+      <h3 class="font-bold text-sm text-warm-400 mb-2">${category}</h3>
+      <div class="space-y-1.5">`;
+
+    for (const item of items) {
+      const key = `${category}::${item}`;
+      const checked = savedState[key] === true;
+      totalItems++;
+      html += `<div class="check-item flex items-center gap-3 ${checked ? 'checked' : ''}">
+        <input type="checkbox" id="chk_${totalItems}" data-key="${escapeAttr(key)}" ${checked ? 'checked' : ''} onchange="onCheckChange(this)">
+        <label for="chk_${totalItems}" class="text-sm text-gray-300 cursor-pointer select-none">${item}</label>
+      </div>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  container.innerHTML = html;
+  updateChecklistProgress();
+
+  document.getElementById('confirm-checklist-btn').addEventListener('click', () => {
+    localStorage.setItem('ys_checklist_complete', 'true');
+    document.getElementById('checklist-screen').classList.add('hidden');
+    showMainApp();
+  });
+
+  document.getElementById('bypass-btn').addEventListener('click', () => {
+    document.getElementById('checklist-screen').classList.add('hidden');
+    showMainApp();
+  });
+}
+
+function escapeAttr(str) {
+  return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;');
+}
+
+function onCheckChange(el) {
+  const key = el.dataset.key;
+  const savedState = JSON.parse(localStorage.getItem('ys_checklist_state') || '{}');
+  savedState[key] = el.checked;
+  localStorage.setItem('ys_checklist_state', JSON.stringify(savedState));
+
+  const item = el.closest('.check-item');
+  if (el.checked) item.classList.add('checked');
+  else item.classList.remove('checked');
+
+  updateChecklistProgress();
+}
+
+function updateChecklistProgress() {
+  const boxes = document.querySelectorAll('#checklist-categories input[type="checkbox"]');
+  const total = boxes.length;
+  const checked = [...boxes].filter(b => b.checked).length;
+  const pct = total ? Math.round((checked / total) * 100) : 0;
+
+  document.getElementById('progress-text').textContent = `${checked} / ${total} items`;
+  document.getElementById('progress-pct').textContent = `${pct}%`;
+  document.getElementById('progress-bar').style.width = `${pct}%`;
+
+  const btn = document.getElementById('confirm-checklist-btn');
+  btn.disabled = checked < total;
+  if (checked === total) {
+    btn.classList.remove('disabled:opacity-30');
+  }
+}
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function showMainApp() {
+  document.getElementById('main-app').classList.remove('hidden');
+  loadHotelNotes();
+  initMap();
+  initHotelPanel();
+  initSidebarToggle();
+  startLocationWatch();
+  fetchWeather();
+}
+
+// ============================================================
+// MAP
+// ============================================================
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: 41.5, lng: -90 },
+    zoom: 5,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+    zoomControl: true,
+    styles: [
+      { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: '#8a8ab0' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e48' }] },
+      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1a24' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a3a5c' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2b' }] },
+      { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit', stylers: [{ visibility: 'off' }] }
+    ]
+  });
+
+  directionsService = new google.maps.DirectionsService();
+  directionsRenderer = new google.maps.DirectionsRenderer({
+    map: map,
+    suppressMarkers: true,
+    polylineOptions: {
+      strokeColor: '#f5a623',
+      strokeOpacity: 0.9,
+      strokeWeight: 4
+    }
+  });
+  placesService = new google.maps.places.PlacesService(map);
+
+  drawRoute();
+  addHotelMarkers();
+}
+
+function drawRoute() {
+  const waypoints = HOTELS
+    .filter(h => h.lat && h.lng)
+    .map(h => ({
+      location: new google.maps.LatLng(h.lat, h.lng),
+      stopover: true
+    }));
+
+  directionsService.route({
+    origin: ORIGIN,
+    destination: DESTINATION,
+    waypoints: waypoints,
+    travelMode: 'DRIVING',
+    optimizeWaypoints: false
+  }, (result, status) => {
+    if (status === 'OK') {
+      directionsRenderer.setDirections(result);
+      // Store route waypoints for POI search
+      const legs = result.routes[0].legs;
+      routeWaypoints = [];
+      for (const leg of legs) {
+        routeWaypoints.push(leg.start_location);
+        // Sample along each leg
+        const steps = leg.steps;
+        for (let i = 0; i < steps.length; i += Math.max(1, Math.floor(steps.length / 3))) {
+          routeWaypoints.push(steps[i].start_location);
+        }
+      }
+      routeWaypoints.push(legs[legs.length - 1].end_location);
+    }
+  });
+}
+
+function addHotelMarkers() {
+  HOTELS.forEach((hotel, i) => {
+    if (!hotel.lat || !hotel.lng) return;
+    const marker = new google.maps.Marker({
+      position: { lat: hotel.lat, lng: hotel.lng },
+      map: map,
+      title: hotel.name,
+      label: {
+        text: String(hotel.night),
+        color: '#0f0f14',
+        fontWeight: 'bold',
+        fontSize: '12px'
+      },
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 16,
+        fillColor: '#f5a623',
+        fillOpacity: 1,
+        strokeColor: '#0f0f14',
+        strokeWeight: 3
+      }
+    });
+
+    const infoWindow = new google.maps.InfoWindow({
+      content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;padding:4px;">
+        <strong>${hotel.name}</strong><br>
+        <span style="font-size:12px;">${hotel.address}</span><br>
+        <span style="font-size:12px;">Night ${hotel.night} - ${hotel.date}</span>
+      </div>`
+    });
+    marker.addListener('click', () => infoWindow.open(map, marker));
+  });
+
+  // Origin marker
+  new google.maps.Marker({
+    position: ORIGIN_LATLNG, map: map, title: 'Start: Seven Valleys, PA',
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE, scale: 12,
+      fillColor: '#22c55e', fillOpacity: 1, strokeColor: '#0f0f14', strokeWeight: 3
+    }
+  });
+
+  // Destination marker
+  new google.maps.Marker({
+    position: DEST_LATLNG, map: map, title: 'Yellowstone National Park',
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE, scale: 14,
+      fillColor: '#dc2626', fillOpacity: 1, strokeColor: '#fca5a5', strokeWeight: 3
+    },
+    label: { text: '🏔️', fontSize: '18px' }
+  });
+}
+
+// ============================================================
+// LIVE LOCATION
+// ============================================================
+function startLocationWatch() {
+  if (!navigator.geolocation) return;
+
+  navigator.geolocation.watchPosition(
+    (pos) => {
+      userPosition = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+
+      if (!userMarker) {
+        userMarker = new google.maps.Marker({
+          position: userPosition,
+          map: map,
+          title: 'You are here',
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: '#3b82f6',
+            fillOpacity: 1,
+            strokeColor: '#bfdbfe',
+            strokeWeight: 3
+          },
+          zIndex: 999
+        });
+      } else {
+        userMarker.setPosition(userPosition);
+      }
+
+      checkGPSOverride(userPosition);
+    },
+    (err) => {
+      console.log('Geolocation error:', err.message);
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+  );
+}
+
+function checkGPSOverride(pos) {
+  // US-212 roughly runs through lat ~44.8-45.1, lng ~-109 to -107
+  const warning = document.getElementById('gps-override-warning');
+  if (pos.lat > 44.7 && pos.lat < 45.2 && pos.lng > -110 && pos.lng < -107) {
+    warning.style.display = 'block';
+  } else {
+    warning.style.display = 'none';
+  }
+}
+
+// ============================================================
+// HOTEL PANEL
+// ============================================================
+function loadHotelNotes() {
+  const saved = JSON.parse(localStorage.getItem('ys_hotel_notes') || '{}');
+  HOTELS.forEach((h, i) => {
+    if (saved[i] !== undefined) h.notes = saved[i];
+  });
+}
+
+function saveHotelNote(index, value) {
+  HOTELS[index].notes = value;
+  const saved = JSON.parse(localStorage.getItem('ys_hotel_notes') || '{}');
+  saved[index] = value;
+  localStorage.setItem('ys_hotel_notes', JSON.stringify(saved));
+}
+
+function initHotelPanel() {
+  const panel = document.getElementById('hotel-panel');
+  const handle = document.getElementById('hotel-panel-handle');
+
+  handle.addEventListener('click', () => {
+    panel.classList.toggle('collapsed');
+  });
+
+  const container = document.getElementById('hotel-cards');
+  let html = '';
+
+  HOTELS.forEach((hotel, i) => {
+    const booked = hotel.confirmation !== '--';
+    const isTBD = !hotel.lat;
+
+    html += `<div class="hotel-card bg-dark-700 rounded-xl border border-dark-600 overflow-hidden" id="hotel-card-${i}">
+      <div class="flex items-center gap-3 p-3 cursor-pointer" onclick="toggleHotelCard(${i})">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${booked ? 'bg-road-green/20 text-road-green' : 'bg-dark-600 text-gray-500'}">
+          ${booked ? '✓' : hotel.night}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-sm text-gray-200 truncate">${hotel.name}</div>
+          <div class="text-xs text-gray-500">Night ${hotel.night} - ${hotel.date}</div>
+        </div>
+        <svg class="w-4 h-4 text-gray-500 transform transition-transform hotel-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+      <div class="hotel-details hidden px-3 pb-3">
+        <div class="text-xs text-gray-400 mb-1">${hotel.address}</div>
+        ${hotel.confirmation !== '--' ? `<div class="text-xs text-road-teal mb-2">Confirmation: ${hotel.confirmation}</div>` : '<div class="text-xs text-gray-600 mb-2">Not yet booked</div>'}
+        <textarea class="w-full bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-xs text-gray-300 placeholder-gray-600 resize-none" rows="2"
+          placeholder="Add notes..." onchange="saveHotelNote(${i}, this.value)">${hotel.notes || ''}</textarea>
+        ${!isTBD ? `<button class="mt-2 w-full py-2 bg-road-blue/20 text-road-blue border border-road-blue/30 rounded-lg text-xs font-semibold hover:bg-road-blue/30 transition-all"
+          onclick="getDirectionsTo(${hotel.lat}, ${hotel.lng})">Get Directions</button>` : ''}
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function toggleHotelCard(index) {
+  const card = document.getElementById(`hotel-card-${index}`);
+  const details = card.querySelector('.hotel-details');
+  const chevron = card.querySelector('.hotel-chevron');
+  details.classList.toggle('hidden');
+  chevron.classList.toggle('rotate-180');
+}
+
+function getDirectionsTo(lat, lng) {
+  const url = userPosition
+    ? `https://www.google.com/maps/dir/${userPosition.lat},${userPosition.lng}/${lat},${lng}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  window.open(url, '_blank');
+}
+
+// ============================================================
+// POI SIDEBAR
+// ============================================================
+function initSidebarToggle() {
+  const btn = document.getElementById('toggle-sidebar-btn');
+  const sidebar = document.getElementById('poi-sidebar');
+  const openIcon = document.getElementById('sidebar-icon-open');
+  const closeIcon = document.getElementById('sidebar-icon-close');
+
+  btn.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+    btn.classList.toggle('shifted');
+    openIcon.classList.toggle('hidden');
+    closeIcon.classList.toggle('hidden');
+  });
+
+  document.querySelectorAll('.poi-toggle').forEach(toggle => {
+    toggle.addEventListener('click', () => {
+      const type = toggle.dataset.poi;
+      toggle.classList.toggle('active');
+
+      if (activePOIs.has(type)) {
+        activePOIs.delete(type);
+        clearPOIMarkers(type);
+      } else {
+        activePOIs.add(type);
+        if (type === 'sightseeing') {
+          showSightseeingMarkers();
+        } else {
+          searchPOIsAlongRoute(type);
+        }
+      }
+    });
+  });
+}
+
+function searchPOIsAlongRoute(type) {
+  if (!placesService || routeWaypoints.length === 0) return;
+
+  poiMarkers[type] = poiMarkers[type] || [];
+
+  // Search at sampled waypoints along the route
+  const searchPoints = [];
+  const step = Math.max(1, Math.floor(routeWaypoints.length / 8));
+  for (let i = 0; i < routeWaypoints.length; i += step) {
+    searchPoints.push(routeWaypoints[i]);
+  }
+
+  const iconMap = {
+    gas_station: '⛽', rest_stop: '🅿️', restaurant: '🍔', supermarket: '🛒',
+    police: '🚔', hospital: '🏥', fire_station: '🚒', car_repair: '🔧'
+  };
+
+  const placeType = type === 'rest_stop' ? 'parking' : type;
+
+  searchPoints.forEach(point => {
+    const request = {
+      location: point,
+      radius: 16000, // ~10 miles
+      type: placeType
+    };
+
+    placesService.nearbySearch(request, (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK) {
+        results.slice(0, 3).forEach(place => {
+          // Check for duplicates
+          const isDup = poiMarkers[type].some(m =>
+            m.getPosition().lat().toFixed(4) === place.geometry.location.lat().toFixed(4) &&
+            m.getPosition().lng().toFixed(4) === place.geometry.location.lng().toFixed(4)
+          );
+          if (isDup) return;
+
+          const marker = new google.maps.Marker({
+            position: place.geometry.location,
+            map: map,
+            title: place.name,
+            label: { text: iconMap[type] || '📍', fontSize: '14px' },
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: '#24243a',
+              fillOpacity: 0.9,
+              strokeColor: '#f5a623',
+              strokeWeight: 1
+            }
+          });
+
+          const info = new google.maps.InfoWindow({
+            content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:200px;">
+              <strong>${place.name}</strong><br>
+              <span style="font-size:12px;">${place.vicinity || ''}</span>
+              ${place.rating ? `<br><span style="font-size:11px;">Rating: ${place.rating} ⭐</span>` : ''}
+            </div>`
+          });
+          marker.addListener('click', () => info.open(map, marker));
+          poiMarkers[type].push(marker);
+        });
+      }
+    });
+  });
+}
+
+function showSightseeingMarkers() {
+  poiMarkers['sightseeing'] = poiMarkers['sightseeing'] || [];
+
+  SIGHTSEEING_SPOTS.forEach(spot => {
+    const marker = new google.maps.Marker({
+      position: { lat: spot.lat, lng: spot.lng },
+      map: map,
+      title: spot.name,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 14,
+        fillColor: '#8b5cf6',
+        fillOpacity: 0.9,
+        strokeColor: '#c4b5fd',
+        strokeWeight: 2
+      },
+      label: { text: '📸', fontSize: '14px' }
+    });
+
+    const info = new google.maps.InfoWindow({
+      content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;">
+        <strong>${spot.name}</strong><br>
+        <span style="font-size:12px;">${spot.desc}</span>
+      </div>`
+    });
+    marker.addListener('click', () => info.open(map, marker));
+    poiMarkers['sightseeing'].push(marker);
+  });
+}
+
+function clearPOIMarkers(type) {
+  if (poiMarkers[type]) {
+    poiMarkers[type].forEach(m => m.setMap(null));
+    poiMarkers[type] = [];
+  }
+}
+
+// ============================================================
+// WEATHER
+// ============================================================
+async function fetchWeather() {
+  // Determine the next leg based on current date
+  const today = new Date();
+  const tripDates = [
+    new Date('2026-03-17'), new Date('2026-03-18'),
+    new Date('2026-03-19'), new Date('2026-03-20')
+  ];
+
+  let nextLegIndex = 0;
+  for (let i = 0; i < tripDates.length; i++) {
+    if (today <= tripDates[i]) { nextLegIndex = i; break; }
+    if (i === tripDates.length - 1) nextLegIndex = i;
+  }
+
+  const nextHotel = HOTELS[nextLegIndex];
+  if (!nextHotel || !nextHotel.lat) {
+    document.getElementById('weather-desc').textContent = 'No upcoming leg';
+    return;
+  }
+
+  document.getElementById('weather-leg-info').textContent =
+    `Next leg: ${nextLegIndex === 0 ? ORIGIN.split(',')[0] : HOTELS[nextLegIndex - 1].name} → ${nextHotel.name}`;
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${nextHotel.lat}&longitude=${nextHotel.lng}&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=1`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    if (data.current) {
+      const temp = Math.round(data.current.temperature_2m);
+      const wind = Math.round(data.current.wind_speed_10m);
+      const gusts = Math.round(data.current.wind_gusts_10m || 0);
+      const code = data.current.weather_code;
+
+      document.getElementById('weather-temp').textContent = `${temp}°F`;
+      document.getElementById('weather-icon').textContent = getWeatherEmoji(code);
+      document.getElementById('weather-desc').textContent = getWeatherDescription(code);
+      document.getElementById('weather-wind').textContent = `Wind: ${wind} mph (gusts ${gusts} mph)`;
+
+      // Calculate departure time
+      // Estimate drive time: ~5-7 hours per leg, use 6 hours avg + 30 min buffer
+      const driveHours = 6.5;
+      const arriveBy = 17; // 5 PM
+      const leaveByHour = arriveBy - driveHours;
+      const leaveHour = Math.floor(leaveByHour);
+      const leaveMin = Math.round((leaveByHour - leaveHour) * 60);
+      const ampm = leaveHour >= 12 ? 'PM' : 'AM';
+      const displayHour = leaveHour > 12 ? leaveHour - 12 : leaveHour;
+      document.getElementById('weather-depart').textContent =
+        `Leave by: ${displayHour}:${String(leaveMin).padStart(2, '0')} ${ampm}`;
+
+      // High wind warning
+      if (gusts > 50) {
+        document.getElementById('wind-warning').classList.remove('hidden');
+      }
+    }
+  } catch (e) {
+    document.getElementById('weather-desc').textContent = 'Weather unavailable';
+    console.log('Weather fetch error:', e);
+  }
+}
+
+function getWeatherEmoji(code) {
+  if (code === 0) return '☀️';
+  if (code <= 3) return '⛅';
+  if (code <= 48) return '🌫️';
+  if (code <= 57) return '🌦️';
+  if (code <= 67) return '🌧️';
+  if (code <= 77) return '🌨️';
+  if (code <= 82) return '🌧️';
+  if (code <= 86) return '❄️';
+  if (code <= 99) return '⛈️';
+  return '🌤️';
+}
+
+function getWeatherDescription(code) {
+  const descriptions = {
+    0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Foggy', 48: 'Rime fog', 51: 'Light drizzle', 53: 'Drizzle',
+    55: 'Heavy drizzle', 56: 'Freezing drizzle', 57: 'Heavy freezing drizzle',
+    61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 66: 'Freezing rain',
+    67: 'Heavy freezing rain', 71: 'Light snow', 73: 'Snow', 75: 'Heavy snow',
+    77: 'Snow grains', 80: 'Light showers', 81: 'Showers', 82: 'Heavy showers',
+    85: 'Light snow showers', 86: 'Heavy snow showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Severe thunderstorm'
+  };
+  return descriptions[code] || 'Variable conditions';
+}
+
+// ============================================================
+// EMERGENCY
+// ============================================================
+function openEmergencyModal() {
+  const modal = document.getElementById('emergency-modal');
+  modal.style.display = 'block';
+  findEmergencyServices();
+}
+
+function closeEmergencyModal() {
+  document.getElementById('emergency-modal').style.display = 'none';
+}
+
+function findEmergencyServices() {
+  const container = document.getElementById('emergency-results');
+
+  if (!placesService || !userPosition) {
+    container.innerHTML = `<div class="text-center text-gray-500 py-4">
+      <p class="text-sm">${!userPosition ? 'Location not available. Enable GPS.' : 'Map services loading...'}</p>
+      <p class="text-xs mt-2">If you need immediate help, call 911 above.</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = '<div class="text-center text-gray-500 py-4"><div class="loader mx-auto mb-2" style="width:28px;height:28px;border-width:3px;"></div>Searching nearby...</div>';
+
+  const types = [
+    { type: 'police', label: 'Police Station', icon: '🚔', color: 'blue' },
+    { type: 'hospital', label: 'Hospital', icon: '🏥', color: 'red' },
+    { type: 'fire_station', label: 'Fire Station', icon: '🚒', color: 'orange' },
+    { type: 'car_repair', label: 'Auto Repair', icon: '🔧', color: 'gray' }
+  ];
+
+  const results = [];
+  let completed = 0;
+
+  types.forEach(t => {
+    placesService.nearbySearch({
+      location: userPosition,
+      rankBy: google.maps.places.RankBy.DISTANCE,
+      type: t.type
+    }, (places, status) => {
+      completed++;
+
+      if (status === google.maps.places.PlacesServiceStatus.OK && places.length > 0) {
+        const place = places[0];
+        results.push({
+          ...t,
+          name: place.name,
+          address: place.vicinity,
+          placeId: place.place_id,
+          location: place.geometry.location,
+          open: place.opening_hours ? place.opening_hours.isOpen() : null
+        });
+      }
+
+      if (completed === types.length) {
+        renderEmergencyResults(results);
+      }
+    });
+  });
+}
+
+function renderEmergencyResults(results) {
+  const container = document.getElementById('emergency-results');
+
+  if (results.length === 0) {
+    container.innerHTML = '<div class="text-center text-gray-500 py-4"><p>No nearby services found. Call 911 for help.</p></div>';
+    return;
+  }
+
+  const colorMap = { blue: 'road-blue', red: 'red-500', orange: 'warm-400', gray: 'gray-400' };
+
+  let html = '';
+  results.forEach(r => {
+    // Calculate distance
+    const dist = google.maps.geometry
+      ? google.maps.geometry.spherical.computeDistanceBetween(
+          new google.maps.LatLng(userPosition), r.location
+        ) / 1609.34
+      : null;
+
+    html += `<div class="bg-dark-700 rounded-xl p-3 border border-dark-600">
+      <div class="flex items-start gap-3">
+        <span class="text-2xl">${r.icon}</span>
+        <div class="flex-1 min-w-0">
+          <div class="text-xs font-bold uppercase tracking-wider text-${colorMap[r.color]}">${r.label}</div>
+          <div class="font-semibold text-sm text-gray-200 mt-0.5">${r.name}</div>
+          <div class="text-xs text-gray-400">${r.address}</div>
+          ${dist ? `<div class="text-xs text-gray-500 mt-0.5">~${dist.toFixed(1)} miles away</div>` : ''}
+          ${r.open !== null ? `<div class="text-xs mt-0.5 ${r.open ? 'text-road-green' : 'text-red-400'}">${r.open ? 'Open now' : 'Closed'}</div>` : ''}
+        </div>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${r.location.lat()},${r.location.lng()}&destination_place_id=${r.placeId}','_blank')"
+          class="flex-1 py-2 bg-dark-600 rounded-lg text-xs font-semibold text-gray-300 hover:text-white transition-all">
+          Directions
+        </button>
+        <button onclick="getPlacePhone('${r.placeId}')"
+          class="flex-1 py-2 bg-road-blue/20 border border-road-blue/30 rounded-lg text-xs font-semibold text-road-blue hover:bg-road-blue/30 transition-all"
+          id="call-btn-${r.placeId}">
+          Call
+        </button>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function getPlacePhone(placeId) {
+  placesService.getDetails({
+    placeId: placeId,
+    fields: ['formatted_phone_number']
+  }, (place, status) => {
+    if (status === google.maps.places.PlacesServiceStatus.OK && place.formatted_phone_number) {
+      const phone = place.formatted_phone_number.replace(/[^\d+]/g, '');
+      window.location.href = `tel:${phone}`;
+    } else {
+      const btn = document.getElementById(`call-btn-${placeId}`);
+      if (btn) { btn.textContent = 'No phone found'; btn.disabled = true; }
+    }
+  });
+}
+
+// ============================================================
+// TEXT DAD
+// ============================================================
+function textDad() {
+  if (userPosition) {
+    // Try reverse geocode
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ location: userPosition }, (results, status) => {
+      let address = `${userPosition.lat.toFixed(4)}, ${userPosition.lng.toFixed(4)}`;
+      if (status === 'OK' && results[0]) {
+        address = results[0].formatted_address;
+      }
+      window.location.href = `sms:2232549070?body=${encodeURIComponent(`Hey Dad, just checking in! I'm at: ${address}`)}`;
+    });
+  } else {
+    window.location.href = `sms:2232549070?body=${encodeURIComponent("Hey Dad, just checking in! I'm on the road.")}`;
+  }
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  // If Google Maps fails to load, still show the app
+  setTimeout(() => {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay.style.display !== 'none') {
+      overlay.style.display = 'none';
+      const checklistDone = localStorage.getItem('ys_checklist_complete') === 'true';
+      if (checklistDone) {
+        document.getElementById('main-app').classList.remove('hidden');
+      } else {
+        showChecklist();
+      }
+    }
+  }, 10000);
+
+  loadGoogleMaps();
+});
+</script>
+</body>
+</html>
