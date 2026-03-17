@@ -1490,7 +1490,7 @@ function initSidebarToggle() {
         toggle.classList.remove('active');
         activePOIs.delete(type);
         clearPOIMarkers(type);
-        if (type !== 'weather_overlay' && type !== 'crime_zones' && type !== 'safe_parking' && !type.startsWith('sight_')) {
+        if (type !== 'weather_overlay' && type !== 'crime_zones' && type !== 'safe_parking' && type !== 'rest_stop' && !type.startsWith('sight_')) {
           clearSearchMarkers();
           // Clear the search bar if it matches this filter term
           const input = document.getElementById('map-search-input');
@@ -1721,12 +1721,10 @@ function searchPOIsInView(type) {
   else if (zoom >= 8) radius = 32000;
   else if (zoom >= 6) radius = 50000;
 
-  const placeType = type === 'rest_stop' ? 'parking' : type;
-
   const request = {
     location: { lat: center.lat(), lng: center.lng() },
     radius: radius,
-    type: placeType
+    type: type
   };
 
   placesService.nearbySearch(request, (results, status) => {
@@ -1767,20 +1765,20 @@ function searchPOIsAlongRouteEssentials(type) {
     return;
   }
 
-  // safe_parking and sightseeing use text search, everything else uses type-based nearbySearch
+  // These types use keyword text search instead of Google Places type-based nearbySearch
   const isSafeParking = type === 'safe_parking';
   const isSightseeing = type.startsWith('sight_');
-  const useTextSearch = isSafeParking || isSightseeing;
-  const placeType = type === 'rest_stop' ? 'parking' : type;
+  const isRestStop = type === 'rest_stop';
+  const useTextSearch = isSafeParking || isSightseeing || isRestStop;
+  const placeType = type;
   const seenPlaceIds = new Set();
 
-  // Search radius: 8km to catch candidates (accounts for gaps between 12km sample points)
-  // Then post-filter to 1 mile (1609m) actual distance from route
-  const searchRadius = (isSafeParking || isSightseeing) ? 16000 : 8000; // 10mi catch for parking/sightseeing
-  const MAX_ROUTE_DISTANCE = isSafeParking ? 4828 : (isSightseeing ? 8047 : 1609); // 3mi parking, 5mi sightseeing, 1mi others
+  // Search radius and distance corridor per type
+  const searchRadius = (isSafeParking || isSightseeing || isRestStop) ? 16000 : 8000;
+  const MAX_ROUTE_DISTANCE = isSafeParking ? 4828 : (isSightseeing ? 8047 : (isRestStop ? 3218 : 1609));
+  // 3mi safe parking, 5mi sightseeing, 2mi rest stops, 1mi everything else
 
-  // Strict type validation: Google sometimes returns loosely related places
-  // (e.g., ATMs for gas_station searches). Only keep places whose types match.
+  // Strict type validation for nearbySearch types
   const STRICT_TYPE_MAP = {
     gas_station: ['gas_station'],
     restaurant: ['restaurant', 'meal_takeaway', 'meal_delivery', 'cafe', 'bakery'],
@@ -1788,10 +1786,8 @@ function searchPOIsAlongRouteEssentials(type) {
     hospital: ['hospital'],
     police: ['police'],
     fire_station: ['fire_station'],
-    car_repair: ['car_repair'],
-    parking: ['parking', 'rv_park'] // rest stops
+    car_repair: ['car_repair']
   };
-  // Safe parking accepts broad types since we use keyword text search
   const allowedTypes = isSafeParking
     ? ['department_store', 'shopping_mall', 'gas_station', 'parking', 'rv_park', 'lodging', 'store', 'convenience_store', 'truck_stop']
     : (STRICT_TYPE_MAP[placeType] || [placeType]);
@@ -1820,6 +1816,8 @@ function searchPOIsAlongRouteEssentials(type) {
   // Safe parking keyword queries (searched one at a time per batch point)
   const SAFE_PARKING_QUERIES = ['Walmart Supercenter', 'Pilot Flying J truck stop', "Love's Travel Stop", 'rest area welcome center', 'Cracker Barrel'];
 
+  const REST_STOP_QUERIES = ['rest area', 'welcome center', 'service plaza turnpike'];
+
   const SIGHTSEEING_QUERIES = {
     sight_attractions: ['tourist attraction', 'landmark monument', 'point of interest'],
     sight_nature: ['state park', 'national park nature reserve', 'hiking trail scenic area'],
@@ -1834,8 +1832,17 @@ function searchPOIsAlongRouteEssentials(type) {
       if (seenPlaceIds.has(place.place_id)) return;
       seenPlaceIds.add(place.place_id);
 
-      // For safe parking, validate by name keywords; sightseeing trusts Google text search
-      if (isSightseeing) {
+      // Validate results by type: text-searched types use name keywords, others use strict types
+      if (isRestStop) {
+        // Rest stops: only official rest areas, welcome centers, service plazas
+        const name = (place.name || '').toLowerCase();
+        const isOfficial = name.includes('rest area') || name.includes('rest stop') ||
+          name.includes('welcome center') || name.includes('visitor center') ||
+          name.includes('service plaza') || name.includes('travel plaza') ||
+          name.includes('turnpike plaza') || name.includes('oasis') ||
+          (name.includes('rest') && name.includes('area'));
+        if (!isOfficial) { totalRejected++; return; }
+      } else if (isSightseeing) {
         // Sightseeing: accept all text search results (Google already filtered by keyword)
         // Just filter out generic businesses
         const name = (place.name || '').toLowerCase();
@@ -1874,8 +1881,10 @@ function searchPOIsAlongRouteEssentials(type) {
       const wp = searchPoints[i];
       setTimeout(() => {
         if (useTextSearch) {
-          // Text search for keywords (safe parking, sightseeing categories)
-          const queries = isSafeParking ? SAFE_PARKING_QUERIES : SIGHTSEEING_QUERIES[type] || ['tourist attraction'];
+          // Text search for keywords (safe parking, rest stops, sightseeing categories)
+          const queries = isSafeParking ? SAFE_PARKING_QUERIES
+            : isRestStop ? REST_STOP_QUERIES
+            : (SIGHTSEEING_QUERIES[type] || ['tourist attraction']);
           queries.forEach((query, qi) => {
             setTimeout(() => {
               placesService.textSearch({
