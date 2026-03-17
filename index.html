@@ -128,11 +128,9 @@ tailwind.config = {
     margin: 0 10px; flex-shrink: 0;
   }
   /* Individual button colors */
-  .action-btn.btn-text-dad { background: #0d9488; border-color: #5eead4; }
-  .action-btn.btn-contact-1 { background: #2563eb; border-color: #93c5fd; }
-  .action-btn.btn-contact-2 { background: #7c3aed; border-color: #c4b5fd; }
-  .action-btn.btn-contact-empty { opacity: 0.5; border-style: dashed; }
-  .action-btn.btn-sos { background: #dc2626; border-color: #fca5a5; animation: pulse-red 2s infinite; }
+  .action-btn.btn-checkin { background: #0d9488; border-color: #5eead4; }
+  .action-btn.btn-sos-contact { background: #dc2626; border-color: #fca5a5; animation: pulse-red 2s infinite; }
+  .action-btn.btn-contact-empty { opacity: 0.5; border-style: dashed; animation: none !important; }
   .action-btn.btn-emergency { background: #dc2626; border-color: #fca5a5; }
   .action-btn.btn-bug { background: #4b5563; border-color: #9ca3af; }
   @keyframes pulse-red {
@@ -287,7 +285,7 @@ tailwind.config = {
   <div class="loader mb-4"></div>
   <p class="text-warm-400 font-bold text-xl">Yellowstone Shield</p>
   <p class="text-gray-300 text-sm mt-1 font-medium">Loading command center...</p>
-  <p style="font-size:13px;color:#94a3b8;margin-top:12px;font-weight:600;">v2.1.0</p>
+  <p style="font-size:13px;color:#94a3b8;margin-top:12px;font-weight:600;">v2.2.0</p>
 </div>
 
 <!-- ==================== CHECKLIST SCREEN ==================== -->
@@ -296,7 +294,7 @@ tailwind.config = {
     <div class="text-center mb-6">
       <div class="text-4xl mb-2">🛡️</div>
       <h1 class="text-2xl font-extrabold text-warm-400">Yellowstone Shield</h1>
-      <p style="font-size:13px;color:#94a3b8;margin-top:2px;font-weight:600;">v2.1.0</p>
+      <p style="font-size:13px;color:#94a3b8;margin-top:2px;font-weight:600;">v2.2.0</p>
       <p class="text-gray-300 text-sm mt-1 font-medium">Vehicle Prep Checklist</p>
       <p class="text-gray-300 text-xs mt-1">Complete all items before departure</p>
     </div>
@@ -527,27 +525,30 @@ tailwind.config = {
     ⚠️ Stay on I-90 for cell service and safety. Avoid US-212.
   </div>
 
-  <!-- Bottom Action Bar: 6 buttons in a row -->
+  <!-- Bottom Action Bar: 4 contact buttons + 911 + Bug -->
   <div id="bottom-action-bar">
-    <!-- Contact buttons -->
-    <button class="action-btn btn-text-dad" id="text-dad-btn" onclick="textDad()" title="Text Dad">
+    <!-- Dad buttons -->
+    <button class="action-btn btn-checkin" onclick="textDad()" title="Text Dad">
       <span style="font-size:20px;line-height:1;">💬</span>
       <span class="btn-label" style="color:#ccfbf1;">Dad</span>
     </button>
     <div style="width:6px;"></div>
-    <button class="action-btn btn-contact-1" id="contact-1-btn" onclick="textCustomContact(1)" title="Custom Contact 1">
+    <button class="action-btn btn-sos-contact" onclick="sendSOSDad()" title="SOS Dad">
+      <span style="font-size:14px;line-height:1;font-weight:900;color:white;">SOS</span>
+      <span class="btn-label" style="color:#fef2f2;">Dad</span>
+    </button>
+
+    <div style="width:10px;"></div>
+
+    <!-- Custom contact buttons -->
+    <button class="action-btn btn-checkin" id="custom-text-btn" onclick="textCustomContact(1)" title="Text Contact">
       <span style="font-size:20px;line-height:1;">💬</span>
-      <span class="btn-label" id="contact-1-label" style="color:#bfdbfe;">+</span>
+      <span class="btn-label" id="custom-text-label" style="color:#ccfbf1;">+</span>
     </button>
     <div style="width:6px;"></div>
-    <button class="action-btn btn-contact-2" id="contact-2-btn" onclick="textCustomContact(2)" title="Custom Contact 2">
-      <span style="font-size:20px;line-height:1;">💬</span>
-      <span class="btn-label" id="contact-2-label" style="color:#ddd6fe;">+</span>
-    </button>
-    <div style="width:6px;"></div>
-    <button class="action-btn btn-sos" id="sos-btn" onclick="sendSOS()" title="SOS - Help">
-      <span style="font-size:18px;line-height:1;font-weight:900;color:white;">SOS</span>
-      <span class="btn-label" style="color:#fca5a5;">Help</span>
+    <button class="action-btn btn-sos-contact" id="custom-sos-btn" onclick="sendSOSCustom()" title="SOS Contact">
+      <span style="font-size:14px;line-height:1;font-weight:900;color:white;">SOS</span>
+      <span class="btn-label" id="custom-sos-label" style="color:#fef2f2;">+</span>
     </button>
 
     <!-- Divider -->
@@ -3049,49 +3050,40 @@ function textDad() {
 }
 
 // ============================================================
-// SOS - HELP BUTTON
+// SOS - PER-CONTACT SOS BUTTONS
 // ============================================================
-function sendSOS() {
-  // Build recipient list: Dad + any custom contacts
-  const recipients = ['2232549070'];
-  [1, 2].forEach(slot => {
-    const c = getCustomContact(slot);
-    if (c && c.phone) recipients.push(c.phone);
-  });
-  const recipientStr = recipients.join(',');
-
-  function sendSOSWithPosition(pos) {
+function sendSOSToNumber(phone) {
+  function sendWithPos(pos) {
     const geocoder = new google.maps.Geocoder();
     const mapsLink = `https://www.google.com/maps?q=${pos.lat},${pos.lng}`;
     geocoder.geocode({ location: pos }, (results, status) => {
       let address = '';
-      if (status === 'OK' && results[0]) {
-        address = results[0].formatted_address;
-      }
-      const locationPart = address
-        ? `I'm at: ${address}\n\nMap: ${mapsLink}`
-        : `I'm at: ${mapsLink}`;
-      window.location.href = `sms:${recipientStr}?body=${encodeURIComponent(`I need help. Can you call me when you see this?\n\n${locationPart}`)}`;
+      if (status === 'OK' && results[0]) address = results[0].formatted_address;
+      const locationPart = address ? `I'm at: ${address}\n\nMap: ${mapsLink}` : `I'm at: ${mapsLink}`;
+      window.location.href = `sms:${phone}?body=${encodeURIComponent(`I need help. Can you call me when you see this?\n\n${locationPart}`)}`;
     });
   }
-
   if (userPosition) {
-    sendSOSWithPosition(userPosition);
+    sendWithPos(userPosition);
   } else if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        userPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        if (userMarker) userMarker.setPosition(userPosition);
-        sendSOSWithPosition(userPosition);
-      },
-      () => {
-        window.location.href = `sms:${recipientStr}?body=${encodeURIComponent("I need help. Can you call me when you see this?")}`;
-      },
+      (pos) => { userPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude }; if (userMarker) userMarker.setPosition(userPosition); sendWithPos(userPosition); },
+      () => { window.location.href = `sms:${phone}?body=${encodeURIComponent("I need help. Can you call me when you see this?")}`; },
       { enableHighAccuracy: true, timeout: 8000 }
     );
   } else {
-    window.location.href = `sms:${recipientStr}?body=${encodeURIComponent("I need help. Can you call me when you see this?")}`;
+    window.location.href = `sms:${phone}?body=${encodeURIComponent("I need help. Can you call me when you see this?")}`;
   }
+}
+
+function sendSOSDad() {
+  sendSOSToNumber('2232549070');
+}
+
+function sendSOSCustom() {
+  const contact = getCustomContact(1);
+  if (!contact || !contact.phone) { openContactSetup(1); return; }
+  sendSOSToNumber(contact.phone);
 }
 
 // ============================================================
@@ -3104,35 +3096,25 @@ function getCustomContact(slot) {
 }
 
 function initContactButtons() {
-  [1, 2].forEach(slot => {
-    const contact = getCustomContact(slot);
-    const btn = document.getElementById(`contact-${slot}-btn`);
-    const label = document.getElementById(`contact-${slot}-label`);
-    if (contact && contact.name && contact.phone) {
-      label.textContent = contact.name;
-      btn.classList.remove('btn-contact-empty');
-      btn.title = `Text ${contact.name}`;
-    } else {
-      label.textContent = '+';
-      btn.classList.add('btn-contact-empty');
-      btn.title = 'Add contact';
-    }
-  });
-  // Update SOS label to show all names
-  updateSOSLabel();
-}
-
-function updateSOSLabel() {
-  const names = ['Dad'];
-  [1, 2].forEach(slot => {
-    const c = getCustomContact(slot);
-    if (c && c.name) names.push(c.name);
-  });
-  // SOS button label
-  const sosBtn = document.getElementById('sos-btn');
-  if (sosBtn) {
-    const label = sosBtn.querySelector('.btn-label');
-    if (label) label.textContent = names.length <= 2 ? names.join(' & ') : 'All';
+  const contact = getCustomContact(1);
+  const textBtn = document.getElementById('custom-text-btn');
+  const textLabel = document.getElementById('custom-text-label');
+  const sosBtn = document.getElementById('custom-sos-btn');
+  const sosLabel = document.getElementById('custom-sos-label');
+  if (contact && contact.name && contact.phone) {
+    textLabel.textContent = contact.name;
+    sosLabel.textContent = contact.name;
+    textBtn.classList.remove('btn-contact-empty');
+    sosBtn.classList.remove('btn-contact-empty');
+    textBtn.title = `Text ${contact.name}`;
+    sosBtn.title = `SOS ${contact.name}`;
+  } else {
+    textLabel.textContent = '+';
+    sosLabel.textContent = '+';
+    textBtn.classList.add('btn-contact-empty');
+    sosBtn.classList.add('btn-contact-empty');
+    textBtn.title = 'Add contact';
+    sosBtn.title = 'Add contact';
   }
 }
 
