@@ -52,11 +52,41 @@ tailwind.config = {
   #map { width: 100%; height: 100%; }
 
   /* Weather bar */
-  #weather-bar {
+  #weather-bar-wrapper {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    background: linear-gradient(180deg, rgba(15,15,20,0.95) 0%, rgba(15,15,20,0.85) 100%);
-    backdrop-filter: blur(12px); border-bottom: 1px solid rgba(245,166,35,0.2);
   }
+  #weather-bar {
+    background: linear-gradient(180deg, rgba(15,15,20,0.96) 0%, rgba(15,15,20,0.88) 100%);
+    backdrop-filter: blur(14px); border-bottom: 1px solid rgba(245,166,35,0.25);
+    transition: max-height 0.35s ease, padding 0.35s ease, opacity 0.25s ease;
+    max-height: 200px; overflow: hidden;
+  }
+  #weather-bar.wb-collapsed {
+    max-height: 0; padding-top: 0 !important; padding-bottom: 0 !important;
+    opacity: 0; border-bottom: none;
+  }
+  /* Collapsed strip */
+  #weather-bar-collapsed {
+    display: none; height: 32px;
+    background: linear-gradient(90deg, rgba(15,15,20,0.96) 0%, rgba(20,20,30,0.96) 100%);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(245,166,35,0.2);
+    align-items: center; justify-content: center; gap: 8px;
+    cursor: pointer; position: relative;
+  }
+  #weather-bar-collapsed.wb-show { display: flex; }
+  /* Toggle button */
+  .wb-toggle-btn {
+    position: absolute; bottom: -20px; right: 16px; z-index: 101;
+    width: 40px; height: 20px; border-radius: 0 0 12px 12px;
+    background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.4);
+    border-top: none; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .wb-toggle-btn:hover { background: rgba(245,166,35,0.25); }
+  .wb-toggle-btn svg { transition: transform 0.35s ease; }
+  .wb-toggle-btn.wb-flipped svg { transform: rotate(180deg); }
 
   .hotel-card { transition: all 0.2s; }
   .hotel-card:active { transform: scale(0.98); }
@@ -253,6 +283,7 @@ tailwind.config = {
   <div class="loader mb-4"></div>
   <p class="text-warm-400 font-semibold text-lg">Yellowstone Shield</p>
   <p class="text-gray-500 text-sm mt-1">Loading command center...</p>
+  <p style="font-size:10px;color:#555;margin-top:12px;">v1.8.0</p>
 </div>
 
 <!-- ==================== CHECKLIST SCREEN ==================== -->
@@ -261,6 +292,7 @@ tailwind.config = {
     <div class="text-center mb-6">
       <div class="text-4xl mb-2">🛡️</div>
       <h1 class="text-2xl font-extrabold text-warm-400">Yellowstone Shield</h1>
+      <p style="font-size:10px;color:#555;margin-top:2px;">v1.8.0</p>
       <p class="text-gray-400 text-sm mt-1">Vehicle Prep Checklist</p>
       <p class="text-gray-500 text-xs mt-1">Complete all items before departure</p>
     </div>
@@ -293,33 +325,49 @@ tailwind.config = {
 <!-- ==================== MAIN APP ==================== -->
 <div id="main-app" class="hidden" style="height:100vh;width:100vw;">
 
-  <!-- Weather Bar (tap to open full route weather) -->
-  <div id="weather-bar" class="px-4 py-2" onclick="openRouteWeather()" style="cursor:pointer;">
-    <div class="flex items-center justify-between text-sm">
-      <div class="flex items-center gap-3">
-        <span id="weather-icon" class="text-xl">--</span>
-        <div>
-          <div style="display:flex;align-items:baseline;gap:6px;">
-            <span id="weather-temp" class="font-bold text-warm-400">--</span>
-            <span id="weather-desc" class="text-gray-400 text-xs">Loading weather...</span>
+  <!-- Weather Bar (expandable/collapsible) -->
+  <div id="weather-bar-wrapper">
+    <!-- Expanded view -->
+    <div id="weather-bar" class="px-4 py-3" style="cursor:pointer;">
+      <div style="display:flex;align-items:center;justify-content:space-between;" onclick="openRouteWeather()">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span id="weather-icon" style="font-size:32px;line-height:1;">--</span>
+          <div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span id="weather-temp" style="font-size:20px;font-weight:800;color:#f5a623;">--</span>
+              <span id="weather-desc" style="font-size:14px;color:#9ca3af;">Loading weather...</span>
+            </div>
+            <div id="weather-location" style="font-size:13px;color:#6b7280;margin-top:2px;">📍 Locating...</div>
           </div>
-          <div id="weather-location" style="font-size:12px;color:#6b7280;margin-top:1px;">📍 Locating...</div>
+        </div>
+        <div style="text-align:right;">
+          <div id="weather-wind" style="font-size:13px;color:#9ca3af;">Wind: --</div>
+          <div id="weather-depart" style="font-size:13px;font-weight:700;color:#0d9488;">Leave by: --</div>
         </div>
       </div>
-      <div class="text-right">
-        <div id="weather-wind" class="text-xs text-gray-400">Wind: --</div>
-        <div id="weather-depart" class="text-xs font-semibold text-road-teal">Leave by: --</div>
+      <div id="wind-warning" class="wind-warning hidden" style="margin-top:6px;padding:6px 12px;background:rgba(127,29,29,0.6);border:1px solid #ef4444;border-radius:8px;font-size:13px;color:#fca5a5;font-weight:700;text-align:center;">
+        HIGH WIND WARNING -- Consider delaying departure
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;" onclick="openRouteWeather()">
+        <div id="weather-leg-info" style="font-size:12px;color:#6b7280;">Next leg: --</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span id="weather-updated" style="font-size:11px;color:#555;">--</span>
+          <span style="font-size:12px;color:rgba(245,166,35,0.5);font-weight:600;">Tap for forecast ›</span>
+        </div>
       </div>
     </div>
-    <div id="wind-warning" class="wind-warning hidden mt-1 px-3 py-1.5 bg-red-900/60 border border-red-500 rounded-lg text-xs text-red-300 font-semibold text-center">
-      HIGH WIND WARNING -- Consider delaying departure
+    <!-- Collapsed strip (thin bar shown when weather is minimized) -->
+    <div id="weather-bar-collapsed" onclick="toggleWeatherBar()">
+      <span id="wb-collapsed-icon" style="font-size:14px;">--</span>
+      <span id="wb-collapsed-temp" style="font-size:12px;font-weight:700;color:#f5a623;">--</span>
+      <span id="wb-collapsed-desc" style="font-size:11px;color:#888;">--</span>
+      <span style="font-size:10px;color:rgba(245,166,35,0.5);margin-left:4px;">tap to expand</span>
     </div>
-    <div class="flex items-center justify-between mt-0.5">
-      <div id="weather-leg-info" class="text-xs text-gray-500">Next leg: --</div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span id="weather-updated" style="font-size:11px;color:#555;">--</span>
-        <span class="text-xs text-warm-400/60 font-medium">Tap for forecast ›</span>
-      </div>
+    <!-- Toggle button (the stylish tab hanging below) -->
+    <div class="wb-toggle-btn" id="wb-toggle" onclick="toggleWeatherBar()">
+      <svg width="16" height="10" viewBox="0 0 16 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 2L8 8L14 2" stroke="#f5a623" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
     </div>
   </div>
 
@@ -2324,6 +2372,45 @@ function renderCustomStops() {
 // ============================================================
 // WEATHER
 // ============================================================
+let weatherBarCollapsed = localStorage.getItem('ys_weather_collapsed') === 'true';
+
+function toggleWeatherBar() {
+  weatherBarCollapsed = !weatherBarCollapsed;
+  localStorage.setItem('ys_weather_collapsed', weatherBarCollapsed);
+  applyWeatherBarState();
+}
+
+function applyWeatherBarState() {
+  const bar = document.getElementById('weather-bar');
+  const strip = document.getElementById('weather-bar-collapsed');
+  const toggle = document.getElementById('wb-toggle');
+  const controlBar = document.getElementById('top-control-bar');
+
+  if (weatherBarCollapsed) {
+    bar.classList.add('wb-collapsed');
+    strip.classList.add('wb-show');
+    toggle.classList.add('wb-flipped');
+    // Sync collapsed strip with current weather data
+    const icon = document.getElementById('weather-icon');
+    const temp = document.getElementById('weather-temp');
+    const desc = document.getElementById('weather-desc');
+    if (icon) document.getElementById('wb-collapsed-icon').textContent = icon.textContent;
+    if (temp) document.getElementById('wb-collapsed-temp').textContent = temp.textContent;
+    if (desc) document.getElementById('wb-collapsed-desc').textContent = desc.textContent;
+    // Shift controls up when collapsed (strip is 32px)
+    if (controlBar) controlBar.style.top = '32px';
+  } else {
+    bar.classList.remove('wb-collapsed');
+    strip.classList.remove('wb-show');
+    toggle.classList.remove('wb-flipped');
+    // Restore controls to below expanded weather bar
+    if (controlBar) controlBar.style.top = '88px';
+  }
+}
+
+// Apply saved state on load (called after DOM ready)
+setTimeout(applyWeatherBarState, 100);
+
 async function fetchWeather() {
   // Reset wind warning at start of each refresh (will re-show if still windy)
   document.getElementById('wind-warning').classList.add('hidden');
@@ -2486,6 +2573,8 @@ async function fetchWeather() {
       const ap = now.getHours() >= 12 ? 'PM' : 'AM';
       const updatedEl = document.getElementById('weather-updated');
       if (updatedEl) updatedEl.textContent = `Updated ${h}:${m} ${ap}`;
+      // Sync collapsed strip with fresh data
+      if (weatherBarCollapsed) applyWeatherBarState();
     }
   } catch (e) {
     document.getElementById('weather-desc').textContent = 'Weather unavailable';
