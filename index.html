@@ -865,6 +865,17 @@ tailwind.config = {
         <p class="text-gray-300 text-sm">Nearest help from your location</p>
       </div>
 
+      <!-- Your Location (tell 911 dispatch where you are) -->
+      <div id="emergency-location-card" style="background:#1a1a2e;border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:13px;font-weight:800;color:#fca5a5;text-transform:uppercase;letter-spacing:0.5px;">📍 Your Location</span>
+          <button id="copy-location-btn" onclick="copyEmergencyLocation()" style="background:#2a2a42;border:1px solid #3a3a52;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;color:#cbd5e1;cursor:pointer;">📋 Copy</button>
+        </div>
+        <div id="emergency-address" style="font-size:14px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">Locating...</div>
+        <div id="emergency-cross-street" style="font-size:13px;font-weight:500;color:#b0b8c8;margin-bottom:6px;"></div>
+        <div id="emergency-coords" style="font-size:12px;font-weight:600;color:#94a3b8;font-family:monospace;letter-spacing:0.5px;">--</div>
+      </div>
+
       <a href="tel:911" class="block w-full py-4 bg-red-600 hover:bg-red-500 rounded-xl text-center text-white font-extrabold text-xl mb-4 shadow-lg shadow-red-900/50 transition-all active:scale-95">
         📞 CALL 911
       </a>
@@ -2881,7 +2892,83 @@ function getWeatherDescription(code) {
 function openEmergencyModal() {
   const modal = document.getElementById('emergency-modal');
   modal.style.display = 'block';
+  populateEmergencyLocation();
   findEmergencyServices();
+}
+
+function populateEmergencyLocation() {
+  const addressEl = document.getElementById('emergency-address');
+  const crossEl = document.getElementById('emergency-cross-street');
+  const coordsEl = document.getElementById('emergency-coords');
+
+  addressEl.textContent = 'Locating...';
+  crossEl.textContent = '';
+  coordsEl.textContent = '--';
+
+  function resolveLocation(pos) {
+    const lat = pos.lat.toFixed(6);
+    const lng = pos.lng.toFixed(6);
+    coordsEl.textContent = `${lat}, ${lng}`;
+
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ location: pos }, (results, status) => {
+      if (status !== 'OK' || !results || results.length === 0) {
+        addressEl.textContent = 'Address unavailable';
+        return;
+      }
+
+      // Full street address
+      const street = results.find(r => r.types.includes('street_address')) || results[0];
+      addressEl.textContent = street.formatted_address;
+
+      // Find nearest intersection/cross street
+      const intersection = results.find(r => r.types.includes('intersection'));
+      const route = results.find(r => r.types.includes('route'));
+      if (intersection) {
+        crossEl.textContent = '🔀 Near: ' + intersection.formatted_address;
+      } else if (route) {
+        crossEl.textContent = '🛣️ On: ' + route.formatted_address;
+      }
+    });
+  }
+
+  if (userPosition) {
+    resolveLocation(userPosition);
+  } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        if (userMarker) userMarker.setPosition(userPosition);
+        resolveLocation(userPosition);
+      },
+      () => {
+        addressEl.textContent = 'Location unavailable';
+        coordsEl.textContent = 'Enable GPS for coordinates';
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  } else {
+    addressEl.textContent = 'Location unavailable';
+    coordsEl.textContent = 'GPS not supported';
+  }
+}
+
+function copyEmergencyLocation() {
+  const address = document.getElementById('emergency-address').textContent;
+  const cross = document.getElementById('emergency-cross-street').textContent;
+  const coords = document.getElementById('emergency-coords').textContent;
+
+  let text = address;
+  if (cross) text += '\n' + cross;
+  text += '\nGPS: ' + coords;
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-location-btn');
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+  }).catch(() => {
+    showToast('Could not copy -- try selecting the text manually');
+  });
 }
 
 function closeEmergencyModal() {
@@ -5649,7 +5736,7 @@ const TUTORIAL_STEPS = [
   {
     target: '#emergency-btn',
     title: '📞 Emergency 911',
-    desc: 'Tap to call 911 directly. Shows your current GPS coordinates so you can tell dispatch exactly where you are.',
+    desc: 'Opens the emergency screen with your exact GPS coordinates, nearest street address, and cross street. Copy it all with one tap, then call 911 right from the same screen.',
     position: 'above-left'
   },
   {
