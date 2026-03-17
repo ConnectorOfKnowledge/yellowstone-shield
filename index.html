@@ -474,6 +474,7 @@ tailwind.config = {
       <div class="mb-3">
         <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Safety</p>
         <div class="space-y-1">
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="safe_parking">🅿️ Safe Overnight Parking</button>
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="police">🚔 Police Stations</button>
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="hospital">🏥 Hospitals</button>
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="fire_station">🚒 Fire Stations</button>
@@ -1469,7 +1470,8 @@ function initSidebarToggle() {
     hospital: 'hospital emergency room',
     fire_station: 'fire station',
     car_repair: 'auto repair mechanic',
-    sightseeing: 'tourist attraction sightseeing'
+    sightseeing: 'tourist attraction sightseeing',
+    safe_parking: 'Walmart truck stop travel center rest area'
   };
 
   document.querySelectorAll('.poi-toggle').forEach(toggle => {
@@ -1482,7 +1484,7 @@ function initSidebarToggle() {
         toggle.classList.remove('active');
         activePOIs.delete(type);
         clearPOIMarkers(type);
-        if (type !== 'weather_overlay' && type !== 'sightseeing' && type !== 'crime_zones') {
+        if (type !== 'weather_overlay' && type !== 'sightseeing' && type !== 'crime_zones' && type !== 'safe_parking') {
           clearSearchMarkers();
           // Clear the search bar if it matches this filter term
           const input = document.getElementById('map-search-input');
@@ -1755,13 +1757,15 @@ function searchPOIsAlongRouteEssentials(type) {
     return;
   }
 
+  // safe_parking uses text search, everything else uses type-based nearbySearch
+  const isSafeParking = type === 'safe_parking';
   const placeType = type === 'rest_stop' ? 'parking' : type;
   const seenPlaceIds = new Set();
 
   // Search radius: 8km to catch candidates (accounts for gaps between 12km sample points)
   // Then post-filter to 1 mile (1609m) actual distance from route
   const searchRadius = 8000;
-  const MAX_ROUTE_DISTANCE = 1609; // 1 mile in meters
+  const MAX_ROUTE_DISTANCE = isSafeParking ? 3218 : 1609; // 2 miles for safe parking, 1 mile for others
 
   // Strict type validation: Google sometimes returns loosely related places
   // (e.g., ATMs for gas_station searches). Only keep places whose types match.
@@ -1775,7 +1779,10 @@ function searchPOIsAlongRouteEssentials(type) {
     car_repair: ['car_repair'],
     parking: ['parking', 'rv_park'] // rest stops
   };
-  const allowedTypes = STRICT_TYPE_MAP[placeType] || [placeType];
+  // Safe parking accepts broad types since we use keyword text search
+  const allowedTypes = isSafeParking
+    ? ['department_store', 'shopping_mall', 'gas_station', 'parking', 'rv_park', 'lodging', 'store', 'convenience_store', 'truck_stop']
+    : (STRICT_TYPE_MAP[placeType] || [placeType]);
 
   // Helper: check minimum distance from a place to the route polyline
   function distToRoute(placeLocation) {
@@ -1795,13 +1802,64 @@ function searchPOIsAlongRouteEssentials(type) {
   let totalFound = 0;
   let totalRejected = 0;
 
-  showToast(`🔍 Searching ${type.replace('_', ' ')} within 1 mile of route...`);
+  const distLabel = isSafeParking ? '2 miles' : '1 mile';
+  showToast(`🔍 Searching ${type.replace(/_/g, ' ')} within ${distLabel} of route...`);
+
+  // Safe parking keyword queries (searched one at a time per batch point)
+  const SAFE_PARKING_QUERIES = ['Walmart Supercenter', 'truck stop travel center', 'rest area'];
+
+  function processResults(results) {
+    results.forEach(place => {
+      if (seenPlaceIds.has(place.place_id)) return;
+      seenPlaceIds.add(place.place_id);
+
+      // For safe parking, validate by name keywords instead of strict types
+      if (isSafeParking) {
+        const name = (place.name || '').toLowerCase();
+        const isSafe = name.includes('walmart') || name.includes('truck stop') || name.includes('travel center') ||
+          name.includes('pilot') || name.includes('flying j') || name.includes('loves') || name.includes("love's") ||
+          name.includes('ta ') || name.includes('petro') || name.includes('rest area') || name.includes('rest stop') ||
+          name.includes('cracker barrel') || name.includes('buc-ee');
+        if (!isSafe) { totalRejected++; return; }
+      } else {
+        const placeTypes = place.types || [];
+        if (!placeTypes.some(t => allowedTypes.includes(t))) { totalRejected++; return; }
+      }
+
+      const dist = distToRoute(place.geometry.location);
+      if (dist > MAX_ROUTE_DISTANCE) { totalRejected++; return; }
+      if (showOnlyOpen && place.opening_hours && !place.opening_hours.isOpen()) return;
+
+      const marker = createPOIMarker(place, type);
+      poiMarkers[type].push(marker);
+      totalFound++;
+    });
+  }
 
   function processBatch(startIdx) {
     const endIdx = Math.min(startIdx + BATCH_SIZE, searchPoints.length);
     for (let i = startIdx; i < endIdx; i++) {
       const wp = searchPoints[i];
       setTimeout(() => {
+        if (isSafeParking) {
+          // Text search for safe parking keywords
+          let queriesDone = 0;
+          SAFE_PARKING_QUERIES.forEach((query, qi) => {
+            setTimeout(() => {
+              placesService.textSearch({
+                query: query,
+                location: { lat: wp.lat(), lng: wp.lng() },
+                radius: searchRadius
+              }, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                  processResults(results);
+                }
+              });
+            }, qi * 200);
+          });
+          return;
+        }
+
         const request = {
           location: { lat: wp.lat(), lng: wp.lng() },
           radius: searchRadius,
@@ -1810,32 +1868,7 @@ function searchPOIsAlongRouteEssentials(type) {
 
         placesService.nearbySearch(request, (results, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK) {
-            results.forEach(place => {
-              // Deduplicate by place_id
-              if (seenPlaceIds.has(place.place_id)) return;
-              seenPlaceIds.add(place.place_id);
-
-              // Strict type check: place must actually BE the type we searched for
-              const placeTypes = place.types || [];
-              if (!placeTypes.some(t => allowedTypes.includes(t))) {
-                totalRejected++;
-                return;
-              }
-
-              // Distance check: must be within 1 mile of the actual route
-              const dist = distToRoute(place.geometry.location);
-              if (dist > MAX_ROUTE_DISTANCE) {
-                totalRejected++;
-                return;
-              }
-
-              // Filter closed places if toggle is on
-              if (showOnlyOpen && place.opening_hours && !place.opening_hours.isOpen()) return;
-
-              const marker = createPOIMarker(place, type);
-              poiMarkers[type].push(marker);
-              totalFound++;
-            });
+            processResults(results);
           }
         });
       }, (i - startIdx) * INTRA_DELAY);
@@ -1847,7 +1880,8 @@ function searchPOIsAlongRouteEssentials(type) {
     } else {
       // All batches done
       setTimeout(() => {
-        showToast(`✅ Found ${totalFound} ${type.replace('_', ' ')}${totalFound !== 1 ? 's' : ''} along route`);
+        const label = isSafeParking ? 'safe parking spot' : type.replace(/_/g, ' ');
+        showToast(`✅ Found ${totalFound} ${label}${totalFound !== 1 ? 's' : ''} along route`);
       }, BATCH_DELAY);
     }
   }
@@ -2416,7 +2450,7 @@ function applyWeatherBarState() {
     const icon = document.getElementById('weather-icon');
     const temp = document.getElementById('weather-temp');
     const desc = document.getElementById('weather-desc');
-    if (icon) document.getElementById('wb-collapsed-icon').textContent = icon.textContent;
+    if (icon) document.getElementById('wb-collapsed-icon').textContent = icon.textContent || '☁️';
     if (temp) document.getElementById('wb-collapsed-temp').textContent = temp.textContent;
     if (desc) document.getElementById('wb-collapsed-desc').textContent = desc.textContent;
     // Shift controls up when collapsed (strip 32px + toggle 22px = 54px)
@@ -2551,7 +2585,7 @@ async function fetchWeather() {
       const code = hereData.current.weather_code;
 
       document.getElementById('weather-temp').textContent = `${temp}°F`;
-      document.getElementById('weather-icon').textContent = getWeatherEmoji(code);
+      document.getElementById('weather-icon').innerHTML = getWeatherIconHTML(code);
       document.getElementById('weather-desc').textContent = getWeatherDescription(code);
       document.getElementById('weather-wind').textContent = `Wind: ${wind} mph (gusts ${gusts} mph)`;
 
@@ -2621,7 +2655,7 @@ async function fetchWeather() {
 function getWeatherEmoji(code) {
   if (code === 0) return '☀️';
   if (code <= 3) return '⛅';
-  if (code <= 48) return '🌫️';
+  if (code <= 48) return '☁️'; // fog/overcast - clean cloud emoji
   if (code <= 57) return '🌦️';
   if (code <= 67) return '🌧️';
   if (code <= 77) return '🌨️';
@@ -2629,6 +2663,40 @@ function getWeatherEmoji(code) {
   if (code <= 86) return '❄️';
   if (code <= 99) return '⛈️';
   return '🌤️';
+}
+
+// Animated SVG icon for the main weather bar (larger, more visual)
+function getWeatherIconHTML(code) {
+  if (code >= 4 && code <= 48) {
+    // Fog/overcast: animated drifting clouds with fog layers
+    return `<svg width="38" height="38" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fogGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#94a3b8"/>
+          <stop offset="100%" stop-color="#64748b"/>
+        </linearGradient>
+      </defs>
+      <g opacity="0.9">
+        <ellipse cx="19" cy="12" rx="12" ry="7" fill="url(#fogGrad)">
+          <animateTransform attributeName="transform" type="translate" values="0,0;2,0;0,0;-2,0;0,0" dur="6s" repeatCount="indefinite"/>
+        </ellipse>
+        <ellipse cx="13" cy="15" rx="9" ry="5" fill="#94a3b8" opacity="0.7">
+          <animateTransform attributeName="transform" type="translate" values="0,0;-2,0;0,0;2,0;0,0" dur="5s" repeatCount="indefinite"/>
+        </ellipse>
+      </g>
+      <rect x="4" y="22" rx="2" width="30" height="3" fill="#cbd5e1" opacity="0.6">
+        <animateTransform attributeName="transform" type="translate" values="0,0;3,0;0,0" dur="4s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="6" y="27" rx="2" width="26" height="2.5" fill="#94a3b8" opacity="0.5">
+        <animateTransform attributeName="transform" type="translate" values="0,0;-3,0;0,0" dur="5s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="8" y="31" rx="2" width="22" height="2" fill="#64748b" opacity="0.4">
+        <animateTransform attributeName="transform" type="translate" values="0,0;2,0;0,0" dur="6s" repeatCount="indefinite"/>
+      </rect>
+    </svg>`;
+  }
+  // All other codes use the emoji at large size
+  return `<span style="font-size:32px;line-height:1;">${getWeatherEmoji(code)}</span>`;
 }
 
 function getWeatherDescription(code) {
