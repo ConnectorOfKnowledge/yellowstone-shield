@@ -3116,6 +3116,31 @@ function initContactButtons() {
     textBtn.title = 'Add contact';
     sosBtn.title = 'Add contact';
   }
+
+  // Long-press on either custom contact button opens edit modal
+  let longPressTriggered = false;
+  let lpTimer = null;
+  [textBtn, sosBtn].forEach(btn => {
+    btn.addEventListener('touchstart', () => {
+      longPressTriggered = false;
+      lpTimer = setTimeout(() => {
+        longPressTriggered = true;
+        openContactSetup(1);
+      }, 600);
+    }, { passive: true });
+    btn.addEventListener('touchend', (e) => {
+      clearTimeout(lpTimer);
+      if (longPressTriggered) { e.preventDefault(); }
+    });
+    btn.addEventListener('touchmove', () => { clearTimeout(lpTimer); });
+    // Override onclick to check long-press flag
+    const origClick = btn.getAttribute('onclick');
+    btn.removeAttribute('onclick');
+    btn.addEventListener('click', (e) => {
+      if (longPressTriggered) { longPressTriggered = false; return; }
+      if (origClick) new Function(origClick).call(btn);
+    });
+  });
 }
 
 function textCustomContact(slot) {
