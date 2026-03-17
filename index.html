@@ -336,6 +336,49 @@ tailwind.config = {
   }
   #tutorial-tooltip .tut-dot.active { background: #f5a623; }
   #tutorial-tooltip .tut-dot.done { background: #0d9488; }
+
+  /* Emergency Guide */
+  .guide-tab { background: #1a1a2e; border-color: #3a3a52; color: #94a3b8; transition: all 0.2s; }
+  .guide-tab.active { background: rgba(239,68,68,0.15); border-color: #ef4444; color: #fca5a5; }
+  .guide-card {
+    background: #1a1a2e; border: 1px solid #2a2a42; border-radius: 10px;
+    margin-bottom: 8px; overflow: hidden;
+  }
+  .guide-card-header {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; background: none; border: none; cursor: pointer;
+    color: #e2e8f0; font-size: 14px; font-weight: 700; text-align: left;
+  }
+  .guide-card-header:active { background: rgba(255,255,255,0.03); }
+  .guide-card-chevron { transition: transform 0.3s; flex-shrink: 0; }
+  .guide-card-chevron.open { transform: rotate(180deg); }
+  .guide-card-body {
+    display: none; padding: 4px 14px 14px;
+  }
+  .guide-card-body.open { display: block; }
+  .guide-card-body ol {
+    padding-left: 20px; margin: 0;
+  }
+  .guide-card-body ol li {
+    font-size: 13px; color: #cbd5e1; line-height: 1.6;
+    margin-bottom: 6px;
+  }
+  .guide-card-body p {
+    font-size: 13px; color: #cbd5e1; line-height: 1.6;
+  }
+  .guide-warning {
+    margin-top: 10px; padding: 8px 12px;
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 8px; font-size: 12px; color: #fca5a5; font-weight: 600; line-height: 1.5;
+  }
+  .guide-tip {
+    margin-top: 10px; padding: 8px 12px;
+    background: rgba(245,166,35,0.1); border: 1px solid rgba(245,166,35,0.2);
+    border-radius: 8px; font-size: 12px; color: #fbbf24; font-weight: 500; line-height: 1.5;
+  }
+  .guide-card-body .guide-img {
+    display: block; margin: 10px auto 6px; max-width: 100%; border-radius: 8px;
+  }
 </style>
 </head>
 <body>
@@ -345,7 +388,7 @@ tailwind.config = {
   <div class="loader mb-4"></div>
   <p class="text-warm-400 font-bold text-xl">Yellowstone Shield</p>
   <p class="text-gray-300 text-sm mt-1 font-medium">Loading command center...</p>
-  <p style="font-size:13px;color:#94a3b8;margin-top:12px;font-weight:600;">v2.3.0</p>
+  <p style="font-size:13px;color:#94a3b8;margin-top:12px;font-weight:600;">v2.4.0</p>
 </div>
 
 <!-- ==================== CHECKLIST SCREEN ==================== -->
@@ -354,7 +397,7 @@ tailwind.config = {
     <div class="text-center mb-6">
       <div class="text-4xl mb-2">🛡️</div>
       <h1 class="text-2xl font-extrabold text-warm-400">Yellowstone Shield</h1>
-      <p style="font-size:13px;color:#94a3b8;margin-top:2px;font-weight:600;">v2.3.0</p>
+      <p style="font-size:13px;color:#94a3b8;margin-top:2px;font-weight:600;">v2.4.0</p>
       <p class="text-gray-300 text-sm mt-1 font-medium">Vehicle Prep Checklist</p>
       <p class="text-gray-300 text-xs mt-1">Complete all items before departure</p>
     </div>
@@ -890,6 +933,602 @@ tailwind.config = {
           <div class="loader mx-auto mb-2" style="width:32px;height:32px;border-width:3px;"></div>
           Finding nearest services...
         </div>
+      </div>
+
+      <!-- Emergency Guide -->
+      <div style="margin-top:16px;border-top:1px solid rgba(239,68,68,0.2);padding-top:16px;">
+        <button onclick="toggleEmergencyGuide()" id="emergency-guide-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:#1a1a2e;border:1px solid rgba(239,68,68,0.25);border-radius:12px;padding:14px 16px;cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">🏥</span>
+            <div style="text-align:left;">
+              <div style="font-size:14px;font-weight:800;color:#fca5a5;">Emergency Guide</div>
+              <div style="font-size:11px;color:#94a3b8;font-weight:500;">First aid & roadside emergencies</div>
+            </div>
+          </div>
+          <svg id="guide-chevron" style="transition:transform 0.3s;" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+
+        <div id="emergency-guide-content" style="display:none;margin-top:12px;">
+
+          <!-- Guide Category Tabs -->
+          <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;" id="guide-tabs">
+            <button class="guide-tab active" onclick="showGuideCategory('medical')" data-tab="medical" style="white-space:nowrap;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;border:1px solid;cursor:pointer;">🩹 Medical</button>
+            <button class="guide-tab" onclick="showGuideCategory('vehicle')" data-tab="vehicle" style="white-space:nowrap;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;border:1px solid;cursor:pointer;">🚗 Vehicle</button>
+            <button class="guide-tab" onclick="showGuideCategory('safety')" data-tab="safety" style="white-space:nowrap;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;border:1px solid;cursor:pointer;">⚠️ Safety</button>
+            <button class="guide-tab" onclick="showGuideCategory('weather')" data-tab="weather" style="white-space:nowrap;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;border:1px solid;cursor:pointer;">🌩️ Weather</button>
+          </div>
+
+          <!-- Guide Content Area -->
+          <div id="guide-panels">
+
+            <!-- MEDICAL -->
+            <div class="guide-panel" id="guide-medical">
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🩸 Bleeding / Open Wound</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Apply direct pressure</strong> with a clean cloth, t-shirt, or towel. Press firmly and do not lift to check.</li>
+                    <li><strong>Elevate the wound</strong> above the heart if possible (raise the arm or leg).</li>
+                    <li><strong>If blood soaks through,</strong> add more cloth on top. Do not remove the first layer.</li>
+                    <li><strong>For severe bleeding,</strong> apply a tourniquet 2-3 inches above the wound if you have one. Note the time.</li>
+                    <li><strong>Call 911</strong> if bleeding won't stop after 10 minutes of steady pressure.</li>
+                  </ol>
+                  <svg class="guide-img" width="280" height="100" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="280" height="100" rx="8" fill="#141420"/>
+                    <!-- Hand pressing cloth on wound -->
+                    <ellipse cx="80" cy="55" rx="35" ry="20" fill="#4a3028" opacity="0.4"/>
+                    <rect x="60" y="42" width="40" height="26" rx="4" fill="#ef4444" opacity="0.3"/>
+                    <rect x="64" y="45" width="32" height="20" rx="3" fill="#fafafa"/>
+                    <text x="80" y="58" text-anchor="middle" font-size="8" fill="#ef4444" font-weight="700">CLOTH</text>
+                    <!-- Arrow showing pressure -->
+                    <path d="M80 28 L80 38" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#arrowY)"/>
+                    <text x="80" y="22" text-anchor="middle" font-size="9" fill="#fbbf24" font-weight="700">PRESS</text>
+                    <!-- Elevated arm -->
+                    <line x1="180" y1="70" x2="220" y2="30" stroke="#d4a88c" stroke-width="8" stroke-linecap="round"/>
+                    <circle cx="220" cy="28" r="5" fill="#d4a88c"/>
+                    <path d="M210 24 L230 24" stroke="#fbbf24" stroke-width="1.5"/>
+                    <text x="240" y="28" font-size="9" fill="#fbbf24" font-weight="600">ELEVATE</text>
+                    <!-- Heart reference line -->
+                    <path d="M170 55 L250 55" stroke="#ef4444" stroke-width="1" stroke-dasharray="4 3"/>
+                    <text x="252" y="58" font-size="8" fill="#ef4444">♥ heart</text>
+                    <defs><marker id="arrowY" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6Z" fill="#fbbf24"/></marker></defs>
+                  </svg>
+                  <div class="guide-warning">Do NOT use a tourniquet on the neck, head, or torso.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🫁 Someone Not Breathing (CPR)</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Call 911 first.</strong> Put phone on speaker.</li>
+                    <li><strong>Place heel of hand</strong> on center of chest, between the nipples.</li>
+                    <li><strong>Push hard and fast</strong> -- at least 2 inches deep, 100-120 pushes per minute (rhythm of "Stayin' Alive").</li>
+                    <li><strong>Don't stop</strong> until paramedics arrive or the person starts breathing.</li>
+                    <li><strong>If you know rescue breaths:</strong> 30 compressions, then 2 breaths. Otherwise, hands-only CPR is effective.</li>
+                  </ol>
+                  <svg class="guide-img" width="280" height="120" viewBox="0 0 280 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="280" height="120" rx="8" fill="#141420"/>
+                    <!-- Person lying down -->
+                    <ellipse cx="140" cy="95" rx="90" ry="8" fill="#2a2a42"/>
+                    <circle cx="60" cy="85" r="12" fill="#d4a88c"/><!-- head -->
+                    <rect x="75" y="72" width="80" height="28" rx="10" fill="#4a6080"/><!-- torso -->
+                    <line x1="155" y1="88" x2="200" y2="98" stroke="#d4a88c" stroke-width="6" stroke-linecap="round"/><!-- leg -->
+                    <!-- Hands on chest -->
+                    <ellipse cx="110" cy="75" rx="12" ry="8" fill="#d4a88c" opacity="0.9"/>
+                    <ellipse cx="110" cy="70" rx="10" ry="7" fill="#d4a88c"/>
+                    <!-- Push arrows -->
+                    <path d="M110 52 L110 62" stroke="#ef4444" stroke-width="2.5" marker-end="url(#arrowR)"/>
+                    <path d="M100 52 L100 60" stroke="#ef4444" stroke-width="2" marker-end="url(#arrowR)"/>
+                    <path d="M120 52 L120 60" stroke="#ef4444" stroke-width="2" marker-end="url(#arrowR)"/>
+                    <!-- Labels -->
+                    <text x="110" y="44" text-anchor="middle" font-size="10" fill="#ef4444" font-weight="800">PUSH HARD</text>
+                    <text x="110" y="112" text-anchor="middle" font-size="9" fill="#fbbf24" font-weight="600">Center of chest, 2 inches deep</text>
+                    <!-- Tempo -->
+                    <rect x="195" y="30" width="75" height="50" rx="8" fill="#1e1e2e" stroke="#fbbf24" stroke-width="1"/>
+                    <text x="232" y="48" text-anchor="middle" font-size="9" fill="#fbbf24" font-weight="700">100-120</text>
+                    <text x="232" y="60" text-anchor="middle" font-size="8" fill="#94a3b8">beats/min</text>
+                    <text x="232" y="72" text-anchor="middle" font-size="7" fill="#94a3b8">🎵 Stayin' Alive</text>
+                    <defs><marker id="arrowR" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6Z" fill="#ef4444"/></marker></defs>
+                  </svg>
+                  <div class="guide-tip">Hands-only CPR (no mouth-to-mouth) is recommended for untrained bystanders and is very effective.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🤕 Head Injury / Concussion</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Do NOT move them</strong> if they might have a neck/spine injury.</li>
+                    <li><strong>Keep them still and awake.</strong> Talk to them. Ask their name and where they are.</li>
+                    <li><strong>Apply ice</strong> (or cold water bottle) wrapped in cloth to the bump.</li>
+                    <li><strong>Watch for danger signs:</strong> vomiting, unequal pupils, confusion, seizures, clear fluid from ears/nose.</li>
+                    <li><strong>Call 911 immediately</strong> if they lose consciousness, even briefly.</li>
+                  </ol>
+                  <div class="guide-warning">Do NOT let them fall asleep for the first few hours. Do NOT give pain medication without medical advice.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🔥 Burns</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Cool the burn</strong> under cool (not cold) running water for at least 10 minutes.</li>
+                    <li><strong>Remove jewelry/clothing</strong> near the burn before swelling starts, unless stuck to skin.</li>
+                    <li><strong>Cover loosely</strong> with a clean, non-fluffy cloth or cling wrap.</li>
+                    <li><strong>Do NOT apply butter, toothpaste, or ice.</strong></li>
+                    <li><strong>Call 911</strong> if the burn is larger than your palm, on the face/hands/joints, or looks white/charred.</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🐍 Snake Bite</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Move away from the snake.</strong> Do NOT try to catch or kill it. Take a photo from a safe distance if possible.</li>
+                    <li><strong>Keep the bitten limb still</strong> and below heart level.</li>
+                    <li><strong>Remove rings, watches, tight clothing</strong> near the bite before swelling.</li>
+                    <li><strong>Do NOT cut the bite, suck venom, or apply a tourniquet.</strong></li>
+                    <li><strong>Call 911.</strong> Note the time of the bite. Get to a hospital -- they have antivenom.</li>
+                  </ol>
+                  <div class="guide-tip">Montana has prairie rattlesnakes. Stay on marked trails, watch where you step, and check before sitting on rocks.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🤢 Heat Exhaustion / Heat Stroke</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Move to shade or AC immediately.</strong></li>
+                    <li><strong>Cool down fast:</strong> wet towels on neck/armpits/forehead, fan them, pour cool water on skin.</li>
+                    <li><strong>Sip cool water slowly.</strong> Small sips, not gulps.</li>
+                    <li><strong>Loosen or remove excess clothing.</strong></li>
+                    <li><strong>CALL 911 if:</strong> they stop sweating (skin is hot and dry), they're confused, they pass out, or temp is over 103F.</li>
+                  </ol>
+                  <div class="guide-warning">Hot + dry skin + confusion = HEAT STROKE. This is life-threatening. Cool them and call 911 immediately.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🫀 Choking</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>If they can cough or talk,</strong> encourage them to keep coughing. Do not intervene yet.</li>
+                    <li><strong>If they cannot breathe/speak:</strong> Stand behind them, make a fist just above their belly button.</li>
+                    <li><strong>Give quick upward thrusts</strong> (Heimlich maneuver) until the object comes out.</li>
+                    <li><strong>If you are alone and choking:</strong> Lean over a chair back or countertop and thrust your abdomen against it.</li>
+                    <li><strong>Call 911</strong> if the object does not come out after several attempts.</li>
+                  </ol>
+                  <svg class="guide-img" width="280" height="130" viewBox="0 0 280 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="280" height="130" rx="8" fill="#141420"/>
+                    <!-- Standing behind person -->
+                    <!-- Person in front -->
+                    <rect x="100" y="25" width="36" height="55" rx="10" fill="#4a6080"/><!-- torso -->
+                    <circle cx="118" cy="18" r="12" fill="#d4a88c"/><!-- head -->
+                    <line x1="108" y1="80" x2="102" y2="115" stroke="#4a6080" stroke-width="7" stroke-linecap="round"/><!-- leg L -->
+                    <line x1="128" y1="80" x2="134" y2="115" stroke="#4a6080" stroke-width="7" stroke-linecap="round"/><!-- leg R -->
+                    <!-- Arms reaching around (rescuer behind) -->
+                    <path d="M85 45 Q90 60 110 62" stroke="#d4a88c" stroke-width="5" stroke-linecap="round" fill="none"/>
+                    <path d="M151 45 Q146 60 126 62" stroke="#d4a88c" stroke-width="5" stroke-linecap="round" fill="none"/>
+                    <!-- Fist position -->
+                    <circle cx="118" cy="62" r="6" fill="#d4a88c" stroke="#fbbf24" stroke-width="1.5"/>
+                    <!-- Arrow showing upward thrust -->
+                    <path d="M118 80 L118 68" stroke="#ef4444" stroke-width="3" marker-end="url(#arrowUp)"/>
+                    <text x="118" y="95" text-anchor="middle" font-size="9" fill="#fbbf24" font-weight="700">THRUST UP</text>
+                    <!-- Label for fist -->
+                    <line x1="130" y1="62" x2="175" y2="45" stroke="#94a3b8" stroke-width="1"/>
+                    <text x="177" y="42" font-size="8" fill="#94a3b8">Fist above</text>
+                    <text x="177" y="52" font-size="8" fill="#94a3b8">belly button</text>
+                    <!-- Self-help diagram -->
+                    <rect x="195" y="65" width="70" height="55" rx="6" fill="#1e1e2e" stroke="#3a3a52" stroke-width="1"/>
+                    <text x="230" y="78" text-anchor="middle" font-size="8" fill="#fbbf24" font-weight="700">IF ALONE:</text>
+                    <text x="230" y="90" text-anchor="middle" font-size="7" fill="#cbd5e1">Lean over a</text>
+                    <text x="230" y="100" text-anchor="middle" font-size="7" fill="#cbd5e1">chair back and</text>
+                    <text x="230" y="110" text-anchor="middle" font-size="7" fill="#cbd5e1">thrust abdomen</text>
+                    <defs><marker id="arrowUp" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0 8 L4 0 L8 8Z" fill="#ef4444"/></marker></defs>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🦴 Broken Bone / Sprain</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Do NOT move the injured area.</strong> Immobilize it in the position you find it.</li>
+                    <li><strong>Splint it</strong> if you can: use a stick, rolled magazine, or pillow alongside the limb, secured with cloth strips.</li>
+                    <li><strong>Apply ice</strong> wrapped in cloth (20 minutes on, 20 off) to reduce swelling.</li>
+                    <li><strong>Elevate</strong> if possible.</li>
+                    <li><strong>Call 911</strong> if bone is visible, limb looks deformed, or they can't move it at all.</li>
+                  </ol>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- VEHICLE -->
+            <div class="guide-panel" id="guide-vehicle" style="display:none;">
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>💥 Car Accident</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Check yourself first.</strong> Are you hurt? Can you move?</li>
+                    <li><strong>Turn on hazard lights.</strong> If safe, move your car to the shoulder.</li>
+                    <li><strong>Call 911</strong> if anyone is injured or the road is blocked.</li>
+                    <li><strong>Do NOT admit fault.</strong> Exchange info only: name, phone, insurance, license plate, photos of damage.</li>
+                    <li><strong>Take photos:</strong> all vehicles, damage, license plates, the intersection/road, and any skid marks.</li>
+                    <li><strong>Get a police report number</strong> even for minor accidents.</li>
+                    <li><strong>Call your insurance company</strong> before leaving the scene if possible.</li>
+                  </ol>
+                  <div class="guide-tip">Keep your phone recording or take a video walkthrough of the scene. It can be crucial evidence.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🛞 Flat Tire</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Slow down gradually.</strong> Turn on hazards. Pull off to a flat, straight stretch -- NOT a curve or hill.</li>
+                    <li><strong>Get completely off the road.</strong> Use the shoulder or a parking lot.</li>
+                    <li><strong>Set parking brake.</strong> Put something behind the opposite tires (rock, brick).</li>
+                    <li><strong>If you can't change it safely</strong> (dark, no shoulder, traffic): stay in the car with hazards on, seatbelt on. Call roadside assistance or 911.</li>
+                    <li><strong>If changing the tire:</strong> loosen lugs first (lefty-loosey), jack up car, remove tire, put spare on, hand-tighten lugs in star pattern, lower car, fully tighten lugs.</li>
+                  </ol>
+                  <div class="guide-warning">Never get under a car supported only by a jack. Never change a tire on the traffic side of the vehicle.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🌡️ Car Overheating</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Turn off AC,</strong> turn heater to MAX. (This pulls heat away from the engine.)</li>
+                    <li><strong>Pull over safely</strong> as soon as you can. Turn off the engine.</li>
+                    <li><strong>Wait at least 15-20 minutes</strong> before opening the hood. The coolant is under pressure.</li>
+                    <li><strong>Do NOT open the radiator cap</strong> while the engine is hot. Steam can cause severe burns.</li>
+                    <li><strong>Check coolant level</strong> once cool. Add water or coolant if low.</li>
+                    <li><strong>Call roadside assistance</strong> if the temperature gauge goes back up after restarting.</li>
+                  </ol>
+                  <div class="guide-tip">On long mountain passes (you'll hit several in Montana), shift to a lower gear to reduce engine strain. Watch the temp gauge on uphills.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🔋 Dead Battery / Won't Start</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>If it clicks but won't turn over:</strong> likely a dead battery. Look for someone to jump-start.</li>
+                    <li><strong>Jump-start order:</strong> Red cable to dead battery +, red to good battery +, black to good battery -, black to unpainted metal on dead car (NOT the battery).</li>
+                    <li><strong>Start the good car.</strong> Wait 2-3 minutes, then try starting the dead car.</li>
+                    <li><strong>Once started, drive for at least 20 minutes</strong> to recharge the battery.</li>
+                    <li><strong>If it won't jump:</strong> the battery or alternator may be dead. Call roadside assistance.</li>
+                  </ol>
+                  <svg class="guide-img" width="280" height="120" viewBox="0 0 280 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="280" height="120" rx="8" fill="#141420"/>
+                    <!-- Dead battery (left) -->
+                    <rect x="20" y="35" width="60" height="40" rx="4" fill="#374151" stroke="#6b7280" stroke-width="1.5"/>
+                    <rect x="30" y="28" width="10" height="8" rx="2" fill="#ef4444"/><!-- + terminal -->
+                    <rect x="60" y="28" width="10" height="8" rx="2" fill="#3b82f6"/><!-- - terminal -->
+                    <text x="35" y="34" font-size="8" fill="white" font-weight="800">+</text>
+                    <text x="65" y="34" font-size="8" fill="white" font-weight="800">-</text>
+                    <text x="50" y="58" text-anchor="middle" font-size="8" fill="#94a3b8" font-weight="600">DEAD</text>
+                    <text x="50" y="88" text-anchor="middle" font-size="8" fill="#fca5a5" font-weight="700">💀 Dead Car</text>
+                    <!-- Good battery (right) -->
+                    <rect x="200" y="35" width="60" height="40" rx="4" fill="#374151" stroke="#22c55e" stroke-width="1.5"/>
+                    <rect x="210" y="28" width="10" height="8" rx="2" fill="#ef4444"/>
+                    <rect x="240" y="28" width="10" height="8" rx="2" fill="#3b82f6"/>
+                    <text x="215" y="34" font-size="8" fill="white" font-weight="800">+</text>
+                    <text x="245" y="34" font-size="8" fill="white" font-weight="800">-</text>
+                    <text x="230" y="58" text-anchor="middle" font-size="8" fill="#22c55e" font-weight="600">GOOD</text>
+                    <text x="230" y="88" text-anchor="middle" font-size="8" fill="#86efac" font-weight="700">✅ Good Car</text>
+                    <!-- Red cable: + to + -->
+                    <path d="M40 32 C40 10 210 10 215 32" stroke="#ef4444" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    <text x="128" y="12" text-anchor="middle" font-size="7" fill="#ef4444" font-weight="700">① RED + to +</text>
+                    <!-- Black cable: - to metal -->
+                    <path d="M65 32 C90 15 180 15 245 32" stroke="#3b82f6" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="6 3"/>
+                    <text x="155" y="24" text-anchor="middle" font-size="7" fill="#3b82f6" font-weight="700">② BLACK - to -</text>
+                    <!-- Ground note -->
+                    <rect x="60" y="98" width="160" height="18" rx="4" fill="rgba(245,166,35,0.1)" stroke="rgba(245,166,35,0.3)" stroke-width="1"/>
+                    <text x="140" y="110" text-anchor="middle" font-size="7" fill="#fbbf24" font-weight="600">⚡ Last black clip: unpainted METAL on dead car</text>
+                  </svg>
+                  <div class="guide-warning">If the battery is cracked, leaking, or swollen, do NOT attempt to jump-start. Call for a tow.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>⛽ Ran Out of Gas</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Pull off the road completely.</strong> Turn on hazards.</li>
+                    <li><strong>Stay with your car</strong> unless a gas station is clearly visible within walking distance.</li>
+                    <li><strong>Call roadside assistance</strong> (your insurance may include fuel delivery).</li>
+                    <li><strong>Use the gas station filter</strong> on this app to find the nearest one and share your location with whoever comes to help.</li>
+                    <li><strong>In Montana/Wyoming:</strong> gas stations can be 50+ miles apart. Follow the Half-Tank Rule!</li>
+                  </ol>
+                  <div class="guide-tip">This app reminds you every ~180 miles to refuel. In remote areas, don't let it drop below half.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🦌 Hit an Animal</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Pull over safely.</strong> Turn on hazards.</li>
+                    <li><strong>Do NOT approach the animal.</strong> Injured animals can be unpredictable and dangerous.</li>
+                    <li><strong>Call 911 or local police</strong> to report the collision. In many states, it's required by law.</li>
+                    <li><strong>Document the damage</strong> with photos for your insurance claim.</li>
+                    <li><strong>Check your car for damage:</strong> radiator leaks, broken headlights, fluid dripping, hood alignment.</li>
+                    <li><strong>Do NOT continue driving</strong> if you see fluid leaking or the car drives abnormally.</li>
+                  </ol>
+                  <div class="guide-tip">Deer are most active at dawn and dusk. In Montana/Wyoming, also watch for elk, moose, and bison. If one crosses, slow down -- more are usually following.</div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- SAFETY -->
+            <div class="guide-panel" id="guide-safety" style="display:none;">
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🚶 Being Followed</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Do NOT go home or to your hotel.</strong> Do not lead them to where you're staying.</li>
+                    <li><strong>Stay in your car.</strong> Keep doors locked and windows up.</li>
+                    <li><strong>Make four right turns.</strong> If they're still behind you, they're following you.</li>
+                    <li><strong>Drive to the nearest police station, fire station, or busy, well-lit public place</strong> (gas station, Walmart, hospital).</li>
+                    <li><strong>Call 911 while driving.</strong> Give them your location and a description of the vehicle.</li>
+                    <li><strong>Honk your horn</strong> continuously when you arrive at a public place.</li>
+                  </ol>
+                  <svg class="guide-img" width="280" height="90" viewBox="0 0 280 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="280" height="90" rx="8" fill="#141420"/>
+                    <!-- 4 right turns diagram -->
+                    <rect x="30" y="15" width="80" height="60" rx="0" fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4 3"/>
+                    <!-- Arrows showing 4 right turns -->
+                    <path d="M30 65 L30 20" stroke="#22c55e" stroke-width="2.5" marker-end="url(#arrowG)"/>
+                    <path d="M35 15 L105 15" stroke="#22c55e" stroke-width="2.5" marker-end="url(#arrowG)"/>
+                    <path d="M110 20 L110 70" stroke="#22c55e" stroke-width="2.5" marker-end="url(#arrowG)"/>
+                    <path d="M105 75 L35 75" stroke="#22c55e" stroke-width="2.5" marker-end="url(#arrowG)"/>
+                    <!-- Turn numbers -->
+                    <circle cx="30" cy="20" r="8" fill="#22c55e"/><text x="30" y="23" text-anchor="middle" font-size="8" fill="white" font-weight="800">1</text>
+                    <circle cx="110" cy="15" r="8" fill="#22c55e"/><text x="110" y="18" text-anchor="middle" font-size="8" fill="white" font-weight="800">2</text>
+                    <circle cx="110" cy="75" r="8" fill="#22c55e"/><text x="110" y="78" text-anchor="middle" font-size="8" fill="white" font-weight="800">3</text>
+                    <circle cx="30" cy="75" r="8" fill="#ef4444"/><text x="30" y="78" text-anchor="middle" font-size="8" fill="white" font-weight="800">4</text>
+                    <!-- Label -->
+                    <text x="70" y="48" text-anchor="middle" font-size="8" fill="#94a3b8" font-weight="600">4 RIGHT TURNS</text>
+                    <!-- Result box -->
+                    <rect x="140" y="10" width="130" height="70" rx="8" fill="#1e1e2e" stroke="#3a3a52" stroke-width="1"/>
+                    <text x="205" y="28" text-anchor="middle" font-size="8" fill="#fbbf24" font-weight="700">STILL BEHIND YOU?</text>
+                    <text x="205" y="42" text-anchor="middle" font-size="9" fill="#ef4444" font-weight="800">They're following.</text>
+                    <text x="205" y="56" text-anchor="middle" font-size="8" fill="#cbd5e1">Drive to nearest:</text>
+                    <text x="205" y="68" text-anchor="middle" font-size="8" fill="#86efac" font-weight="600">🚔 Police  🏥 Hospital  ⛽ Busy place</text>
+                    <defs><marker id="arrowG" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6Z" fill="#22c55e"/></marker></defs>
+                  </svg>
+                  <div class="guide-warning">Never pull over on a dark or empty road. Never get out of your car. If someone bumps you intentionally, drive to a police station before stopping.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🏨 Hotel Safety</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Request a room above the 1st floor</strong> but below the 5th (fire ladder reach).</li>
+                    <li><strong>Check the door lock, deadbolt, and peephole</strong> before settling in.</li>
+                    <li><strong>Use the door chain/latch</strong> even when inside.</li>
+                    <li><strong>Don't open the door</strong> for unexpected visitors. Call the front desk to verify.</li>
+                    <li><strong>Keep your car visible</strong> from your room window if possible. Park under lights.</li>
+                    <li><strong>Know your exit routes:</strong> locate the nearest stairwell when you arrive.</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>⛽ Gas Station Safety (Solo Traveler)</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Choose well-lit, busy stations.</strong> Avoid isolated ones, especially at night.</li>
+                    <li><strong>Lock your doors</strong> while pumping gas. Keep your purse/phone inside the car, not on the roof.</li>
+                    <li><strong>Stay aware.</strong> Put your phone down. Look around. Trust your instincts.</li>
+                    <li><strong>Pay at the pump</strong> if possible to avoid going inside alone at night.</li>
+                    <li><strong>If someone approaches you</strong> and it feels wrong: get in, lock doors, drive away. You can always come back.</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🐻 Wildlife Encounter</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <p style="font-weight:600;color:#fbbf24;margin-bottom:8px;">You're going to Yellowstone. Know this.</p>
+                  <ol>
+                    <li><strong>Bears:</strong> Make noise on trails. Never run. Back away slowly. If a grizzly charges, play dead face-down. If a black bear attacks, fight back.</li>
+                    <li><strong>Bison:</strong> Stay 25+ yards away. They're faster than you. If one charges, get behind a large object (tree, car). Never approach for a selfie.</li>
+                    <li><strong>Moose:</strong> Give them space. If a moose lowers its head and pins its ears back, it's about to charge. Get behind a tree or large object.</li>
+                    <li><strong>Carry bear spray</strong> ($40-50 at any outdoor store in Montana). Keep it accessible, not buried in your pack.</li>
+                  </ol>
+                  <svg class="guide-img" width="280" height="100" viewBox="0 0 280 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="280" height="100" rx="8" fill="#141420"/>
+                    <!-- Bison silhouette -->
+                    <ellipse cx="60" cy="55" rx="28" ry="18" fill="#5c4033"/>
+                    <ellipse cx="38" cy="48" rx="10" ry="9" fill="#5c4033"/>
+                    <circle cx="34" cy="46" r="2" fill="#fbbf24"/><!-- eye -->
+                    <path d="M28 42 Q24 36 26 40" stroke="#8B7355" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M30 40 Q26 34 28 38" stroke="#8B7355" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="45" y1="72" x2="42" y2="85" stroke="#5c4033" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="55" y1="72" x2="52" y2="85" stroke="#5c4033" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="68" y1="72" x2="65" y2="85" stroke="#5c4033" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="78" y1="72" x2="75" y2="85" stroke="#5c4033" stroke-width="4" stroke-linecap="round"/>
+                    <!-- Distance line -->
+                    <line x1="95" y1="55" x2="185" y2="55" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3"/>
+                    <text x="140" y="50" text-anchor="middle" font-size="10" fill="#ef4444" font-weight="800">25 YARDS MIN</text>
+                    <!-- Person (small, showing scale) -->
+                    <circle cx="200" cy="42" r="6" fill="#d4a88c"/>
+                    <rect x="195" y="48" width="10" height="18" rx="3" fill="#4a6080"/>
+                    <line x1="198" y1="66" x2="195" y2="82" stroke="#4a6080" stroke-width="3" stroke-linecap="round"/>
+                    <line x1="202" y1="66" x2="205" y2="82" stroke="#4a6080" stroke-width="3" stroke-linecap="round"/>
+                    <!-- Warning labels -->
+                    <rect x="218" y="30" width="55" height="48" rx="6" fill="#1e1e2e" stroke="#ef4444" stroke-width="1"/>
+                    <text x="245" y="44" text-anchor="middle" font-size="7" fill="#fca5a5" font-weight="700">⚠️ NEVER</text>
+                    <text x="245" y="54" text-anchor="middle" font-size="7" fill="#cbd5e1">approach</text>
+                    <text x="245" y="64" text-anchor="middle" font-size="7" fill="#cbd5e1">for selfies</text>
+                    <text x="245" y="74" text-anchor="middle" font-size="7" fill="#fca5a5" font-weight="600">They charge.</text>
+                  </svg>
+                  <div class="guide-warning">More people are injured by bison in Yellowstone than by any other animal. They look calm. They are not. 25 yards minimum.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🔥 Car Fire</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Pull over immediately.</strong> Turn off the engine.</li>
+                    <li><strong>Get everyone out and at least 100 feet away.</strong></li>
+                    <li><strong>Do NOT open the hood</strong> -- oxygen feeds the fire.</li>
+                    <li><strong>Call 911.</strong> Do not attempt to fight the fire unless it's tiny and you have an extinguisher.</li>
+                    <li><strong>Warn oncoming traffic</strong> if safe to do so.</li>
+                  </ol>
+                  <div class="guide-warning">Cars can explode. Distance is safety. Do not go back for belongings.</div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- WEATHER -->
+            <div class="guide-panel" id="guide-weather" style="display:none;">
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🌪️ Tornado Warning</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Get to a sturdy building immediately.</strong> Lowest floor, interior room, away from windows.</li>
+                    <li><strong>If caught in your car:</strong> Do NOT try to outrun it. Park, keep seatbelt on, duck below the windows, cover your head.</li>
+                    <li><strong>If in open country:</strong> find a ditch or low area, lie flat face-down, cover your head.</li>
+                    <li><strong>Do NOT shelter under an overpass.</strong> Wind accelerates through them.</li>
+                  </ol>
+                  <div class="guide-tip">You'll cross through Nebraska, South Dakota, and Montana -- tornado country. Keep weather alerts on your phone.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>⛈️ Severe Thunderstorm / Hail</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Pull over if visibility drops</strong> or hail starts. Get under a gas station canopy or overpass if possible.</li>
+                    <li><strong>Turn on hazards.</strong> Stay in your car with seatbelt on.</li>
+                    <li><strong>Stay away from flooded roads.</strong> "Turn around, don't drown" -- 6 inches of water can sweep a car.</li>
+                    <li><strong>If lightning is close:</strong> stay in your car (the metal frame protects you, not the tires).</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>🌨️ Snow / Ice / Whiteout</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Reduce speed significantly.</strong> Leave 3x normal following distance.</li>
+                    <li><strong>If you can't see:</strong> pull off the road completely. Turn on hazards. Wait it out.</li>
+                    <li><strong>If you slide:</strong> take your foot off the gas. Steer in the direction you want to go. Do NOT slam the brakes.</li>
+                    <li><strong>If stranded:</strong> stay in the car. Run the engine 10 minutes per hour for heat (crack a window). Tie something bright to the antenna.</li>
+                    <li><strong>Keep the exhaust pipe clear of snow</strong> to prevent carbon monoxide buildup inside the car.</li>
+                  </ol>
+                  <div class="guide-tip">Montana mountain passes can get snow even in late spring. Check road conditions at 511mt.net before heading through passes.</div>
+                </div>
+              </div>
+
+              <div class="guide-card">
+                <button class="guide-card-header" onclick="toggleGuideCard(this)">
+                  <span>💨 High Winds</span>
+                  <svg class="guide-card-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+                <div class="guide-card-body">
+                  <ol>
+                    <li><strong>Grip the wheel firmly</strong> with both hands. Expect gusts when passing trucks or exiting tunnels.</li>
+                    <li><strong>Reduce speed.</strong> High-profile vehicles (trucks, RVs) can tip in 60+ mph winds.</li>
+                    <li><strong>Watch for blowing debris</strong> on the road -- tumbleweeds, branches, sand.</li>
+                    <li><strong>If winds are extreme (60+ mph):</strong> pull over in a sheltered spot and wait.</li>
+                  </ol>
+                  <div class="guide-tip">Wyoming and Montana are notoriously windy, especially I-90. This app's weather bar warns you about high winds before you leave.</div>
+                </div>
+              </div>
+
+            </div>
+
+          </div><!-- /guide-panels -->
+
+          <div style="margin-top:12px;padding:10px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.2);border-radius:10px;">
+            <p style="font-size:11px;color:#b0b8c8;line-height:1.5;text-align:center;">
+              <strong style="color:#f5a623;">Disclaimer:</strong> This guide provides general emergency information only. It is not a substitute for professional medical advice. When in doubt, always call 911.
+            </p>
+          </div>
+
+        </div><!-- /emergency-guide-content -->
       </div>
 
       <button onclick="closeEmergencyModal()" class="w-full mt-4 py-3 bg-dark-700 rounded-xl text-gray-300 font-medium">
@@ -5651,6 +6290,42 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
+// EMERGENCY GUIDE
+// ============================================================
+function toggleEmergencyGuide() {
+  const content = document.getElementById('emergency-guide-content');
+  const chevron = document.getElementById('guide-chevron');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    chevron.style.transform = 'rotate(180deg)';
+  } else {
+    content.style.display = 'none';
+    chevron.style.transform = 'rotate(0deg)';
+  }
+}
+
+function showGuideCategory(cat) {
+  document.querySelectorAll('.guide-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.guide-tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('guide-' + cat);
+  const tab = document.querySelector(`.guide-tab[data-tab="${cat}"]`);
+  if (panel) panel.style.display = 'block';
+  if (tab) tab.classList.add('active');
+}
+
+function toggleGuideCard(headerEl) {
+  const body = headerEl.nextElementSibling;
+  const chevron = headerEl.querySelector('.guide-card-chevron');
+  if (body.classList.contains('open')) {
+    body.classList.remove('open');
+    chevron.classList.remove('open');
+  } else {
+    body.classList.add('open');
+    chevron.classList.add('open');
+  }
+}
+
+// ============================================================
 // TUTORIAL WALKTHROUGH
 // ============================================================
 const TUTORIAL_STEPS = [
@@ -5736,7 +6411,7 @@ const TUTORIAL_STEPS = [
   {
     target: '#emergency-btn',
     title: '📞 Emergency 911',
-    desc: 'Opens the emergency screen with your exact GPS coordinates, nearest street address, and cross street. Copy it all with one tap, then call 911 right from the same screen.',
+    desc: 'Opens the emergency screen with your GPS coordinates, nearest address, and cross street. Also has the Emergency Guide with first aid, vehicle, safety, and weather procedures.',
     position: 'above-left'
   },
   {
