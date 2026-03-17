@@ -284,7 +284,7 @@ tailwind.config = {
   <div class="loader mb-4"></div>
   <p class="text-warm-400 font-bold text-xl">Yellowstone Shield</p>
   <p class="text-gray-300 text-sm mt-1 font-medium">Loading command center...</p>
-  <p style="font-size:13px;color:#94a3b8;margin-top:12px;font-weight:600;">v1.9.2</p>
+  <p style="font-size:13px;color:#94a3b8;margin-top:12px;font-weight:600;">v2.0.0</p>
 </div>
 
 <!-- ==================== CHECKLIST SCREEN ==================== -->
@@ -293,7 +293,7 @@ tailwind.config = {
     <div class="text-center mb-6">
       <div class="text-4xl mb-2">🛡️</div>
       <h1 class="text-2xl font-extrabold text-warm-400">Yellowstone Shield</h1>
-      <p style="font-size:13px;color:#94a3b8;margin-top:2px;font-weight:600;">v1.9.2</p>
+      <p style="font-size:13px;color:#94a3b8;margin-top:2px;font-weight:600;">v2.0.0</p>
       <p class="text-gray-300 text-sm mt-1 font-medium">Vehicle Prep Checklist</p>
       <p class="text-gray-300 text-xs mt-1">Complete all items before departure</p>
     </div>
@@ -485,7 +485,12 @@ tailwind.config = {
       <div class="mb-3">
         <p class="text-[11px] uppercase tracking-wider text-gray-200 font-bold mb-1.5 px-1">Fun Stops</p>
         <div class="space-y-1">
-          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sightseeing">📸 Sightseeing</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sight_attractions">🏛️ Tourist Attractions</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sight_nature">🌲 Parks & Nature</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sight_museums">🖼️ Museums & History</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sight_photo">📸 Scenic & Photo Ops</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sight_food">🍦 Local Eats & Treats</button>
+          <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sight_shopping">🛍️ Shopping & Souvenirs</button>
         </div>
       </div>
 
@@ -814,13 +819,8 @@ const DESTINATION = 'Gardiner Office, Yellowstone National Park';
 const DEST_LATLNG = { lat: 45.0328, lng: -110.7059 };
 const CHECKIN_TIME = '8:00 AM - 10:00 AM'; // Gardiner office check-in window
 
-const SIGHTSEEING_SPOTS = [
-  { name: 'Jolly Green Giant', lat: 43.6527, lng: -94.0899, desc: 'Blue Earth, MN' },
-  { name: 'Corn Palace', lat: 43.7094, lng: -98.0287, desc: 'Mitchell, SD' },
-  { name: 'Dignity Statue', lat: 43.8098, lng: -99.3210, desc: 'Chamberlain, SD' },
-  { name: 'Badlands National Park', lat: 43.8554, lng: -102.3397, desc: 'Interior, SD' },
-  { name: 'Wall Drug', lat: 43.9925, lng: -102.2413, desc: 'Wall, SD' }
-];
+// Sightseeing now uses live Google Places text search along the route
+// (replaced hardcoded spots with dynamic search categories)
 
 // ============================================================
 // CRIME ZONE DATA (pre-compiled high-crime areas along route)
@@ -1470,8 +1470,13 @@ function initSidebarToggle() {
     hospital: 'hospital emergency room',
     fire_station: 'fire station',
     car_repair: 'auto repair mechanic',
-    sightseeing: 'tourist attraction sightseeing',
-    safe_parking: 'Walmart truck stop travel center rest area'
+    safe_parking: 'Walmart truck stop travel center rest area',
+    sight_attractions: 'tourist attraction landmark monument',
+    sight_nature: 'park nature reserve trail hiking scenic area',
+    sight_museums: 'museum history center historical site gallery',
+    sight_photo: 'scenic viewpoint overlook photo spot',
+    sight_food: 'local restaurant bakery ice cream diner cafe',
+    sight_shopping: 'gift shop souvenir shopping boutique'
   };
 
   document.querySelectorAll('.poi-toggle').forEach(toggle => {
@@ -1484,7 +1489,7 @@ function initSidebarToggle() {
         toggle.classList.remove('active');
         activePOIs.delete(type);
         clearPOIMarkers(type);
-        if (type !== 'weather_overlay' && type !== 'sightseeing' && type !== 'crime_zones' && type !== 'safe_parking') {
+        if (type !== 'weather_overlay' && type !== 'crime_zones' && type !== 'safe_parking' && !type.startsWith('sight_')) {
           clearSearchMarkers();
           // Clear the search bar if it matches this filter term
           const input = document.getElementById('map-search-input');
@@ -1499,9 +1504,7 @@ function initSidebarToggle() {
         toggle.classList.add('active');
         activePOIs.add(type);
 
-        if (type === 'sightseeing') {
-          showSightseeingMarkers();
-        } else if (type === 'weather_overlay') {
+        if (type === 'weather_overlay') {
           showWeatherOverlay();
         } else if (type === 'crime_zones') {
           showCrimeZones();
@@ -1757,15 +1760,17 @@ function searchPOIsAlongRouteEssentials(type) {
     return;
   }
 
-  // safe_parking uses text search, everything else uses type-based nearbySearch
+  // safe_parking and sightseeing use text search, everything else uses type-based nearbySearch
   const isSafeParking = type === 'safe_parking';
+  const isSightseeing = type.startsWith('sight_');
+  const useTextSearch = isSafeParking || isSightseeing;
   const placeType = type === 'rest_stop' ? 'parking' : type;
   const seenPlaceIds = new Set();
 
   // Search radius: 8km to catch candidates (accounts for gaps between 12km sample points)
   // Then post-filter to 1 mile (1609m) actual distance from route
-  const searchRadius = 8000;
-  const MAX_ROUTE_DISTANCE = isSafeParking ? 3218 : 1609; // 2 miles for safe parking, 1 mile for others
+  const searchRadius = (isSafeParking || isSightseeing) ? 16000 : 8000; // 10mi catch for parking/sightseeing
+  const MAX_ROUTE_DISTANCE = isSafeParking ? 4828 : (isSightseeing ? 8047 : 1609); // 3mi parking, 5mi sightseeing, 1mi others
 
   // Strict type validation: Google sometimes returns loosely related places
   // (e.g., ATMs for gas_station searches). Only keep places whose types match.
@@ -1802,24 +1807,44 @@ function searchPOIsAlongRouteEssentials(type) {
   let totalFound = 0;
   let totalRejected = 0;
 
-  const distLabel = isSafeParking ? '2 miles' : '1 mile';
+  const distLabel = isSafeParking ? '3 miles' : '1 mile';
   showToast(`🔍 Searching ${type.replace(/_/g, ' ')} within ${distLabel} of route...`);
 
   // Safe parking keyword queries (searched one at a time per batch point)
-  const SAFE_PARKING_QUERIES = ['Walmart Supercenter', 'truck stop travel center', 'rest area'];
+  const SAFE_PARKING_QUERIES = ['Walmart Supercenter', 'Pilot Flying J truck stop', "Love's Travel Stop", 'rest area welcome center', 'Cracker Barrel'];
+
+  const SIGHTSEEING_QUERIES = {
+    sight_attractions: ['tourist attraction', 'landmark monument', 'point of interest'],
+    sight_nature: ['state park', 'national park nature reserve', 'hiking trail scenic area'],
+    sight_museums: ['museum', 'historical site', 'art gallery history center'],
+    sight_photo: ['scenic overlook viewpoint', 'scenic byway', 'photo spot landmark'],
+    sight_food: ['best local restaurant', 'famous diner', 'local bakery ice cream shop'],
+    sight_shopping: ['gift shop souvenir', 'antique store boutique', 'outlet mall shopping center']
+  };
 
   function processResults(results) {
     results.forEach(place => {
       if (seenPlaceIds.has(place.place_id)) return;
       seenPlaceIds.add(place.place_id);
 
-      // For safe parking, validate by name keywords instead of strict types
-      if (isSafeParking) {
+      // For safe parking, validate by name keywords; sightseeing trusts Google text search
+      if (isSightseeing) {
+        // Sightseeing: accept all text search results (Google already filtered by keyword)
+        // Just filter out generic businesses
+        const name = (place.name || '').toLowerCase();
+        const placeTypes = place.types || [];
+        const isGeneric = placeTypes.includes('lodging') || placeTypes.includes('car_repair') ||
+          placeTypes.includes('gas_station') || placeTypes.includes('dentist') || placeTypes.includes('doctor');
+        if (isGeneric) { totalRejected++; return; }
+      } else if (isSafeParking) {
         const name = (place.name || '').toLowerCase();
         const isSafe = name.includes('walmart') || name.includes('truck stop') || name.includes('travel center') ||
-          name.includes('pilot') || name.includes('flying j') || name.includes('loves') || name.includes("love's") ||
+          name.includes('travel stop') || name.includes('pilot') || name.includes('flying j') ||
+          name.includes('loves') || name.includes("love's") || name.includes("love\u2019s") ||
           name.includes('ta ') || name.includes('petro') || name.includes('rest area') || name.includes('rest stop') ||
-          name.includes('cracker barrel') || name.includes('buc-ee');
+          name.includes('welcome center') || name.includes('service plaza') || name.includes('turnpike') ||
+          name.includes('cracker barrel') || name.includes('buc-ee') || name.includes('sheetz') ||
+          name.includes('wawa') || name.includes('kwik trip') || name.includes('casey');
         if (!isSafe) { totalRejected++; return; }
       } else {
         const placeTypes = place.types || [];
@@ -1841,10 +1866,10 @@ function searchPOIsAlongRouteEssentials(type) {
     for (let i = startIdx; i < endIdx; i++) {
       const wp = searchPoints[i];
       setTimeout(() => {
-        if (isSafeParking) {
-          // Text search for safe parking keywords
-          let queriesDone = 0;
-          SAFE_PARKING_QUERIES.forEach((query, qi) => {
+        if (useTextSearch) {
+          // Text search for keywords (safe parking, sightseeing categories)
+          const queries = isSafeParking ? SAFE_PARKING_QUERIES : SIGHTSEEING_QUERIES[type] || ['tourist attraction'];
+          queries.forEach((query, qi) => {
             setTimeout(() => {
               placesService.textSearch({
                 query: query,
@@ -1880,7 +1905,7 @@ function searchPOIsAlongRouteEssentials(type) {
     } else {
       // All batches done
       setTimeout(() => {
-        const label = isSafeParking ? 'safe parking spot' : type.replace(/_/g, ' ');
+        const label = isSafeParking ? 'safe parking spot' : (isSightseeing ? type.replace('sight_', '').replace(/_/g, ' ') + ' spot' : type.replace(/_/g, ' '));
         showToast(`✅ Found ${totalFound} ${label}${totalFound !== 1 ? 's' : ''} along route`);
       }, BATCH_DELAY);
     }
@@ -1969,35 +1994,7 @@ function flashSearchRadius() {
   }
 }
 
-function showSightseeingMarkers() {
-  poiMarkers['sightseeing'] = poiMarkers['sightseeing'] || [];
-
-  SIGHTSEEING_SPOTS.forEach(spot => {
-    const marker = new google.maps.Marker({
-      position: { lat: spot.lat, lng: spot.lng },
-      map: map,
-      title: spot.name,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 14,
-        fillColor: '#8b5cf6',
-        fillOpacity: 0.9,
-        strokeColor: '#c4b5fd',
-        strokeWeight: 2
-      },
-      label: { text: '📸', fontSize: '14px' }
-    });
-
-    const info = new google.maps.InfoWindow({
-      content: `<div style="color:#141420;font-family:Inter,sans-serif;">
-        <strong>${spot.name}</strong><br>
-        <span style="font-size:12px;">${spot.desc}</span>
-      </div>`
-    });
-    marker.addListener('click', () => openSingleInfoWindow(info, map, marker));
-    poiMarkers['sightseeing'].push(marker);
-  });
-}
+// showSightseeingMarkers removed -- sightseeing now uses live Google Places search via searchPOIsAlongRoute
 
 function clearPOIMarkers(type) {
   if (poiMarkers[type]) {
@@ -2445,7 +2442,7 @@ function applyWeatherBarState() {
   if (weatherBarCollapsed) {
     bar.classList.add('wb-collapsed');
     strip.classList.add('wb-show');
-    toggle.classList.add('wb-flipped');
+    toggle.classList.remove('wb-flipped'); // Arrow points DOWN = "tap to expand"
     // Sync collapsed strip with current weather data
     const icon = document.getElementById('weather-icon');
     const temp = document.getElementById('weather-temp');
@@ -2464,7 +2461,7 @@ function applyWeatherBarState() {
   } else {
     bar.classList.remove('wb-collapsed');
     strip.classList.remove('wb-show');
-    toggle.classList.remove('wb-flipped');
+    toggle.classList.add('wb-flipped'); // Arrow points UP = "tap to collapse"
     // Restore controls below expanded weather bar (108px bar + 24px toggle clearance)
     if (controlBar) controlBar.style.top = '132px';
     if (locBtn) locBtn.style.top = '184px';
