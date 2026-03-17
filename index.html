@@ -276,6 +276,66 @@ tailwind.config = {
   @media (min-width: 768px) {
     #bottom-action-bar { max-width: 400px; left: 50%; transform: translateX(-50%); border-radius: 16px 16px 0 0; }
   }
+
+  /* Tutorial Walkthrough */
+  #tutorial-overlay {
+    position: fixed; inset: 0; z-index: 50000;
+    pointer-events: auto;
+  }
+  #tutorial-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    transition: opacity 0.3s ease;
+  }
+  #tutorial-spotlight {
+    position: fixed; z-index: 50001;
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.75), 0 0 24px rgba(245,166,35,0.5);
+    transition: all 0.4s ease;
+    pointer-events: none;
+  }
+  #tutorial-tooltip {
+    position: fixed; z-index: 50002;
+    background: #1e1e30;
+    border: 1px solid rgba(245,166,35,0.4);
+    border-radius: 14px;
+    padding: 20px;
+    max-width: 320px; width: calc(100vw - 32px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    transition: all 0.4s ease;
+  }
+  #tutorial-tooltip h3 {
+    font-size: 16px; font-weight: 800; color: #f5a623;
+    margin-bottom: 8px;
+  }
+  #tutorial-tooltip p {
+    font-size: 13px; color: #cbd5e1; line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  #tutorial-tooltip .tut-btns {
+    display: flex; gap: 8px; align-items: center;
+  }
+  #tutorial-tooltip .tut-next {
+    flex: 1; padding: 10px; border-radius: 10px;
+    font-weight: 700; font-size: 14px; color: #141420;
+    background: linear-gradient(135deg, #f5a623, #e08e0b);
+    border: none; cursor: pointer;
+  }
+  #tutorial-tooltip .tut-skip {
+    padding: 10px 14px; border-radius: 10px;
+    font-weight: 600; font-size: 13px; color: #94a3b8;
+    background: none; border: 1px solid #3a3a52; cursor: pointer;
+  }
+  #tutorial-tooltip .tut-dots {
+    display: flex; justify-content: center; gap: 6px;
+    margin-top: 12px;
+  }
+  #tutorial-tooltip .tut-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #3a3a52; transition: background 0.2s;
+  }
+  #tutorial-tooltip .tut-dot.active { background: #f5a623; }
+  #tutorial-tooltip .tut-dot.done { background: #0d9488; }
 </style>
 </head>
 <body>
@@ -419,6 +479,10 @@ tailwind.config = {
       <button onclick="openBugReport();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-100 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">🐛</span>
         <span style="font-size:13px;font-weight:600;">Report a Bug</span>
+      </button>
+      <button onclick="localStorage.removeItem('ys_tutorial_complete');startTutorial();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-100 hover:bg-dark-600 transition-all">
+        <span style="font-size:18px;">❓</span>
+        <span style="font-size:13px;font-weight:600;">App Tour</span>
       </button>
     </div>
   </div>
@@ -587,6 +651,21 @@ tailwind.config = {
         <button onclick="saveContact()" style="flex:1;padding:12px;border-radius:10px;font-weight:700;font-size:14px;color:white;border:none;cursor:pointer;background:linear-gradient(135deg,#f5a623,#e08e0b);">Save Contact</button>
         <button id="contact-remove-btn" onclick="removeContact()" style="display:none;padding:12px 16px;border-radius:10px;font-weight:700;font-size:14px;color:#ef4444;border:1px solid #ef4444;background:none;cursor:pointer;">Remove</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Tutorial Overlay -->
+  <div id="tutorial-overlay" style="display:none;" onclick="event.stopPropagation();">
+    <div id="tutorial-backdrop" onclick="event.stopPropagation();"></div>
+    <div id="tutorial-spotlight"></div>
+    <div id="tutorial-tooltip">
+      <h3 id="tut-title"></h3>
+      <p id="tut-desc"></p>
+      <div class="tut-btns">
+        <button class="tut-skip" onclick="endTutorial()">Skip</button>
+        <button class="tut-next" id="tut-next-btn" onclick="nextTutorialStep()">Next</button>
+      </div>
+      <div class="tut-dots" id="tut-dots"></div>
     </div>
   </div>
 
@@ -1110,6 +1189,10 @@ function showMainApp() {
   fetchWeather();
   // Refresh weather every 60 seconds for up-to-date conditions while traveling
   setInterval(() => { fetchWeather(); }, 60 * 1000);
+  // Launch tutorial on first visit (delay so map renders first)
+  if (shouldShowTutorial()) {
+    setTimeout(() => startTutorial(), 2000);
+  }
 }
 
 // ============================================================
@@ -5465,6 +5548,274 @@ window.addEventListener('DOMContentLoaded', () => {
   loadGoogleMaps();
 
 });
+
+// ============================================================
+// TUTORIAL WALKTHROUGH
+// ============================================================
+const TUTORIAL_STEPS = [
+  {
+    target: null, // Full screen welcome
+    title: '🛡️ Welcome to Yellowstone Shield!',
+    desc: "This is your road trip command center. Let's take a quick tour of all the tools at your fingertips. It only takes a minute!",
+    position: 'center'
+  },
+  {
+    target: '#weather-bar-wrapper',
+    title: '🌦️ Live Weather Bar',
+    desc: 'Shows current weather at your location with temperature, wind, and conditions. Tap it to see the full route forecast for every leg of your trip.',
+    position: 'below'
+  },
+  {
+    target: '#wb-toggle',
+    title: '↕️ Collapse / Expand',
+    desc: 'Tap this little tab to collapse the weather bar when you want more map space. Tap again to bring it back.',
+    position: 'below'
+  },
+  {
+    target: '#hamburger-btn',
+    title: '☰ Main Menu',
+    desc: 'Your command hub. Access Route Weather, Manage Stops (add/reorder overnight stops), Route Settings (departure times), Map Filters, and Bug Reports.',
+    position: 'below-right'
+  },
+  {
+    target: '#map-search-input',
+    title: '🔍 Search Places',
+    desc: 'Search for anything along your route -- "Starbucks", "rest area", "Walmart", etc. Results show right on the map with distance and ratings.',
+    position: 'below'
+  },
+  {
+    target: '#find-location-btn',
+    title: '📍 Find My Location',
+    desc: 'Tap to center the map on your current GPS location. Shows a blue dot so you always know where you are on the route.',
+    position: 'below-left'
+  },
+  {
+    target: '#map-filters-btn',
+    title: '📍 Map Filters (Quick Access)',
+    desc: 'Opens the filter panel. Turn on Gas Stations, Rest Stops, Restaurants, Safe Parking, Sightseeing, and more. You can have multiple filters active at once!',
+    position: 'below-left'
+  },
+  {
+    target: '#poi-sidebar',
+    title: '📋 Filter Panel',
+    desc: 'All your map filters organized by category: Essentials (gas, food, rest stops), Safety (police, hospitals, safe parking), Fun Stops (attractions, nature, food spots), and Crime Awareness Zones.',
+    position: 'right',
+    action: 'open-sidebar'
+  },
+  {
+    target: '#bottom-action-bar',
+    title: '📱 Quick Contact Bar',
+    desc: "Four contact buttons at your fingertips. Green buttons send a check-in text with your GPS location. Red SOS buttons send an urgent help message. Let's look at each one.",
+    position: 'above'
+  },
+  {
+    target: () => document.querySelector('#bottom-action-bar .btn-checkin'),
+    title: '💬 Text Dad',
+    desc: 'One tap sends Dad a "just checking in" text with your exact GPS location and address. No typing needed!',
+    position: 'above'
+  },
+  {
+    target: () => document.querySelector('#bottom-action-bar .btn-sos-contact'),
+    title: '🚨 SOS Dad',
+    desc: 'Emergency button. Sends Dad an urgent "I need help, call me" text with your exact location. The red pulse reminds you it\'s for emergencies.',
+    position: 'above'
+  },
+  {
+    target: '#custom-text-btn',
+    title: '💬 Custom Contact',
+    desc: "Add anyone -- Nanny, Mom, a friend. Tap when it shows \"+\" to set up the contact. Once set, it works just like Text Dad. Long-press to edit or remove later.",
+    position: 'above'
+  },
+  {
+    target: '#custom-sos-btn',
+    title: '🚨 Custom SOS',
+    desc: 'Same as SOS Dad, but for your custom contact. Sends them an urgent help text with your location.',
+    position: 'above'
+  },
+  {
+    target: '#emergency-btn',
+    title: '📞 Emergency 911',
+    desc: 'Tap to call 911 directly. Shows your current GPS coordinates so you can tell dispatch exactly where you are.',
+    position: 'above-left'
+  },
+  {
+    target: '#bug-report-fab',
+    title: '🐛 Report a Bug',
+    desc: 'Found something broken? Tap here to send a bug report directly to the developer (your dad\'s cousin Lonnie). Include a screenshot and description.',
+    position: 'above-left'
+  },
+  {
+    target: null,
+    title: "🎉 You're All Set!",
+    desc: "That's everything! Remember: check in with Dad regularly using the green buttons, keep the Half-Tank Rule in mind (refuel every ~180 miles), and have an amazing trip to Yellowstone! 🦬",
+    position: 'center',
+    lastStep: true
+  }
+];
+
+let tutorialStep = 0;
+let tutorialActive = false;
+
+function startTutorial() {
+  if (tutorialActive) return;
+  tutorialActive = true;
+  tutorialStep = 0;
+
+  const overlay = document.getElementById('tutorial-overlay');
+  overlay.style.display = 'block';
+
+  // Build dots
+  const dotsEl = document.getElementById('tut-dots');
+  dotsEl.innerHTML = TUTORIAL_STEPS.map((_, i) =>
+    `<div class="tut-dot" id="tut-dot-${i}"></div>`
+  ).join('');
+
+  showTutorialStep();
+}
+
+function showTutorialStep() {
+  const step = TUTORIAL_STEPS[tutorialStep];
+  const spotlight = document.getElementById('tutorial-spotlight');
+  const tooltip = document.getElementById('tutorial-tooltip');
+  const titleEl = document.getElementById('tut-title');
+  const descEl = document.getElementById('tut-desc');
+  const nextBtn = document.getElementById('tut-next-btn');
+  const backdrop = document.getElementById('tutorial-backdrop');
+
+  titleEl.textContent = step.title;
+  descEl.textContent = step.desc;
+  nextBtn.textContent = step.lastStep ? "Let's Go!" : 'Next';
+
+  // Update dots
+  TUTORIAL_STEPS.forEach((_, i) => {
+    const dot = document.getElementById(`tut-dot-${i}`);
+    if (!dot) return;
+    dot.className = 'tut-dot';
+    if (i < tutorialStep) dot.classList.add('done');
+    if (i === tutorialStep) dot.classList.add('active');
+  });
+
+  // Execute any pre-step action
+  if (step.action === 'open-sidebar') {
+    const sidebar = document.getElementById('poi-sidebar');
+    if (sidebar && sidebar.classList.contains('collapsed')) {
+      sidebar.classList.remove('collapsed');
+    }
+  }
+
+  // Get target element
+  let targetEl = null;
+  if (step.target) {
+    targetEl = typeof step.target === 'function' ? step.target() : document.querySelector(step.target);
+  }
+
+  if (!targetEl || step.position === 'center') {
+    // Center tooltip, no spotlight
+    spotlight.style.display = 'none';
+    backdrop.style.opacity = '1';
+    tooltip.style.left = '50%';
+    tooltip.style.top = '50%';
+    tooltip.style.transform = 'translate(-50%, -50%)';
+    return;
+  }
+
+  // Position spotlight on target
+  spotlight.style.display = 'block';
+  backdrop.style.opacity = '0'; // spotlight box-shadow acts as backdrop
+  const rect = targetEl.getBoundingClientRect();
+  const pad = 8;
+  spotlight.style.left = (rect.left - pad) + 'px';
+  spotlight.style.top = (rect.top - pad) + 'px';
+  spotlight.style.width = (rect.width + pad * 2) + 'px';
+  spotlight.style.height = (rect.height + pad * 2) + 'px';
+
+  // Briefly elevate the target element above the overlay
+  const origZ = targetEl.style.zIndex;
+  const origPos = targetEl.style.position;
+  if (getComputedStyle(targetEl).position === 'static') {
+    targetEl.style.position = 'relative';
+  }
+
+  // Position tooltip relative to spotlight
+  tooltip.style.transform = 'none';
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const tooltipW = Math.min(320, vw - 32);
+
+  switch (step.position) {
+    case 'below':
+    case 'below-right':
+    case 'below-left':
+      tooltip.style.top = (rect.bottom + pad + 12) + 'px';
+      if (step.position === 'below-left') {
+        tooltip.style.left = Math.max(16, rect.right - tooltipW) + 'px';
+      } else if (step.position === 'below-right') {
+        tooltip.style.left = Math.max(16, rect.left) + 'px';
+      } else {
+        tooltip.style.left = Math.max(16, Math.min(rect.left + rect.width / 2 - tooltipW / 2, vw - tooltipW - 16)) + 'px';
+      }
+      break;
+    case 'above':
+    case 'above-left':
+      // Estimate tooltip height (~180px) and position above
+      const estH = 200;
+      tooltip.style.top = Math.max(8, rect.top - pad - estH) + 'px';
+      if (step.position === 'above-left') {
+        tooltip.style.left = Math.max(16, rect.right - tooltipW) + 'px';
+      } else {
+        tooltip.style.left = Math.max(16, Math.min(rect.left + rect.width / 2 - tooltipW / 2, vw - tooltipW - 16)) + 'px';
+      }
+      break;
+    case 'right':
+      tooltip.style.top = Math.max(8, rect.top) + 'px';
+      tooltip.style.left = Math.min(rect.right + pad + 12, vw - tooltipW - 16) + 'px';
+      break;
+    default:
+      tooltip.style.top = (rect.bottom + 16) + 'px';
+      tooltip.style.left = '16px';
+  }
+
+  // Ensure tooltip doesn't go off-screen bottom
+  requestAnimationFrame(() => {
+    const tRect = tooltip.getBoundingClientRect();
+    if (tRect.bottom > vh - 16) {
+      tooltip.style.top = Math.max(8, vh - tRect.height - 16) + 'px';
+    }
+  });
+}
+
+function nextTutorialStep() {
+  // Close sidebar if it was opened for tutorial
+  if (TUTORIAL_STEPS[tutorialStep]?.action === 'open-sidebar') {
+    const sidebar = document.getElementById('poi-sidebar');
+    if (sidebar && !sidebar.classList.contains('collapsed')) {
+      sidebar.classList.add('collapsed');
+    }
+  }
+
+  tutorialStep++;
+  if (tutorialStep >= TUTORIAL_STEPS.length) {
+    endTutorial();
+    return;
+  }
+  showTutorialStep();
+}
+
+function endTutorial() {
+  tutorialActive = false;
+  document.getElementById('tutorial-overlay').style.display = 'none';
+  localStorage.setItem('ys_tutorial_complete', 'true');
+
+  // Close sidebar if left open
+  const sidebar = document.getElementById('poi-sidebar');
+  if (sidebar && !sidebar.classList.contains('collapsed')) {
+    sidebar.classList.add('collapsed');
+  }
+}
+
+function shouldShowTutorial() {
+  return localStorage.getItem('ys_tutorial_complete') !== 'true';
+}
 
 // ============================================================
 // BUG REPORTER (TicketDeck - vanilla JS)
