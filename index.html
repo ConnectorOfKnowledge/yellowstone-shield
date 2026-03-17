@@ -14,7 +14,7 @@ tailwind.config = {
     extend: {
       fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
       colors: {
-        dark: { 900: '#0f0f14', 800: '#1a1a24', 700: '#24243a', 600: '#2e2e48' },
+        dark: { 900: '#141420', 800: '#1e1e2e', 700: '#2a2a42', 600: '#363652' },
         warm: { 400: '#f5a623', 500: '#e8912d', 600: '#d97706' },
         road: { blue: '#3b82f6', teal: '#14b8a6', green: '#22c55e' }
       }
@@ -25,7 +25,7 @@ tailwind.config = {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; }
-  body { background: #0f0f14; color: #e2e8f0; }
+  body { background: #141420; color: #e2e8f0; }
 
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
@@ -33,7 +33,7 @@ tailwind.config = {
   ::-webkit-scrollbar-thumb { background: #4a4a6a; border-radius: 3px; }
 
   /* Checklist */
-  #checklist-screen { position: fixed; inset: 0; z-index: 9999; background: #0f0f14; overflow-y: auto; }
+  #checklist-screen { position: fixed; inset: 0; z-index: 9999; background: #141420; overflow-y: auto; }
   .check-category { border-left: 3px solid #f5a623; }
   .check-item input[type="checkbox"] {
     appearance: none; width: 22px; height: 22px; border: 2px solid #4a4a6a;
@@ -56,8 +56,8 @@ tailwind.config = {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   }
   #weather-bar {
-    background: linear-gradient(180deg, rgba(15,15,20,0.96) 0%, rgba(15,15,20,0.88) 100%);
-    backdrop-filter: blur(14px); border-bottom: 1px solid rgba(245,166,35,0.25);
+    background: linear-gradient(180deg, rgba(20,20,32,0.97) 0%, rgba(20,20,32,0.92) 100%);
+    backdrop-filter: blur(14px); border-bottom: 1px solid rgba(245,166,35,0.35);
     transition: max-height 0.35s ease, padding 0.35s ease, opacity 0.25s ease;
     max-height: 200px; overflow: hidden;
   }
@@ -68,7 +68,7 @@ tailwind.config = {
   /* Collapsed strip */
   #weather-bar-collapsed {
     display: none; height: 32px;
-    background: linear-gradient(90deg, rgba(15,15,20,0.96) 0%, rgba(20,20,30,0.96) 100%);
+    background: linear-gradient(90deg, rgba(20,20,32,0.97) 0%, rgba(25,25,38,0.97) 100%);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid rgba(245,166,35,0.2);
     align-items: center; justify-content: center; gap: 8px;
@@ -95,7 +95,7 @@ tailwind.config = {
   /* Sidebar */
   #poi-sidebar {
     position: fixed; top: 184px; left: 0; bottom: 0; z-index: 80;
-    background: rgba(26,26,36,0.96); backdrop-filter: blur(12px);
+    background: rgba(32,32,48,0.97); backdrop-filter: blur(12px);
     border-right: 1px solid rgba(245,166,35,0.2);
     width: 260px; overflow-y: auto; transition: transform 0.3s ease;
     padding-top: 8px;
@@ -109,8 +109,8 @@ tailwind.config = {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
     display: flex; align-items: center; justify-content: center; gap: 0;
     padding: 8px 12px 14px; /* extra bottom padding for iPhone safe area */
-    background: rgba(15,15,20,0.92); backdrop-filter: blur(12px);
-    border-top: 1px solid rgba(245,166,35,0.15);
+    background: rgba(20,20,32,0.95); backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(245,166,35,0.25);
   }
   #bottom-action-bar .action-btn {
     width: 52px; height: 52px; border-radius: 50%;
@@ -119,7 +119,7 @@ tailwind.config = {
     position: relative;
   }
   #bottom-action-bar .action-btn .btn-label {
-    font-size: 8px; font-weight: 600; letter-spacing: 0.3px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.3px;
     margin-top: 1px; text-transform: uppercase;
   }
   #bottom-action-bar .bar-spacer { flex: 1; }
@@ -156,10 +156,10 @@ tailwind.config = {
 
   /* Loading overlay */
   #loading-overlay {
-    position: fixed; inset: 0; z-index: 10000; background: #0f0f14;
+    position: fixed; inset: 0; z-index: 10000; background: #141420;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
   }
-  .loader { width: 48px; height: 48px; border: 4px solid #24243a; border-top-color: #f5a623; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  .loader { width: 48px; height: 48px; border: 4px solid #2a2a42; border-top-color: #f5a623; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* GPS override warning */
@@ -176,7 +176,7 @@ tailwind.config = {
   }
   #route-weather-panel.open { display: block; }
   .rw-leg-card {
-    background: #1e1e2e; border: 1px solid #24243a; border-radius: 12px;
+    background: #1e1e30; border: 1px solid #2a2a42; border-radius: 12px;
     padding: 16px; margin-bottom: 12px;
   }
   .rw-chips-row {
@@ -191,9 +191,9 @@ tailwind.config = {
   }
   .rw-chip .rw-emoji { font-size: 20px; display: block; margin-bottom: 2px; }
   .rw-chip .rw-time { font-weight: 700; color: #e5e5e5; }
-  .rw-chip .rw-loc { color: #a0a0a0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rw-chip .rw-loc { color: #b8c0d0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rw-chip .rw-temp { font-weight: 700; color: #e5e5e5; font-size: 13px; }
-  .rw-chip .rw-wind { color: #a0a0a0; font-size: 11px; }
+  .rw-chip .rw-wind { color: #b8c0d0; font-size: 12px; }
   .rw-rotated { transform: rotate(180deg); }
   .route-setting-toggle {
     width: 48px; height: 28px; border-radius: 14px; position: relative;
@@ -240,7 +240,7 @@ tailwind.config = {
     padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
   }
   .rw-spinner {
-    width: 36px; height: 36px; border: 3px solid #24243a;
+    width: 36px; height: 36px; border: 3px solid #2a2a42;
     border-top-color: #f5a623; border-radius: 50%;
     animation: spin 0.8s linear infinite; margin: 40px auto;
   }
@@ -253,7 +253,7 @@ tailwind.config = {
   }
   #stop-picker-panel.open { display: block; }
   .stop-item {
-    background: #1e1e2e; border: 1px solid #24243a; border-radius: 12px;
+    background: #1e1e2e; border: 1px solid #2a2a42; border-radius: 12px;
     padding: 12px 14px; display: flex; align-items: center; gap: 10px;
     transition: opacity 0.15s, border-color 0.15s;
   }
@@ -282,9 +282,9 @@ tailwind.config = {
 <!-- Loading Overlay -->
 <div id="loading-overlay">
   <div class="loader mb-4"></div>
-  <p class="text-warm-400 font-semibold text-lg">Yellowstone Shield</p>
-  <p class="text-gray-500 text-sm mt-1">Loading command center...</p>
-  <p style="font-size:10px;color:#555;margin-top:12px;">v1.9.0</p>
+  <p class="text-warm-400 font-bold text-xl">Yellowstone Shield</p>
+  <p class="text-gray-300 text-sm mt-1 font-medium">Loading command center...</p>
+  <p style="font-size:13px;color:#94a3b8;margin-top:12px;font-weight:600;">v1.9.2</p>
 </div>
 
 <!-- ==================== CHECKLIST SCREEN ==================== -->
@@ -293,13 +293,13 @@ tailwind.config = {
     <div class="text-center mb-6">
       <div class="text-4xl mb-2">🛡️</div>
       <h1 class="text-2xl font-extrabold text-warm-400">Yellowstone Shield</h1>
-      <p style="font-size:10px;color:#555;margin-top:2px;">v1.9.0</p>
-      <p class="text-gray-400 text-sm mt-1">Vehicle Prep Checklist</p>
-      <p class="text-gray-500 text-xs mt-1">Complete all items before departure</p>
+      <p style="font-size:13px;color:#94a3b8;margin-top:2px;font-weight:600;">v1.9.2</p>
+      <p class="text-gray-300 text-sm mt-1 font-medium">Vehicle Prep Checklist</p>
+      <p class="text-gray-300 text-xs mt-1">Complete all items before departure</p>
     </div>
 
     <div id="checklist-progress" class="mb-6">
-      <div class="flex justify-between text-xs text-gray-400 mb-1">
+      <div class="flex justify-between text-xs text-gray-300 mb-1">
         <span id="progress-text">0 / 0 items</span>
         <span id="progress-pct">0%</span>
       </div>
@@ -316,7 +316,7 @@ tailwind.config = {
         All Checks Complete - Let's Roll!
       </button>
       <button id="bypass-btn"
-        class="w-full py-2.5 rounded-xl font-medium text-sm bg-dark-700 text-gray-400 hover:text-gray-200 border border-dark-600 transition-all">
+        class="w-full py-2.5 rounded-xl font-medium text-sm bg-dark-700 text-gray-300 hover:text-gray-200 border border-dark-600 transition-all">
         Bypass -- still planning
       </button>
     </div>
@@ -336,13 +336,13 @@ tailwind.config = {
           <div>
             <div style="display:flex;align-items:baseline;gap:8px;">
               <span id="weather-temp" style="font-size:20px;font-weight:800;color:#f5a623;">--</span>
-              <span id="weather-desc" style="font-size:14px;color:#9ca3af;">Loading weather...</span>
+              <span id="weather-desc" style="font-size:14px;color:#e2e8f0;font-weight:500;">Loading weather...</span>
             </div>
-            <div id="weather-location" style="font-size:13px;color:#6b7280;margin-top:2px;">📍 Locating...</div>
+            <div id="weather-location" style="font-size:13px;color:#b0bec5;margin-top:2px;font-weight:500;">📍 Locating...</div>
           </div>
         </div>
         <div style="text-align:right;">
-          <div id="weather-wind" style="font-size:13px;color:#9ca3af;">Wind: --</div>
+          <div id="weather-wind" style="font-size:13px;color:#e2e8f0;font-weight:500;">Wind: --</div>
           <div id="weather-depart" style="font-size:13px;font-weight:700;color:#0d9488;">Leave by: --</div>
         </div>
       </div>
@@ -350,19 +350,19 @@ tailwind.config = {
         HIGH WIND WARNING -- Consider delaying departure
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;" onclick="openRouteWeather()">
-        <div id="weather-leg-info" style="font-size:12px;color:#6b7280;">Next leg: --</div>
+        <div id="weather-leg-info" style="font-size:13px;color:#b0bec5;font-weight:500;">Next leg: --</div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span id="weather-updated" style="font-size:11px;color:#555;">--</span>
-          <span style="font-size:12px;color:rgba(245,166,35,0.5);font-weight:600;">Tap for forecast ›</span>
+          <span id="weather-updated" style="font-size:12px;color:#b0bec5;font-weight:500;">--</span>
+          <span style="font-size:13px;color:rgba(245,166,35,0.7);font-weight:600;">Tap for forecast ›</span>
         </div>
       </div>
     </div>
     <!-- Collapsed strip (thin bar shown when weather is minimized) -->
     <div id="weather-bar-collapsed" onclick="toggleWeatherBar()">
       <span id="wb-collapsed-icon" style="font-size:14px;">--</span>
-      <span id="wb-collapsed-temp" style="font-size:12px;font-weight:700;color:#f5a623;">--</span>
-      <span id="wb-collapsed-desc" style="font-size:11px;color:#888;">--</span>
-      <span style="font-size:10px;color:rgba(245,166,35,0.5);margin-left:4px;">tap to expand</span>
+      <span id="wb-collapsed-temp" style="font-size:13px;font-weight:700;color:#f5a623;">--</span>
+      <span id="wb-collapsed-desc" style="font-size:12px;color:#cbd5e1;font-weight:500;">--</span>
+      <span style="font-size:11px;color:rgba(245,166,35,0.7);margin-left:4px;font-weight:500;">tap to expand</span>
     </div>
     <!-- Toggle button (the stylish tab hanging below) -->
     <div class="wb-toggle-btn" id="wb-toggle" onclick="toggleWeatherBar()">
@@ -385,37 +385,37 @@ tailwind.config = {
     <!-- Search Bar (fills remaining space) -->
     <div style="position:relative;flex:1;min-width:0;">
       <input id="map-search-input" type="text" placeholder="Search places..."
-        style="width:100%;padding:10px 72px 10px 34px;background:#1e1e2e;border:1px solid #3a3a4a;border-radius:10px;color:#e5e5e5;font-size:14px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.4);"
+        style="width:100%;padding:10px 72px 10px 34px;background:#222236;border:1px solid #3a3a52;border-radius:10px;color:#f0f0f5;font-size:14px;font-weight:500;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.4);"
         onfocus="this.style.borderColor='#f5a623'" onblur="this.style.borderColor='#3a3a4a'">
-      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#888;pointer-events:none;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#b0b8c8;pointer-events:none;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
       </svg>
-      <button id="map-search-go" onclick="triggerMapSearch()" style="position:absolute;right:30px;top:50%;transform:translateY(-50%);background:#f5a623;border:none;color:#0f0f14;font-size:11px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:6px;">Go</button>
-      <button id="map-search-clear" onclick="clearMapSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:2px 4px;">✕</button>
+      <button id="map-search-go" onclick="triggerMapSearch()" style="position:absolute;right:30px;top:50%;transform:translateY(-50%);background:#f5a623;border:none;color:#141420;font-size:11px;font-weight:700;cursor:pointer;padding:5px 12px;border-radius:6px;">Go</button>
+      <button id="map-search-clear" onclick="clearMapSearch()" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:#b0b8c8;font-size:16px;cursor:pointer;padding:2px 4px;">✕</button>
     </div>
   </div>
 
   <!-- Hamburger Dropdown Menu -->
-  <div id="hamburger-menu" style="display:none;position:fixed;top:160px;left:8px;z-index:250;width:220px;background:rgba(26,26,36,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+  <div id="hamburger-menu" style="display:none;position:fixed;top:160px;left:8px;z-index:250;width:220px;background:rgba(32,32,48,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
     <div style="padding:6px;">
-      <button onclick="openRouteWeather();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+      <button onclick="openRouteWeather();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-100 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">🌦️</span>
         <span style="font-size:13px;font-weight:600;">Route Weather</span>
       </button>
-      <button onclick="openStopPicker();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+      <button onclick="openStopPicker();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-100 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">🗺️</span>
         <span style="font-size:13px;font-weight:600;">Manage Stops</span>
       </button>
-      <button onclick="openRouteSettings();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+      <button onclick="openRouteSettings();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-100 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">⚙️</span>
         <span style="font-size:13px;font-weight:600;">Route Settings</span>
       </button>
-      <button id="toggle-sidebar-btn" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+      <button id="toggle-sidebar-btn" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-100 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">📍</span>
         <span style="font-size:13px;font-weight:600;">Map Filters</span>
       </button>
-      <div style="border-top:1px solid #24243a;margin:4px 0;"></div>
-      <button onclick="openBugReport();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
+      <div style="border-top:1px solid #2a2a42;margin:4px 0;"></div>
+      <button onclick="openBugReport();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-100 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">🐛</span>
         <span style="font-size:13px;font-weight:600;">Report a Bug</span>
       </button>
@@ -423,14 +423,14 @@ tailwind.config = {
   </div>
 
   <!-- Find My Location Button (always visible on map) -->
-  <button id="find-location-btn" onclick="findMyLocation()" style="position:fixed;top:184px;right:12px;z-index:93;width:44px;height:44px;background:rgba(30,30,46,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);" title="Find my location">
+  <button id="find-location-btn" onclick="findMyLocation()" style="position:fixed;top:184px;right:12px;z-index:93;width:44px;height:44px;background:rgba(35,35,52,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);" title="Find my location">
     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#e2e8f0" stroke-width="2">
       <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>
     </svg>
   </button>
 
   <!-- Map Filters Shortcut Button -->
-  <button id="map-filters-btn" onclick="togglePOISidebar()" style="position:fixed;top:234px;right:12px;z-index:93;width:44px;height:44px;background:rgba(30,30,46,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);" title="Map Filters">
+  <button id="map-filters-btn" onclick="togglePOISidebar()" style="position:fixed;top:234px;right:12px;z-index:93;width:44px;height:44px;background:rgba(35,35,52,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);" title="Map Filters">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/>
       <circle cx="6" cy="12" r="2" fill="#e2e8f0"/><circle cx="10" cy="18" r="2" fill="#e2e8f0"/><circle cx="14" cy="6" r="2" fill="#e2e8f0"/>
@@ -442,12 +442,12 @@ tailwind.config = {
     <div class="px-3 py-2">
       <div class="flex items-center justify-between mb-3 px-1">
         <h3 class="text-xs font-bold text-warm-400 uppercase tracking-wider">Points of Interest</h3>
-        <button onclick="closePOISidebar()" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;" title="Close">✕</button>
+        <button onclick="closePOISidebar()" style="background:none;border:none;color:#b0b8c8;font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;" title="Close">✕</button>
       </div>
 
       <!-- Open Places Only Toggle -->
       <div class="flex items-center justify-between px-1 mb-3 pb-2 border-b border-dark-600">
-        <span class="text-xs text-gray-400">Only show open places</span>
+        <span class="text-xs text-gray-300">Only show open places</span>
         <label class="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" id="open-only-toggle" class="sr-only peer" onchange="toggleOpenOnly(this.checked)">
           <div class="w-9 h-5 bg-dark-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-road-green peer-checked:after:bg-white"></div>
@@ -455,14 +455,14 @@ tailwind.config = {
       </div>
 
       <div class="mb-3">
-        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Weather</p>
+        <p class="text-[11px] uppercase tracking-wider text-gray-200 font-bold mb-1.5 px-1">Weather</p>
         <div class="space-y-1">
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="weather_overlay" id="weather-overlay-toggle">🌦️ Weather Along Route</button>
         </div>
       </div>
 
       <div class="mb-3">
-        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Essentials</p>
+        <p class="text-[11px] uppercase tracking-wider text-gray-200 font-bold mb-1.5 px-1">Essentials</p>
         <div class="space-y-1">
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="gas_station">⛽ Gas Stations</button>
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="rest_stop">🅿️ Rest Stops</button>
@@ -472,7 +472,7 @@ tailwind.config = {
       </div>
 
       <div class="mb-3">
-        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Safety</p>
+        <p class="text-[11px] uppercase tracking-wider text-gray-200 font-bold mb-1.5 px-1">Safety</p>
         <div class="space-y-1">
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="safe_parking">🅿️ Safe Overnight Parking</button>
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="police">🚔 Police Stations</button>
@@ -483,22 +483,22 @@ tailwind.config = {
       </div>
 
       <div class="mb-3">
-        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Fun Stops</p>
+        <p class="text-[11px] uppercase tracking-wider text-gray-200 font-bold mb-1.5 px-1">Fun Stops</p>
         <div class="space-y-1">
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="sightseeing">📸 Sightseeing</button>
         </div>
       </div>
 
       <div class="mb-3">
-        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5 px-1">Awareness</p>
+        <p class="text-[11px] uppercase tracking-wider text-gray-200 font-bold mb-1.5 px-1">Awareness</p>
         <div class="space-y-1">
           <button class="poi-toggle w-full text-left px-3 py-2 rounded-lg border border-transparent text-sm text-gray-300 hover:bg-dark-600" data-poi="crime_zones">🛡️ Crime Awareness Zones</button>
         </div>
       </div>
 
       <div class="mt-4 px-1 py-2 border-t border-dark-600">
-        <p class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Safety Protocols</p>
-        <p class="text-[11px] text-gray-400 leading-relaxed">Half-Tank Rule: Refuel every 180-200 miles regardless of gauge.</p>
+        <p class="text-[11px] uppercase tracking-wider text-gray-200 font-bold mb-1">Safety Protocols</p>
+        <p class="text-[11px] text-gray-300 leading-relaxed">Half-Tank Rule: Refuel every 180-200 miles regardless of gauge.</p>
       </div>
     </div>
   </div>
@@ -557,16 +557,16 @@ tailwind.config = {
       <div class="flex items-center justify-between mb-4">
         <div>
           <h2 class="text-xl font-extrabold text-warm-400">Route Weather Forecast</h2>
-          <p class="text-gray-500 text-xs mt-0.5">Live forecast -- refreshed each time you open this</p>
+          <p class="text-gray-300 text-xs mt-0.5">Live forecast -- refreshed each time you open this</p>
         </div>
-        <button onclick="closeRouteWeather()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
+        <button onclick="closeRouteWeather()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-300 hover:text-white transition-all text-lg">✕</button>
       </div>
       <div style="background:rgba(30,30,46,0.8);border:1px solid rgba(245,166,35,0.3);border-radius:10px;padding:10px 14px;margin-bottom:16px;">
-        <div style="font-size:11px;color:#888;">📅 Tap any leg's date to adjust. If delayed, push individual legs forward -- later legs auto-adjust.</div>
+        <div style="font-size:11px;color:#b0b8c8;">📅 Tap any leg's date to adjust. If delayed, push individual legs forward -- later legs auto-adjust.</div>
       </div>
       <div id="route-weather-content">
         <div class="rw-spinner"></div>
-        <p class="text-center text-gray-500 text-sm">Loading route weather...</p>
+        <p class="text-center text-gray-300 text-sm">Loading route weather...</p>
       </div>
     </div>
   </div>
@@ -577,43 +577,43 @@ tailwind.config = {
       <div class="flex items-center justify-between mb-5">
         <div>
           <h2 style="font-size:18px;font-weight:800;color:#f5a623;">⚙️ Route Settings</h2>
-          <p style="font-size:12px;color:#888;margin-top:2px;">Same options as Google Maps</p>
+          <p style="font-size:12px;color:#b0b8c8;margin-top:2px;">Same options as Google Maps</p>
         </div>
-        <button onclick="closeRouteSettings()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#2a2a3a;border:1px solid #3a3a4a;color:#888;font-size:18px;cursor:pointer;">✕</button>
+        <button onclick="closeRouteSettings()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#2a2a3a;border:1px solid #3a3a4a;color:#b0b8c8;font-size:18px;cursor:pointer;">✕</button>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:2px;">
         <!-- Avoid Tolls -->
-        <label style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px;border-bottom:1px solid #24243a;cursor:pointer;" onclick="toggleRouteSetting('avoidTolls')">
+        <label style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px;border-bottom:1px solid #2a2a42;cursor:pointer;" onclick="toggleRouteSetting('avoidTolls')">
           <div style="display:flex;align-items:center;gap:12px;">
             <span style="font-size:22px;">💰</span>
             <div>
               <div style="font-size:14px;font-weight:600;color:#e5e5e5;">Avoid Tolls</div>
-              <div style="font-size:11px;color:#888;margin-top:1px;">Skip toll roads (may add time)</div>
+              <div style="font-size:11px;color:#b0b8c8;margin-top:1px;">Skip toll roads (may add time)</div>
             </div>
           </div>
           <div id="toggle-avoidTolls" class="route-setting-toggle"></div>
         </label>
 
         <!-- Avoid Highways -->
-        <label style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px;border-bottom:1px solid #24243a;cursor:pointer;" onclick="toggleRouteSetting('avoidHighways')">
+        <label style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px;border-bottom:1px solid #2a2a42;cursor:pointer;" onclick="toggleRouteSetting('avoidHighways')">
           <div style="display:flex;align-items:center;gap:12px;">
             <span style="font-size:22px;">🛣️</span>
             <div>
               <div style="font-size:14px;font-weight:600;color:#e5e5e5;">Avoid Highways</div>
-              <div style="font-size:11px;color:#888;margin-top:1px;">Use local roads instead</div>
+              <div style="font-size:11px;color:#b0b8c8;margin-top:1px;">Use local roads instead</div>
             </div>
           </div>
           <div id="toggle-avoidHighways" class="route-setting-toggle"></div>
         </label>
 
         <!-- Avoid Ferries -->
-        <label style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px;border-bottom:1px solid #24243a;cursor:pointer;" onclick="toggleRouteSetting('avoidFerries')">
+        <label style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px;border-bottom:1px solid #2a2a42;cursor:pointer;" onclick="toggleRouteSetting('avoidFerries')">
           <div style="display:flex;align-items:center;gap:12px;">
             <span style="font-size:22px;">⛴️</span>
             <div>
               <div style="font-size:14px;font-weight:600;color:#e5e5e5;">Avoid Ferries</div>
-              <div style="font-size:11px;color:#888;margin-top:1px;">No ferry crossings</div>
+              <div style="font-size:11px;color:#b0b8c8;margin-top:1px;">No ferry crossings</div>
             </div>
           </div>
           <div id="toggle-avoidFerries" class="route-setting-toggle"></div>
@@ -625,7 +625,7 @@ tailwind.config = {
             <span style="font-size:22px;">📏</span>
             <div>
               <div style="font-size:14px;font-weight:600;color:#e5e5e5;">Metric Units</div>
-              <div style="font-size:11px;color:#888;margin-top:1px;">Show km instead of miles</div>
+              <div style="font-size:11px;color:#b0b8c8;margin-top:1px;">Show km instead of miles</div>
             </div>
           </div>
           <div id="toggle-useMetric" class="route-setting-toggle"></div>
@@ -635,7 +635,7 @@ tailwind.config = {
       <button onclick="applyRouteSettings()" style="width:100%;margin-top:20px;padding:14px;border-radius:12px;font-weight:700;font-size:15px;color:white;border:none;cursor:pointer;background:linear-gradient(135deg,#f5a623,#e08e0b);box-shadow:0 4px 16px rgba(245,166,35,0.3);">
         ✅ Apply & Reroute
       </button>
-      <p style="font-size:11px;color:#666;text-align:center;margin-top:8px;">Settings also apply when you open in Google Maps</p>
+      <p style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px;">Settings also apply when you open in Google Maps</p>
     </div>
   </div>
 
@@ -645,11 +645,11 @@ tailwind.config = {
       <div class="flex items-center justify-between mb-4">
         <div>
           <h2 class="text-xl font-extrabold text-warm-400">Route Stops</h2>
-          <p class="text-gray-500 text-xs mt-0.5">Add, reorder, or remove stops</p>
+          <p class="text-gray-300 text-xs mt-0.5">Add, reorder, or remove stops</p>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="resetRouteToDefault()" class="px-3 py-2 rounded-lg text-xs font-semibold bg-dark-700 border border-dark-600 text-gray-400 hover:text-orange-400 hover:border-orange-500/50 transition-all" title="Reset to original route">↩ Reset</button>
-          <button onclick="closeStopPicker()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-400 hover:text-white transition-all text-lg">✕</button>
+          <button onclick="resetRouteToDefault()" class="px-3 py-2 rounded-lg text-xs font-semibold bg-dark-700 border border-dark-600 text-gray-300 hover:text-orange-400 hover:border-orange-500/50 transition-all" title="Reset to original route">↩ Reset</button>
+          <button onclick="closeStopPicker()" class="w-10 h-10 flex items-center justify-center rounded-full bg-dark-700 border border-dark-600 text-gray-300 hover:text-white transition-all text-lg">✕</button>
         </div>
       </div>
       <div class="space-y-3 mb-4">
@@ -660,7 +660,7 @@ tailwind.config = {
         <button onclick="sendToGoogleMaps()" class="w-full py-3.5 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-900/40 active:scale-[0.98] transition-all">
           📍 Open Full Route in Google Maps
         </button>
-        <button onclick="addNewStop()" class="w-full py-3 rounded-xl font-semibold text-sm bg-dark-700 border border-dashed border-gray-600 text-gray-400 hover:border-road-green hover:text-road-green transition-all">
+        <button onclick="addNewStop()" class="w-full py-3 rounded-xl font-semibold text-sm bg-dark-700 border border-dashed border-gray-600 text-gray-300 hover:border-road-green hover:text-road-green transition-all">
           + Add a Stop
         </button>
       </div>
@@ -674,9 +674,9 @@ tailwind.config = {
       <div class="flex items-center justify-between mb-4">
         <div>
           <h2 style="font-size:18px;font-weight:800;color:#f5a623;">🐛 Report a Bug</h2>
-          <p style="font-size:11px;color:#888;margin-top:2px;">Help us fix issues quickly</p>
+          <p style="font-size:11px;color:#b0b8c8;margin-top:2px;">Help us fix issues quickly</p>
         </div>
-        <button onclick="closeBugReport()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#2a2a3a;border:1px solid #3a3a4a;color:#888;font-size:18px;cursor:pointer;">✕</button>
+        <button onclick="closeBugReport()" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#2a2a3a;border:1px solid #3a3a4a;color:#b0b8c8;font-size:18px;cursor:pointer;">✕</button>
       </div>
 
       <form id="bug-report-form" onsubmit="submitBugReport(event)">
@@ -708,15 +708,15 @@ tailwind.config = {
         <div style="margin-bottom:16px;">
           <label style="display:block;font-size:13px;font-weight:600;color:#ccc;margin-bottom:6px;">Screenshot (optional)</label>
           <div id="bug-screenshot-area" style="border:1px dashed #3a3a4a;border-radius:10px;padding:12px;text-align:center;cursor:pointer;position:relative;" onclick="document.getElementById('bug-screenshot-input').click()">
-            <div id="bug-screenshot-placeholder" style="color:#666;font-size:13px;">📷 Tap to attach a screenshot</div>
+            <div id="bug-screenshot-placeholder" style="color:#94a3b8;font-size:13px;">📷 Tap to attach a screenshot</div>
             <img id="bug-screenshot-preview" style="display:none;max-width:100%;border-radius:8px;max-height:150px;">
             <input id="bug-screenshot-input" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleBugScreenshot(this)">
           </div>
-          <button id="bug-screenshot-clear" type="button" onclick="clearBugScreenshot()" style="display:none;margin-top:6px;font-size:11px;color:#888;background:none;border:none;cursor:pointer;text-decoration:underline;">Remove screenshot</button>
+          <button id="bug-screenshot-clear" type="button" onclick="clearBugScreenshot()" style="display:none;margin-top:6px;font-size:11px;color:#b0b8c8;background:none;border:none;cursor:pointer;text-decoration:underline;">Remove screenshot</button>
         </div>
 
         <!-- Auto-captured info -->
-        <div style="background:#12121e;border-radius:8px;padding:8px 10px;margin-bottom:16px;font-size:11px;color:#666;">
+        <div style="background:#12121e;border-radius:8px;padding:8px 10px;margin-bottom:16px;font-size:11px;color:#94a3b8;">
           <div>📍 Page: <span id="bug-page-url"></span></div>
           <div>📱 Device: <span id="bug-user-agent"></span></div>
         </div>
@@ -734,7 +734,7 @@ tailwind.config = {
       <div id="bug-success" style="display:none;text-align:center;padding:30px 0;">
         <div style="font-size:48px;margin-bottom:12px;">✅</div>
         <div style="font-size:16px;font-weight:700;color:#4ade80;">Bug report submitted!</div>
-        <div style="font-size:13px;color:#888;margin-top:4px;">Thanks -- we'll look into it.</div>
+        <div style="font-size:13px;color:#b0b8c8;margin-top:4px;">Thanks -- we'll look into it.</div>
       </div>
     </div>
   </div>
@@ -744,7 +744,7 @@ tailwind.config = {
     <div class="max-w-lg mx-auto px-4 py-8">
       <div class="text-center mb-4">
         <h2 class="text-2xl font-extrabold text-red-400">EMERGENCY</h2>
-        <p class="text-gray-400 text-sm">Nearest help from your location</p>
+        <p class="text-gray-300 text-sm">Nearest help from your location</p>
       </div>
 
       <a href="tel:911" class="block w-full py-4 bg-red-600 hover:bg-red-500 rounded-xl text-center text-white font-extrabold text-xl mb-4 shadow-lg shadow-red-900/50 transition-all active:scale-95">
@@ -754,16 +754,16 @@ tailwind.config = {
       <button id="safe-haven-btn" onclick="findSafeHaven()" class="block w-full py-4 bg-blue-700 hover:bg-blue-600 rounded-xl text-center text-white font-extrabold text-lg mb-4 shadow-lg shadow-blue-900/50 transition-all active:scale-95 border-2 border-blue-400">
         🛡️ TAKE ME SOMEWHERE SAFE
       </button>
-      <p id="safe-haven-status" class="text-center text-gray-500 text-xs mb-4" style="display:none;"></p>
+      <p id="safe-haven-status" class="text-center text-gray-300 text-xs mb-4" style="display:none;"></p>
 
       <div id="emergency-results" class="space-y-3">
-        <div class="text-center text-gray-500 py-8">
+        <div class="text-center text-gray-300 py-8">
           <div class="loader mx-auto mb-2" style="width:32px;height:32px;border-width:3px;"></div>
           Finding nearest services...
         </div>
       </div>
 
-      <button onclick="closeEmergencyModal()" class="w-full mt-4 py-3 bg-dark-700 rounded-xl text-gray-400 font-medium">
+      <button onclick="closeEmergencyModal()" class="w-full mt-4 py-3 bg-dark-700 rounded-xl text-gray-300 font-medium">
         Close
       </button>
     </div>
@@ -1037,7 +1037,7 @@ function showToast(message, duration = 4000) {
 
   const toast = document.createElement('div');
   toast.id = 'ys-toast';
-  toast.style.cssText = 'position:fixed;bottom:140px;left:50%;transform:translateX(-50%);z-index:9999;max-width:320px;background:rgba(30,30,46,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:12px;padding:12px 16px;color:#e5e5e5;font-size:12px;line-height:1.5;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5);backdrop-filter:blur(8px);animation:toast-in 0.3s ease;';
+  toast.style.cssText = 'position:fixed;bottom:140px;left:50%;transform:translateX(-50%);z-index:9999;max-width:320px;background:rgba(35,35,52,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:12px;padding:12px 16px;color:#e5e5e5;font-size:12px;line-height:1.5;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5);backdrop-filter:blur(8px);animation:toast-in 0.3s ease;';
   toast.textContent = message;
   toast.onclick = () => toast.remove();
   document.body.appendChild(toast);
@@ -1095,7 +1095,7 @@ function initMap() {
       { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
       { elementType: 'labels.text.fill', stylers: [{ color: '#8a8ab0' }] },
       { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e48' }] },
-      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1a24' }] },
+      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e1e2e' }] },
       { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a3a5c' }] },
       { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2b' }] },
       { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
@@ -1195,7 +1195,7 @@ function addHotelMarkers() {
       title: hotel.name,
       label: {
         text: String(hotel.night),
-        color: '#0f0f14',
+        color: '#141420',
         fontWeight: 'bold',
         fontSize: '12px'
       },
@@ -1204,17 +1204,17 @@ function addHotelMarkers() {
         scale: 16,
         fillColor: '#f5a623',
         fillOpacity: 1,
-        strokeColor: '#0f0f14',
+        strokeColor: '#141420',
         strokeWeight: 3
       }
     });
 
     const hotelAddr = hotel.address.replace(/'/g, "\\'");
     const infoWindow = new google.maps.InfoWindow({
-      content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;padding:4px;max-width:240px;">
+      content: `<div style="color:#141420;font-family:Inter,sans-serif;padding:4px;max-width:240px;">
         <strong style="font-size:14px;">${hotel.name}</strong><br>
-        <span style="font-size:12px;color:#555;">${hotel.address}</span><br>
-        <span style="font-size:12px;color:#888;">Night ${hotel.night} - ${hotel.date}</span>
+        <span style="font-size:12px;color:#94a3b8;">${hotel.address}</span><br>
+        <span style="font-size:12px;color:#b0b8c8;">Night ${hotel.night} - ${hotel.date}</span>
         ${hotel.confirmation !== '--' ? `<br><span style="font-size:11px;color:#0d9488;">Conf: ${hotel.confirmation}</span>` : ''}
         <div style="display:flex;gap:6px;margin-top:8px;">
           <a href="https://www.google.com/maps/dir/?api=1&destination=${hotel.lat},${hotel.lng}" target="_blank"
@@ -1232,7 +1232,7 @@ function addHotelMarkers() {
     position: ORIGIN_LATLNG, map: map, title: 'Start: Seven Valleys, PA',
     icon: {
       path: google.maps.SymbolPath.CIRCLE, scale: 12,
-      fillColor: '#22c55e', fillOpacity: 1, strokeColor: '#0f0f14', strokeWeight: 3
+      fillColor: '#22c55e', fillOpacity: 1, strokeColor: '#141420', strokeWeight: 3
     }
   });
 
@@ -1637,7 +1637,7 @@ function createPOIMarker(place, type) {
     icon: {
       path: google.maps.SymbolPath.CIRCLE,
       scale: 10,
-      fillColor: isOnRoute ? '#166534' : (place.rating && place.rating < 3 ? '#4a1c1c' : '#24243a'),
+      fillColor: isOnRoute ? '#166534' : (place.rating && place.rating < 3 ? '#4a1c1c' : '#2a2a42'),
       fillOpacity: 0.9,
       strokeColor: isOnRoute ? '#22c55e' : (place.rating && place.rating < 3 ? '#dc2626' : '#f5a623'),
       strokeWeight: isOnRoute ? 2 : 1
@@ -1674,9 +1674,9 @@ function createPOIMarker(place, type) {
   );
 
   const info = new google.maps.InfoWindow({
-    content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:260px;">
+    content: `<div style="color:#141420;font-family:Inter,sans-serif;max-width:260px;">
       <strong style="font-size:14px;">${place.name}</strong><br>
-      <span style="font-size:12px;color:#555;">${placeAddr}</span>
+      <span style="font-size:12px;color:#94a3b8;">${placeAddr}</span>
       ${place.rating ? `<br><span style="font-size:11px;">⭐ ${place.rating} (${place.user_ratings_total || '?'} reviews)</span>` : ''}
       ${place.opening_hours ? `<br><span style="font-size:11px;color:${place.opening_hours.isOpen() ? '#16a34a' : '#dc2626'};">${place.opening_hours.isOpen() ? '✓ Open now' : '✗ Closed'}</span>` : ''}
       <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
@@ -1946,7 +1946,7 @@ function showSearchExplanation() {
         Places within about <strong style="color:#e5e5e5;">5 miles of the route</strong> will show up.
         Tap "Search along route" after panning or zooming to refresh results.
       </p>
-      <button onclick="this.parentElement.parentElement.remove()" style="background:#f5a623;color:#0f0f14;border:none;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Got it!</button>
+      <button onclick="this.parentElement.parentElement.remove()" style="background:#f5a623;color:#141420;border:none;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">Got it!</button>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -1989,7 +1989,7 @@ function showSightseeingMarkers() {
     });
 
     const info = new google.maps.InfoWindow({
-      content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;">
+      content: `<div style="color:#141420;font-family:Inter,sans-serif;">
         <strong>${spot.name}</strong><br>
         <span style="font-size:12px;">${spot.desc}</span>
       </div>`
@@ -2054,7 +2054,7 @@ function showCrimeZones() {
       <div style="max-width:280px;font-family:Inter,system-ui,sans-serif;color:#e5e7eb;background:#1a1a2e;padding:12px;border-radius:8px;">
         <div style="font-size:14px;font-weight:700;margin-bottom:6px;">${sevLabel}</div>
         <div style="font-size:15px;font-weight:600;margin-bottom:4px;">${zone.name}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-bottom:8px;">${zone.stats}</div>
+        <div style="font-size:12px;color:#cbd5e1;margin-bottom:8px;">${zone.stats}</div>
         <div style="font-size:12px;line-height:1.5;padding:8px;background:#0f0f1a;border-radius:6px;border-left:3px solid ${colors.fill};">
           <strong style="color:#fbbf24;">💡 Safety Tip:</strong><br>${zone.tip}
         </div>
@@ -2290,19 +2290,19 @@ async function showWeatherOverlay() {
 
       const nightTag = isNight ? '<div style="color:#a5b4fc;font-size:10px;margin-top:2px;">🌙 Night driving</div>' : '';
 
-      const infoContent = `<div style="color:#1a1a24;font-family:Inter,sans-serif;max-width:220px;padding:4px 2px;">
+      const infoContent = `<div style="color:#1e1e2e;font-family:Inter,sans-serif;max-width:220px;padding:4px 2px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
           <span style="font-size:20px;">${emoji}</span>
           <div>
             <strong style="font-size:14px;">${temp}°F</strong>
-            <span style="font-size:11px;color:#666;margin-left:4px;">feels ${feelsLike}°F</span>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">feels ${feelsLike}°F</span>
           </div>
         </div>
         <div style="font-size:12px;font-weight:600;color:#333;">${desc}</div>
-        <div style="font-size:11px;color:#666;">Day ${leg.day} at ~${timeStr} near ${city}</div>
+        <div style="font-size:11px;color:#94a3b8;">Day ${leg.day} at ~${timeStr} near ${city}</div>
         <div style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;color:white;background:${colors.fill};">${sevLabel.toUpperCase()}</div>
         ${nightTag}
-        <div style="font-size:11px;color:#555;margin-top:6px;">
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;">
           💨 Wind ${wind} mph${gusts > 15 ? ' (gusts ' + gusts + ')' : ''}<br>
           ${parseFloat(snowIn) > 0 ? '❄️ Snow: ' + snowIn + ' in<br>' : ''}
           ${visMiles !== null ? '👁️ Vis: ' + (parseFloat(visMiles) >= 10 ? '10+ mi' : visMiles + ' mi') + '<br>' : ''}
@@ -2399,7 +2399,7 @@ function renderCustomStops() {
   let html = `<div class="px-4 pb-3">
     <div class="flex items-center justify-between mb-2">
       <h4 class="text-xs font-bold text-road-green uppercase tracking-wider">Custom Stops</h4>
-      <span class="text-xs text-gray-500">${customWaypoints.length} stop${customWaypoints.length !== 1 ? 's' : ''}</span>
+      <span class="text-xs text-gray-300">${customWaypoints.length} stop${customWaypoints.length !== 1 ? 's' : ''}</span>
     </div>
     <div class="space-y-2">`;
 
@@ -2407,10 +2407,10 @@ function renderCustomStops() {
     html += `<div class="flex items-center gap-2 bg-dark-700 rounded-lg px-3 py-2 border border-road-green/30">
       <div class="flex-1 min-w-0">
         <div class="text-sm text-gray-200 truncate font-medium">${cw.name}</div>
-        <div class="text-xs text-gray-500 truncate">${cw.address}</div>
+        <div class="text-xs text-gray-300 truncate">${cw.address}</div>
       </div>
       <button onclick="removeCustomWaypoint(${cw.lat}, ${cw.lng})"
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-xs font-bold" title="Remove stop">✗</button>
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-dark-600 text-gray-300 hover:text-red-400 hover:bg-red-900/30 transition-all text-xs font-bold" title="Remove stop">✗</button>
     </div>`;
   });
 
@@ -2618,7 +2618,7 @@ async function fetchWeather() {
           const latestDisplay = `${latestH % 12 || 12}:${String(latestM).padStart(2, '0')} ${latestH >= 12 ? 'PM' : 'AM'}`;
 
           const idealColor = ideal.severity === 'green' ? '#34d399' : ideal.severity === 'yellow' ? '#fbbf24' : '#f59e0b';
-          departEl.innerHTML = `<span style="color:${idealColor};"><strong>${ideal.display}</strong></span> <span style="color:#6b7280;font-size:10px;">(latest ${latestDisplay})</span>`;
+          departEl.innerHTML = `<span style="color:${idealColor};"><strong>${ideal.display}</strong></span> <span style="color:#b0bec5;font-size:12px;font-weight:500;">(latest ${latestDisplay})</span>`;
         } else {
           departEl.textContent = `Depart: ${rwDepartureTimes[nextLegIndex] || '8:00 AM'}`;
         }
@@ -2817,7 +2817,7 @@ function findEmergencyServices() {
   const container = document.getElementById('emergency-results');
 
   if (!placesService) {
-    container.innerHTML = `<div class="text-center text-gray-500 py-4">
+    container.innerHTML = `<div class="text-center text-gray-300 py-4">
       <p class="text-sm">Map services loading...</p>
       <p class="text-xs mt-2">If you need immediate help, call 911 above.</p>
     </div>`;
@@ -2834,7 +2834,7 @@ function findEmergencyServices() {
     </div>`
     : '';
 
-  container.innerHTML = gpsWarning + '<div class="text-center text-gray-500 py-4"><div class="loader mx-auto mb-2" style="width:28px;height:28px;border-width:3px;"></div>Searching nearby...</div>';
+  container.innerHTML = gpsWarning + '<div class="text-center text-gray-300 py-4"><div class="loader mx-auto mb-2" style="width:28px;height:28px;border-width:3px;"></div>Searching nearby...</div>';
 
   const types = [
     { type: 'police', label: 'Police Station', icon: '🚔', color: 'blue' },
@@ -2877,7 +2877,7 @@ function renderEmergencyResults(results) {
   const container = document.getElementById('emergency-results');
 
   if (results.length === 0) {
-    container.innerHTML = '<div class="text-center text-gray-500 py-4"><p>No nearby services found. Call 911 for help.</p></div>';
+    container.innerHTML = '<div class="text-center text-gray-300 py-4"><p>No nearby services found. Call 911 for help.</p></div>';
     return;
   }
 
@@ -2899,8 +2899,8 @@ function renderEmergencyResults(results) {
         <div class="flex-1 min-w-0">
           <div class="text-xs font-bold uppercase tracking-wider text-${colorMap[r.color]}">${r.label}</div>
           <div class="font-semibold text-sm text-gray-200 mt-0.5">${r.name}</div>
-          <div class="text-xs text-gray-400">${r.address}</div>
-          ${dist ? `<div class="text-xs text-gray-500 mt-0.5">~${dist.toFixed(1)} miles away</div>` : ''}
+          <div class="text-xs text-gray-300">${r.address}</div>
+          ${dist ? `<div class="text-xs text-gray-300 mt-0.5">~${dist.toFixed(1)} miles away</div>` : ''}
           ${r.open !== null ? `<div class="text-xs mt-0.5 ${r.open ? 'text-road-green' : 'text-red-400'}">${r.open ? 'Open now' : 'Closed'}</div>` : ''}
         </div>
       </div>
@@ -3110,9 +3110,9 @@ function addSearchResultMarker(place) {
   const isOnRoute = typeof customWaypoints !== 'undefined' && customWaypoints.some(w => w.placeId === pid);
 
   const info = new google.maps.InfoWindow({
-    content: `<div style="color:#0f0f14;font-family:Inter,sans-serif;max-width:260px;">
+    content: `<div style="color:#141420;font-family:Inter,sans-serif;max-width:260px;">
       <strong style="font-size:14px;">${place.name}</strong><br>
-      <span style="font-size:12px;color:#555;">${place.formatted_address || place.vicinity || ''}</span>
+      <span style="font-size:12px;color:#94a3b8;">${place.formatted_address || place.vicinity || ''}</span>
       ${place.rating ? `<br><span style="font-size:11px;">⭐ ${place.rating} (${place.user_ratings_total || '?'} reviews)</span>` : ''}
       ${place.opening_hours ? `<br><span style="font-size:11px;color:${place.opening_hours.isOpen() ? '#16a34a' : '#dc2626'};">${place.opening_hours.isOpen() ? '✓ Open now' : '✗ Closed'}</span>` : ''}
       <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;">
@@ -3379,7 +3379,7 @@ function openDatePicker(legIdx) {
       if (isPast) {
         style += 'color:#444;cursor:not-allowed;';
       } else if (isSelected) {
-        style += 'background:#f5a623;color:#0f0f14;font-weight:700;';
+        style += 'background:#f5a623;color:#141420;font-weight:700;';
       } else if (isToday) {
         style += 'border:1px solid #f5a623;color:#f5a623;';
       } else {
@@ -3401,7 +3401,7 @@ function openDatePicker(legIdx) {
         <button onclick="datePickerNextMonth()" style="background:none;border:none;color:#ccc;font-size:20px;cursor:pointer;padding:4px 10px;">›</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;">
-        ${['S','M','T','W','T','F','S'].map(d => `<div style="font-size:10px;color:#666;font-weight:600;padding:4px 0;">${d}</div>`).join('')}
+        ${['S','M','T','W','T','F','S'].map(d => `<div style="font-size:10px;color:#94a3b8;font-weight:600;padding:4px 0;">${d}</div>`).join('')}
         ${cells}
       </div>
     `;
@@ -3420,7 +3420,7 @@ function openDatePicker(legIdx) {
   backdrop.innerHTML = `
     <div style="background:#1a1a2e;border:1px solid #3a3a4a;border-radius:16px;padding:20px;width:300px;max-width:90vw;box-shadow:0 20px 40px rgba(0,0,0,0.5);">
       <div style="font-size:13px;font-weight:700;color:#f5a623;margin-bottom:4px;">📅 Day ${legs[legIdx].day}: ${legs[legIdx].fromLabel}</div>
-      <div style="font-size:11px;color:#888;margin-bottom:14px;">Select departure date for this leg</div>
+      <div style="font-size:11px;color:#b0b8c8;margin-bottom:14px;">Select departure date for this leg</div>
       <div id="date-picker-grid"></div>
       <div style="margin-top:14px;display:flex;gap:8px;">
         <button onclick="document.getElementById('date-picker-modal').remove()"
@@ -3467,7 +3467,7 @@ function openTimePicker(legIdx) {
 
     document.getElementById('time-picker-display').innerHTML = `
       <div style="font-size:42px;font-weight:800;color:#e5e5e5;letter-spacing:2px;font-variant-numeric:tabular-nums;">
-        ${displayH}:${displayM} <span style="font-size:18px;color:#888;">${ampm}</span>
+        ${displayH}:${displayM} <span style="font-size:18px;color:#b0b8c8;">${ampm}</span>
       </div>
     `;
   }
@@ -3482,18 +3482,18 @@ function openTimePicker(legIdx) {
   backdrop.innerHTML = `
     <div style="background:#1a1a2e;border:1px solid #3a3a4a;border-radius:16px;padding:20px;width:300px;max-width:90vw;box-shadow:0 20px 40px rgba(0,0,0,0.5);">
       <div style="font-size:13px;font-weight:700;color:#f5a623;margin-bottom:4px;">⏰ Day ${legs[legIdx].day}: Departure Time</div>
-      <div style="font-size:11px;color:#888;margin-bottom:16px;">${legs[legIdx].fromLabel} &rarr; ${legs[legIdx].toLabel}</div>
+      <div style="font-size:11px;color:#b0b8c8;margin-bottom:16px;">${legs[legIdx].fromLabel} &rarr; ${legs[legIdx].toLabel}</div>
       <div id="time-picker-display" style="text-align:center;margin-bottom:16px;"></div>
       <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-bottom:8px;">
         <div style="text-align:center;">
-          <div style="font-size:10px;color:#666;margin-bottom:6px;">HOUR</div>
+          <div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">HOUR</div>
           <button onclick="timePickerAdjust('h',1)" style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#ccc;width:48px;height:36px;font-size:18px;cursor:pointer;">▲</button>
           <div id="tp-hour" style="font-size:24px;font-weight:700;color:#e5e5e5;padding:8px 0;"></div>
           <button onclick="timePickerAdjust('h',-1)" style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#ccc;width:48px;height:36px;font-size:18px;cursor:pointer;">▼</button>
         </div>
-        <div style="font-size:28px;color:#555;font-weight:700;padding-top:16px;">:</div>
+        <div style="font-size:28px;color:#94a3b8;font-weight:700;padding-top:16px;">:</div>
         <div style="text-align:center;">
-          <div style="font-size:10px;color:#666;margin-bottom:6px;">MIN</div>
+          <div style="font-size:10px;color:#94a3b8;margin-bottom:6px;">MIN</div>
           <button onclick="timePickerAdjust('m',15)" style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#ccc;width:48px;height:36px;font-size:18px;cursor:pointer;">▲</button>
           <div id="tp-min" style="font-size:24px;font-weight:700;color:#e5e5e5;padding:8px 0;"></div>
           <button onclick="timePickerAdjust('m',-15)" style="background:#2a2a3a;border:1px solid #3a3a4a;border-radius:8px;color:#ccc;width:48px;height:36px;font-size:18px;cursor:pointer;">▼</button>
@@ -3507,7 +3507,7 @@ function openTimePicker(legIdx) {
         <button onclick="document.getElementById('time-picker-modal').remove()"
           style="flex:1;padding:10px;background:#2a2a3a;border:1px solid #3a3a4a;border-radius:10px;color:#ccc;font-size:13px;cursor:pointer;">Cancel</button>
         <button onclick="confirmTimePicker(${legIdx})"
-          style="flex:1;padding:10px;background:#f5a623;border:none;border-radius:10px;color:#0f0f14;font-size:13px;font-weight:700;cursor:pointer;">Set Time</button>
+          style="flex:1;padding:10px;background:#f5a623;border:none;border-radius:10px;color:#141420;font-size:13px;font-weight:700;cursor:pointer;">Set Time</button>
       </div>
     </div>
   `;
@@ -3544,7 +3544,7 @@ function openTimePicker(legIdx) {
     const dh = window._tpH % 12 || 12;
     const dm = String(window._tpM).padStart(2, '0');
     const dispEl = document.getElementById('time-picker-display');
-    if (dispEl) dispEl.innerHTML = `<div style="font-size:42px;font-weight:800;color:#e5e5e5;letter-spacing:2px;font-variant-numeric:tabular-nums;">${dh}:${dm} <span style="font-size:18px;color:#888;">${ampm}</span></div>`;
+    if (dispEl) dispEl.innerHTML = `<div style="font-size:42px;font-weight:800;color:#e5e5e5;letter-spacing:2px;font-variant-numeric:tabular-nums;">${dh}:${dm} <span style="font-size:18px;color:#b0b8c8;">${ampm}</span></div>`;
     const ampmBtn = document.getElementById('tp-ampm');
     if (ampmBtn) ampmBtn.textContent = ampm;
   }
@@ -3585,7 +3585,7 @@ function getRWSamplePoints(leg) {
 
 async function fetchRouteWeatherData() {
   const container = document.getElementById('route-weather-content');
-  container.innerHTML = '<div class="rw-spinner"></div><p class="text-center text-gray-500 text-sm">Fetching weather for all legs...</p>';
+  container.innerHTML = '<div class="rw-spinner"></div><p class="text-center text-gray-300 text-sm">Fetching weather for all legs...</p>';
 
   // Collect ALL sample points across all legs
   const allPoints = [];
@@ -3714,7 +3714,7 @@ function rwGetNearestCity(lat, lng) {
 }
 
 function rwSeverityBorderColor(sev) {
-  return { green: '#3b82f6', yellow: '#888888', orange: '#f59e0b', red: '#ff4444' }[sev] || '#24243a';
+  return { green: '#3b82f6', yellow: '#888888', orange: '#f59e0b', red: '#ff4444' }[sev] || '#2a2a42';
 }
 
 function rwSeverityBgGlow(sev) {
@@ -3867,7 +3867,7 @@ function calcIdealDeparture(leg, legIdx, points, forecasts) {
 function renderRouteWeather() {
   const container = document.getElementById('route-weather-content');
   if (!rwCache) {
-    container.innerHTML = '<p class="text-center text-gray-500">No data loaded.</p>';
+    container.innerHTML = '<p class="text-center text-gray-300">No data loaded.</p>';
     return;
   }
 
@@ -4159,14 +4159,14 @@ function renderRouteWeather() {
       <div class="flex items-center justify-between mb-2">
         <div style="flex:1;min-width:0;">
           <h3 style="font-weight:700;font-size:15px;color:#f5a623;">Day ${leg.day}: ${leg.fromLabel} &rarr; ${leg.toLabel}</h3>
-          <p style="font-size:12px;color:#888;">~${leg.driveHours}h drive</p>
+          <p style="font-size:12px;color:#b0b8c8;">~${leg.driveHours}h drive</p>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           <span style="font-size:12px;font-weight:700;color:${borderColor};background:${borderColor}22;padding:3px 10px;border-radius:6px;border:1px solid ${borderColor}55;">${sevEmoji} ${sevLabel.toUpperCase()}</span>
-          <button onclick="openDatePicker(${legIdx})" style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:8px;padding:5px 10px;color:#e5e5e5;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+          <button onclick="openDatePicker(${legIdx})" style="background:#141420;border:1px solid #3a3a4a;border-radius:8px;padding:5px 10px;color:#e5e5e5;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
             <span style="color:#f5a623;">📅</span> ${leg.dateLabel}${rwLegDates[legIdx] ? ' <span style="color:#6ee7b7;font-size:9px;">✎</span>' : ''}
           </button>
-          <button onclick="openTimePicker(${legIdx})" style="background:#0f0f14;border:1px solid #3a3a4a;border-radius:8px;padding:5px 10px;color:#e5e5e5;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+          <button onclick="openTimePicker(${legIdx})" style="background:#141420;border:1px solid #3a3a4a;border-radius:8px;padding:5px 10px;color:#e5e5e5;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
             <span style="color:#a5b4fc;">⏰</span> Depart ${(() => { const [h,m] = departTime.split(':').map(Number); return (h%12||12)+':'+String(m).padStart(2,'0')+(h>=12?' PM':' AM'); })()}
           </button>
         </div>
@@ -4204,20 +4204,20 @@ function renderRouteWeather() {
           + 'Leaving ' + diffHrs + 'h later puts you into ' + weatherDesc + ' along the route. '
           + 'Stick to ' + idealDep.display + ' to stay ahead of it.</div>';
       })()}
-      ${leg.roadNote ? `<div style="font-size:13px;color:#9ca3af;padding:6px 10px;margin-bottom:8px;background:#0f0f1a;border-radius:8px;border-left:3px solid #3a3a4a;line-height:1.5;">${leg.roadNote}</div>` : ''}
-      <div onclick="this.querySelector('.rw-collapse-content').classList.toggle('hidden');this.querySelector('.rw-collapse-chevron').classList.toggle('rw-rotated');" style="cursor:pointer;border-top:1px solid #24243a;margin-top:4px;">
+      ${leg.roadNote ? `<div style="font-size:13px;color:#cbd5e1;padding:6px 10px;margin-bottom:8px;background:#0f0f1a;border-radius:8px;border-left:3px solid #3a3a4a;line-height:1.5;">${leg.roadNote}</div>` : ''}
+      <div onclick="this.querySelector('.rw-collapse-content').classList.toggle('hidden');this.querySelector('.rw-collapse-chevron').classList.toggle('rw-rotated');" style="cursor:pointer;border-top:1px solid #2a2a42;margin-top:4px;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
           <span style="font-size:14px;font-weight:700;color:#ccc;">📊 Hourly Forecast</span>
-          <span class="rw-collapse-chevron" style="color:#666;transition:transform 0.2s;">▼</span>
+          <span class="rw-collapse-chevron" style="color:#94a3b8;transition:transform 0.2s;">▼</span>
         </div>
         <div class="rw-collapse-content hidden">
-          <div class="rw-chips-row">${chipsHtml || '<span class="text-gray-500 text-sm py-4">No forecast data available for this leg</span>'}</div>
+          <div class="rw-chips-row">${chipsHtml || '<span class="text-gray-300 text-sm py-4">No forecast data available for this leg</span>'}</div>
         </div>
       </div>
-      ${(bannerHtml || nightWarningHtml) ? `<div onclick="this.querySelector('.rw-collapse-content').classList.toggle('hidden');this.querySelector('.rw-collapse-chevron').classList.toggle('rw-rotated');" style="cursor:pointer;border-top:1px solid #24243a;">
+      ${(bannerHtml || nightWarningHtml) ? `<div onclick="this.querySelector('.rw-collapse-content').classList.toggle('hidden');this.querySelector('.rw-collapse-chevron').classList.toggle('rw-rotated');" style="cursor:pointer;border-top:1px solid #2a2a42;">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
           <span style="font-size:14px;font-weight:700;color:#ccc;">⚠️ Alerts & Warnings</span>
-          <span class="rw-collapse-chevron ${alertsChevronRotated}" style="color:#666;transition:transform 0.2s;">▼</span>
+          <span class="rw-collapse-chevron ${alertsChevronRotated}" style="color:#94a3b8;transition:transform 0.2s;">▼</span>
         </div>
         <div class="rw-collapse-content ${alertsExpanded}">
           ${bannerHtml}
@@ -4233,7 +4233,7 @@ function renderRouteWeather() {
 
   html += `<div class="rw-leg-card" style="border-color:#f5a623;">
     <h3 class="font-bold text-sm text-warm-400 mb-1">Trip Overview</h3>
-    <p class="text-xs text-gray-400 mb-3">${goodDayCount} of ${totalDays} days looking great${goodDayCount >= totalDays - 1 ? ' -- nice!' : ''}</p>
+    <p class="text-xs text-gray-300 mb-3">${goodDayCount} of ${totalDays} days looking great${goodDayCount >= totalDays - 1 ? ' -- nice!' : ''}</p>
     <div class="flex flex-wrap gap-2 mb-3">`;
 
   overviewData.forEach(d => {
@@ -4284,7 +4284,7 @@ function renderRouteWeather() {
     html += `</div>`;
   }
 
-  html += `<div class="mt-3 text-gray-500 space-y-1.5" style="font-size:13px;">
+  html += `<div class="mt-3 text-gray-300 space-y-1.5" style="font-size:13px;">
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#1a3a5c;border:1px solid #3b82f6;"></span> ✅ Good -- Clear roads, smooth sailing</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#2a2a3a;border:1px solid #888;"></span> 👍 Fair -- Minor stuff, totally driveable</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-3 rounded" style="background:#3d2800;border:1px solid #f59e0b;"></span> ⚠️ Caution -- Slow down, stay sharp</div>
@@ -4345,20 +4345,20 @@ function openChipDetail(chipId) {
       <div>
         <div style="font-size:28px;display:inline-block;vertical-align:middle;">${d.emoji}</div>
         <span style="font-size:18px;font-weight:800;color:#f5a623;margin-left:8px;vertical-align:middle;">${d.temp}°F</span>
-        <span style="font-size:12px;color:#888;margin-left:4px;vertical-align:middle;">feels ${d.feelsLike}°F</span>
+        <span style="font-size:12px;color:#b0b8c8;margin-left:4px;vertical-align:middle;">feels ${d.feelsLike}°F</span>
       </div>
-      <button onclick="this.closest('.rw-chip-detail-backdrop').remove()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;padding:4px;">✕</button>
+      <button onclick="this.closest('.rw-chip-detail-backdrop').remove()" style="background:none;border:none;color:#b0b8c8;font-size:22px;cursor:pointer;padding:4px;">✕</button>
     </div>
 
     <div style="margin-bottom:12px;">
       <div style="font-weight:700;font-size:15px;color:#e5e5e5;">${d.desc}</div>
-      <div style="font-size:12px;color:#888;">${d.time} near ${d.city}</div>
+      <div style="font-size:12px;color:#b0b8c8;">${d.time} near ${d.city}</div>
       <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
         <span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:white;background:${borderColor};">${sevLabel.toUpperCase()}</span>
         ${d.isNight ? '<span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#a5b4fc;background:#1a1a3a;border:1px solid #6366f1;">🌙 NIGHT DRIVING</span>' : ''}
         ${d.isTwilight ? '<span style="display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;color:#fcd34d;background:#2a1a00;border:1px solid #f59e0b;">🌅 DUSK</span>' : ''}
       </div>
-      <div style="font-size:11px;color:#888;margin-top:4px;">☀️ Sunrise ${d.sunriseDisplay} / Sunset ${d.sunsetDisplay}</div>
+      <div style="font-size:11px;color:#b0b8c8;margin-top:4px;">☀️ Sunrise ${d.sunriseDisplay} / Sunset ${d.sunsetDisplay}</div>
     </div>
 
     <div style="background:${borderColor}15;border:1px solid ${borderColor}40;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
@@ -4663,14 +4663,14 @@ function renderStopPicker() {
   let html = '';
 
   // Drag hint
-  html += `<div style="text-align:center;font-size:10px;color:#555;margin-bottom:8px;">Hold ≡ to drag and reorder stops</div>`;
+  html += `<div style="text-align:center;font-size:10px;color:#94a3b8;margin-bottom:8px;">Hold ≡ to drag and reorder stops</div>`;
 
   // Origin (fixed, not movable)
   html += `<div class="stop-item origin-stop">
     <div class="text-blue-400 text-lg font-bold w-8 text-center">A</div>
     <div class="flex-1 min-w-0">
       <div class="text-sm text-gray-200 font-medium">Seven Valleys, PA</div>
-      <div class="text-xs text-gray-500">Starting point</div>
+      <div class="text-xs text-gray-300">Starting point</div>
     </div>
   </div>`;
 
@@ -4679,16 +4679,16 @@ function renderStopPicker() {
     const isHotel = stop.type === 'hotel';
     const borderClass = isHotel ? 'hotel-stop' : 'custom-stop';
     const label = isHotel ? `<div class="text-xs text-warm-400/70 mt-0.5">Night ${stop.night} - ${stop.date}</div>` : '';
-    const badge = `<button onclick="event.stopPropagation();removeStopByIndex(${i})" class="flex-shrink-0 w-8 h-8 flex items-center justify-content rounded-full bg-dark-600 text-gray-400 hover:text-red-400 hover:bg-red-900/30 transition-all text-sm font-bold" title="Remove" style="display:flex;align-items:center;justify-content:center;">✗</button>`;
+    const badge = `<button onclick="event.stopPropagation();removeStopByIndex(${i})" class="flex-shrink-0 w-8 h-8 flex items-center justify-content rounded-full bg-dark-600 text-gray-300 hover:text-red-400 hover:bg-red-900/30 transition-all text-sm font-bold" title="Remove" style="display:flex;align-items:center;justify-content:center;">✗</button>`;
 
     html += `<div class="stop-item ${borderClass} drag-handle" data-stop-idx="${i}" data-drag-idx="${i}" id="stop-drag-${i}"
       style="user-select:none;-webkit-user-select:none;">
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:24px;margin-right:4px;color:#555;font-size:18px;line-height:0.6;">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:24px;margin-right:4px;color:#94a3b8;font-size:18px;line-height:0.6;">
         <span style="letter-spacing:3px;">≡</span>
       </div>
       <div class="flex-1 min-w-0" style="pointer-events:none;">
         <div class="text-sm text-gray-200 font-medium truncate">${stop.name}</div>
-        <div class="text-xs text-gray-500 truncate">${stop.address}</div>
+        <div class="text-xs text-gray-300 truncate">${stop.address}</div>
         ${label}
       </div>
       ${badge}
@@ -4700,20 +4700,20 @@ function renderStopPicker() {
     <div class="text-red-400 text-lg font-bold w-8 text-center">B</div>
     <div class="flex-1 min-w-0">
       <div class="text-sm text-gray-200 font-medium">Gardiner, Yellowstone NP</div>
-      <div class="text-xs text-gray-500">Final destination</div>
+      <div class="text-xs text-gray-300">Final destination</div>
     </div>
   </div>`;
 
   // Parked stops section (custom stops removed during reset, recoverable)
   if (parkedStops.length > 0) {
     html += `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed #333;">
-      <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Removed Stops</div>
-      <div style="font-size:10px;color:#555;margin-bottom:8px;">Tap + to add back to route, or ✗ to delete permanently</div>`;
+      <div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Removed Stops</div>
+      <div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">Tap + to add back to route, or ✗ to delete permanently</div>`;
     parkedStops.forEach((stop, pi) => {
       html += `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#111118;border:1px dashed #333;border-radius:10px;margin-bottom:6px;">
         <div class="flex-1 min-w-0">
-          <div style="font-size:13px;color:#9ca3af;font-weight:500;">${stop.name}</div>
-          <div style="font-size:11px;color:#555;">${stop.address}</div>
+          <div style="font-size:13px;color:#cbd5e1;font-weight:500;">${stop.name}</div>
+          <div style="font-size:11px;color:#94a3b8;">${stop.address}</div>
         </div>
         <button onclick="restoreParkedStop(${pi})" style="width:32px;height:32px;border-radius:50%;background:#1a2a1a;border:1px solid #2d5a2d;color:#4ade80;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Add back to route">+</button>
         <button onclick="deleteParkedStop(${pi})" style="width:32px;height:32px;border-radius:50%;background:#2a1a1a;border:1px solid #5a2d2d;color:#f87171;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Delete permanently">✗</button>
