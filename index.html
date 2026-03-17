@@ -3964,20 +3964,35 @@ function renderRouteWeather() {
       ${idealHtml}
       <p style="font-size:14px;color:#d4d4d4;line-height:1.5;margin-bottom:8px;">${quickSummary}</p>
       ${(() => {
-        // Late departure warning: if current departure is later than the default,
-        // warn that weather conditions may be different
-        const defaultTime = legIdx < 5 ? '08:00' : '05:00';
-        const [defH, defM] = defaultTime.split(':').map(Number);
-        const defMinutes = defH * 60 + defM;
+        // Weather-aware departure warning: only show if leaving later than the ideal
+        // time would actually put her into worse weather conditions
+        if (!idealDep) return '';
+        const [idealH, idealM] = idealDep.time.split(':').map(Number);
+        const idealMinutes = idealH * 60 + idealM;
         const curMinutes = depH * 60 + depM;
-        const diff = curMinutes - defMinutes;
-        if (diff >= 60 && worstSev !== 'green') {
-          const diffHrs = Math.round(diff / 60 * 10) / 10;
-          return '<div style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#fbbf24;line-height:1.5;">⏰ <strong>Late departure.</strong> You\'re leaving ' + diffHrs + 'h later than planned. Sticking to the original time may help you avoid worsening weather later in the day.</div>';
-        } else if (diff >= 60 && worstSev === 'green') {
-          return '<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#93c5fd;line-height:1.5;">⏰ Departing ' + diffHrs + 'h later than planned. Conditions still look good, but weather can shift -- leaving on time is always safer.</div>';
-        }
-        return '';
+
+        // Only warn if current departure is LATER than ideal
+        if (curMinutes <= idealMinutes) return '';
+
+        // Check what severity she'd hit at ideal time vs current time
+        const idealSev = idealDep.severity;
+        // Current severity is already computed as worstSev
+        const idealRank = rwSeverityRank(idealSev);
+        const currentRank = rwSeverityRank(worstSev);
+
+        // Only warn if leaving later makes weather WORSE
+        if (currentRank <= idealRank) return '';
+
+        // Weather actually gets worse -- show meaningful warning
+        const diffHrs = Math.round((curMinutes - idealMinutes) / 60 * 10) / 10;
+        const weatherDesc = worstSev === 'red' ? 'severe weather (snow, ice, or storms)'
+          : worstSev === 'orange' ? 'rough weather (snow, storms, or strong winds)'
+          : 'less favorable conditions';
+
+        return '<div style="background:rgba(251,191,36,0.12);border:2px solid rgba(251,191,36,0.5);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;color:#fbbf24;line-height:1.6;">'
+          + '<strong>⚠️ Leave on time today!</strong> Your ideal departure is <strong>' + idealDep.display + '</strong>. '
+          + 'Leaving ' + diffHrs + 'h later puts you into ' + weatherDesc + ' along the route. '
+          + 'Stick to ' + idealDep.display + ' to stay ahead of it.</div>';
       })()}
       ${leg.roadNote ? `<div style="font-size:13px;color:#9ca3af;padding:6px 10px;margin-bottom:8px;background:#0f0f1a;border-radius:8px;border-left:3px solid #3a3a4a;line-height:1.5;">${leg.roadNote}</div>` : ''}
       <div onclick="this.querySelector('.rw-collapse-content').classList.toggle('hidden');this.querySelector('.rw-collapse-chevron').classList.toggle('rw-rotated');" style="cursor:pointer;border-top:1px solid #24243a;margin-top:4px;">
