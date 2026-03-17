@@ -1182,6 +1182,7 @@ function showMainApp() {
   initMapSearch();
   setupSearchAreaButton(); // Attach map idle listener early so "refresh filters" button works
   initContactButtons(); // Load saved custom contacts into bottom bar
+  initContactLongPress(); // One-time long-press event listeners
   startLocationWatch();
   // Sync Drive Weather legs with saved stop order (in case stops were reordered in a previous session)
   const savedStops = getRouteStops();
@@ -1505,21 +1506,25 @@ function checkHalfTankReminder(pos) {
 
   if (dist >= 180) {
     reminder.style.display = 'block';
-    // Auto-hide after 30 seconds
-    setTimeout(() => {
+    halfTankDismissed = true; // Suppress re-triggers while banner is visible
+    // Auto-hide after 30 seconds and re-arm for next 180 miles
+    halfTankAutoHideTimer = setTimeout(() => {
+      if (reminder.style.display === 'none') return; // Already dismissed manually
       reminder.style.display = 'none';
-      halfTankDismissed = true;
-      // Reset: next check starts from current position
+      // Reset reference point to current position
       lastFuelCheckPos = { lat: pos.lat, lng: pos.lng };
       localStorage.setItem('ys_last_fuel_check', JSON.stringify(lastFuelCheckPos));
-      halfTankDismissed = false; // re-arm for next 180 miles
+      halfTankDismissed = false; // re-arm
     }, 30000);
   }
 }
 
+let halfTankAutoHideTimer = null;
+
 function dismissHalfTankReminder() {
   const reminder = document.getElementById('half-tank-reminder');
   reminder.style.display = 'none';
+  if (halfTankAutoHideTimer) { clearTimeout(halfTankAutoHideTimer); halfTankAutoHideTimer = null; }
   // Reset reference point to current position
   if (userPosition) {
     lastFuelCheckPos = { lat: userPosition.lat, lng: userPosition.lng };
@@ -3199,10 +3204,19 @@ function initContactButtons() {
     textBtn.title = 'Add contact';
     sosBtn.title = 'Add contact';
   }
+}
 
-  // Long-press on either custom contact button opens edit modal
+// One-time setup: long-press on custom contact buttons to edit/remove
+let contactLongPressInit = false;
+function initContactLongPress() {
+  if (contactLongPressInit) return;
+  contactLongPressInit = true;
+
+  const textBtn = document.getElementById('custom-text-btn');
+  const sosBtn = document.getElementById('custom-sos-btn');
   let longPressTriggered = false;
   let lpTimer = null;
+
   [textBtn, sosBtn].forEach(btn => {
     btn.addEventListener('touchstart', () => {
       longPressTriggered = false;
@@ -3210,7 +3224,7 @@ function initContactButtons() {
         longPressTriggered = true;
         openContactSetup(1);
       }, 600);
-    }, { passive: true });
+    }, { passive: false });
     btn.addEventListener('touchend', (e) => {
       clearTimeout(lpTimer);
       if (longPressTriggered) { e.preventDefault(); }
@@ -3219,7 +3233,7 @@ function initContactButtons() {
     // Override onclick to check long-press flag
     const origClick = btn.getAttribute('onclick');
     btn.removeAttribute('onclick');
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       if (longPressTriggered) { longPressTriggered = false; return; }
       if (origClick) new Function(origClick).call(btn);
     });
