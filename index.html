@@ -1067,6 +1067,7 @@ function showMainApp() {
   renderCustomStops();
   initSidebarToggle();
   initMapSearch();
+  setupSearchAreaButton(); // Attach map idle listener early so "refresh filters" button works
   startLocationWatch();
   // Sync Drive Weather legs with saved stop order (in case stops were reordered in a previous session)
   const savedStops = getRouteStops();
@@ -1927,13 +1928,25 @@ function setupSearchAreaButton() {
   }
 
   searchAreaBtn = document.createElement('button');
-  searchAreaBtn.style.cssText = 'display:none;position:fixed;top:184px;left:50%;transform:translateX(-50%);z-index:92;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
+  searchAreaBtn.style.cssText = 'display:none;position:fixed;top:184px;left:50%;transform:translateX(-50%);z-index:92;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
   updateSearchButtonLabel();
   document.getElementById('main-app').appendChild(searchAreaBtn);
 
   searchAreaBtn.addEventListener('click', () => {
     searchAreaBtn.style.display = 'none';
-    // Re-run the current search bar query at the new map position
+
+    // Re-run active filters along the route
+    const activeFilterTypes = [...activePOIs].filter(t =>
+      t !== 'weather_overlay' && t !== 'crime_zones'
+    );
+    if (activeFilterTypes.length > 0) {
+      activeFilterTypes.forEach(filterType => {
+        searchPOIsAlongRoute(filterType);
+      });
+      return;
+    }
+
+    // Fall back to text search if no filters active
     const input = document.getElementById('map-search-input');
     if (input && input.value.trim()) {
       textSearchMap(input.value.trim());
@@ -1942,9 +1955,14 @@ function setupSearchAreaButton() {
 
   if (!mapIdleListener) {
     mapIdleListener = map.addListener('idle', () => {
+      // Show "refresh" button when map moves and there are active searches or filters
       const input = document.getElementById('map-search-input');
-      const hasSearch = input && input.value.trim().length > 0;
-      if (hasSearch && searchAreaBtn) {
+      const hasTextSearch = input && input.value.trim().length > 0;
+      const hasActiveFilters = [...activePOIs].some(t =>
+        t !== 'weather_overlay' && t !== 'crime_zones'
+      );
+
+      if ((hasTextSearch || hasActiveFilters) && searchAreaBtn) {
         updateSearchButtonLabel();
         searchAreaBtn.style.display = 'block';
       }
@@ -1954,7 +1972,14 @@ function setupSearchAreaButton() {
 
 function updateSearchButtonLabel() {
   if (!searchAreaBtn) return;
-  searchAreaBtn.textContent = '🔍 Search along route';
+  const activeFilterTypes = [...activePOIs].filter(t =>
+    t !== 'weather_overlay' && t !== 'crime_zones'
+  );
+  if (activeFilterTypes.length > 0) {
+    searchAreaBtn.textContent = `🔄 Refresh ${activeFilterTypes.length} filter${activeFilterTypes.length > 1 ? 's' : ''}`;
+  } else {
+    searchAreaBtn.textContent = '🔍 Search this area';
+  }
 }
 
 function showSearchExplanation() {
@@ -2458,6 +2483,7 @@ function applyWeatherBarState() {
     if (poiSidebar) poiSidebar.style.top = '108px';
     if (halfTank) halfTank.style.top = '100px';
     if (gpsWarn) gpsWarn.style.top = '100px';
+    if (searchAreaBtn) searchAreaBtn.style.top = '108px';
   } else {
     bar.classList.remove('wb-collapsed');
     strip.classList.remove('wb-show');
@@ -2470,6 +2496,7 @@ function applyWeatherBarState() {
     if (poiSidebar) poiSidebar.style.top = '184px';
     if (halfTank) halfTank.style.top = '176px';
     if (gpsWarn) gpsWarn.style.top = '172px';
+    if (searchAreaBtn) searchAreaBtn.style.top = '184px';
   }
 }
 
