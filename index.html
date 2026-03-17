@@ -77,14 +77,15 @@ tailwind.config = {
   #weather-bar-collapsed.wb-show { display: flex; }
   /* Toggle button */
   .wb-toggle-btn {
-    position: absolute; bottom: -20px; right: 16px; z-index: 101;
-    width: 40px; height: 20px; border-radius: 0 0 12px 12px;
-    background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.4);
+    position: absolute; bottom: -22px; right: 16px; z-index: 101;
+    width: 44px; height: 22px; border-radius: 0 0 14px 14px;
+    background: rgba(56,189,248,0.2); border: 1.5px solid rgba(56,189,248,0.7);
     border-top: none; display: flex; align-items: center; justify-content: center;
     cursor: pointer; transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 16px rgba(56,189,248,0.3), 0 2px 8px rgba(0,0,0,0.4);
   }
-  .wb-toggle-btn:hover { background: rgba(245,166,35,0.25); }
+  .wb-toggle-btn:hover { background: rgba(56,189,248,0.35); box-shadow: 0 4px 20px rgba(56,189,248,0.5); }
+  .wb-toggle-btn:active { transform: scale(0.92); }
   .wb-toggle-btn svg { transition: transform 0.35s ease; }
   .wb-toggle-btn.wb-flipped svg { transform: rotate(180deg); }
 
@@ -93,7 +94,7 @@ tailwind.config = {
 
   /* Sidebar */
   #poi-sidebar {
-    position: fixed; top: 140px; left: 0; bottom: 0; z-index: 80;
+    position: fixed; top: 160px; left: 0; bottom: 0; z-index: 80;
     background: rgba(26,26,36,0.96); backdrop-filter: blur(12px);
     border-right: 1px solid rgba(245,166,35,0.2);
     width: 260px; overflow-y: auto; transition: transform 0.3s ease;
@@ -142,7 +143,7 @@ tailwind.config = {
 
   /* Half-tank reminder */
   #half-tank-reminder {
-    position: fixed; top: 130px; right: 16px; z-index: 95;
+    position: fixed; top: 152px; right: 16px; z-index: 95;
     display: none;
   }
 
@@ -163,7 +164,7 @@ tailwind.config = {
 
   /* GPS override warning */
   #gps-override-warning {
-    position: fixed; top: 126px; left: 50%; transform: translateX(-50%);
+    position: fixed; top: 148px; left: 50%; transform: translateX(-50%);
     z-index: 96; display: none;
   }
 
@@ -283,7 +284,7 @@ tailwind.config = {
   <div class="loader mb-4"></div>
   <p class="text-warm-400 font-semibold text-lg">Yellowstone Shield</p>
   <p class="text-gray-500 text-sm mt-1">Loading command center...</p>
-  <p style="font-size:10px;color:#555;margin-top:12px;">v1.8.0</p>
+  <p style="font-size:10px;color:#555;margin-top:12px;">v1.8.1</p>
 </div>
 
 <!-- ==================== CHECKLIST SCREEN ==================== -->
@@ -292,7 +293,7 @@ tailwind.config = {
     <div class="text-center mb-6">
       <div class="text-4xl mb-2">🛡️</div>
       <h1 class="text-2xl font-extrabold text-warm-400">Yellowstone Shield</h1>
-      <p style="font-size:10px;color:#555;margin-top:2px;">v1.8.0</p>
+      <p style="font-size:10px;color:#555;margin-top:2px;">v1.8.1</p>
       <p class="text-gray-400 text-sm mt-1">Vehicle Prep Checklist</p>
       <p class="text-gray-500 text-xs mt-1">Complete all items before departure</p>
     </div>
@@ -366,7 +367,7 @@ tailwind.config = {
     <!-- Toggle button (the stylish tab hanging below) -->
     <div class="wb-toggle-btn" id="wb-toggle" onclick="toggleWeatherBar()">
       <svg width="16" height="10" viewBox="0 0 16 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 2L8 8L14 2" stroke="#f5a623" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M2 2L8 8L14 2" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
   </div>
@@ -375,7 +376,7 @@ tailwind.config = {
   <div id="map"></div>
 
   <!-- Top Control Bar: Hamburger + Search -->
-  <div id="top-control-bar" style="position:fixed;top:88px;left:0;right:0;z-index:95;display:flex;align-items:center;gap:6px;padding:6px 8px;">
+  <div id="top-control-bar" style="position:fixed;top:108px;left:0;right:0;z-index:95;display:flex;align-items:center;gap:6px;padding:6px 8px;">
     <!-- Hamburger Menu Button -->
     <button id="hamburger-btn" onclick="toggleHamburgerMenu()" class="bg-dark-800 border border-dark-600 rounded-lg p-2 text-gray-300 hover:text-warm-400 transition-all flex-shrink-0" style="min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;">
       <svg id="hamburger-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -395,7 +396,7 @@ tailwind.config = {
   </div>
 
   <!-- Hamburger Dropdown Menu -->
-  <div id="hamburger-menu" style="display:none;position:fixed;top:140px;left:8px;z-index:250;width:220px;background:rgba(26,26,36,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+  <div id="hamburger-menu" style="display:none;position:fixed;top:160px;left:8px;z-index:250;width:220px;background:rgba(26,26,36,0.98);backdrop-filter:blur(16px);border:1px solid rgba(245,166,35,0.25);border-radius:14px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
     <div style="padding:6px;">
       <button onclick="openRouteWeather();closeHamburgerMenu();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-gray-200 hover:bg-dark-600 transition-all">
         <span style="font-size:18px;">🌦️</span>
@@ -422,7 +423,7 @@ tailwind.config = {
   </div>
 
   <!-- Find My Location Button (always visible on map) -->
-  <button id="find-location-btn" onclick="findMyLocation()" style="position:fixed;top:124px;right:12px;z-index:93;width:44px;height:44px;background:rgba(30,30,46,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);" title="Find my location">
+  <button id="find-location-btn" onclick="findMyLocation()" style="position:fixed;top:160px;right:12px;z-index:93;width:44px;height:44px;background:rgba(30,30,46,0.95);border:1px solid rgba(245,166,35,0.4);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);" title="Find my location">
     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#e2e8f0" stroke-width="2">
       <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 2"/>
     </svg>
@@ -1853,7 +1854,7 @@ function setupSearchAreaButton() {
   }
 
   searchAreaBtn = document.createElement('button');
-  searchAreaBtn.style.cssText = 'display:none;position:fixed;top:124px;left:50%;transform:translateX(-50%);z-index:92;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
+  searchAreaBtn.style.cssText = 'display:none;position:fixed;top:160px;left:50%;transform:translateX(-50%);z-index:92;background:#1e1e2e;color:#f5a623;border:1px solid #f5a623;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
   updateSearchButtonLabel();
   document.getElementById('main-app').appendChild(searchAreaBtn);
 
@@ -2386,6 +2387,12 @@ function applyWeatherBarState() {
   const toggle = document.getElementById('wb-toggle');
   const controlBar = document.getElementById('top-control-bar');
 
+  const locBtn = document.getElementById('find-location-btn');
+  const hamMenu = document.getElementById('hamburger-menu');
+  const poiSidebar = document.getElementById('poi-sidebar');
+  const halfTank = document.getElementById('half-tank-reminder');
+  const gpsWarn = document.getElementById('gps-override-warning');
+
   if (weatherBarCollapsed) {
     bar.classList.add('wb-collapsed');
     strip.classList.add('wb-show');
@@ -2399,12 +2406,22 @@ function applyWeatherBarState() {
     if (desc) document.getElementById('wb-collapsed-desc').textContent = desc.textContent;
     // Shift controls up when collapsed (strip is 32px)
     if (controlBar) controlBar.style.top = '32px';
+    if (locBtn) locBtn.style.top = '84px';
+    if (hamMenu) hamMenu.style.top = '84px';
+    if (poiSidebar) poiSidebar.style.top = '84px';
+    if (halfTank) halfTank.style.top = '76px';
+    if (gpsWarn) gpsWarn.style.top = '76px';
   } else {
     bar.classList.remove('wb-collapsed');
     strip.classList.remove('wb-show');
     toggle.classList.remove('wb-flipped');
-    // Restore controls to below expanded weather bar
-    if (controlBar) controlBar.style.top = '88px';
+    // Restore controls to below expanded weather bar (108px bar + 52px control bar)
+    if (controlBar) controlBar.style.top = '108px';
+    if (locBtn) locBtn.style.top = '160px';
+    if (hamMenu) hamMenu.style.top = '160px';
+    if (poiSidebar) poiSidebar.style.top = '160px';
+    if (halfTank) halfTank.style.top = '152px';
+    if (gpsWarn) gpsWarn.style.top = '148px';
   }
 }
 
