@@ -2456,7 +2456,7 @@ async function fetchWeather() {
         if (ideal) {
           // Also calculate the latest safe departure (arrive before sunset with stop buffer)
           const destSun = getSunTimes(nextLeg.endLat, nextLeg.endLng, nextLeg.date);
-          const STOP_BUFFER = 1.5; // hours for gas, food, breaks
+          const STOP_BUFFER = nextLeg.driveHours * 0.25; // 25% of drive time for stops
           const latestLeaveDecimal = destSun.sunset - nextLeg.driveHours - STOP_BUFFER;
           const latestH = Math.floor(latestLeaveDecimal);
           const latestM = Math.round((latestLeaveDecimal - latestH) * 60);
@@ -3623,9 +3623,9 @@ function calcIdealDeparture(leg, legIdx, points, forecasts) {
     });
 
     // Check if arriving after dark, with buffer for stops along the way
-    // Add 1.5 hours to drive time to account for gas, food, bathroom, delays
+    // Buffer scales with drive time: 25% of leg duration for gas, food, breaks
     let nightPenalty = 0;
-    const STOP_BUFFER_HOURS = 1.5;
+    const STOP_BUFFER_HOURS = leg.driveHours * 0.25;
     const lastPt = legPoints[legPoints.length - 1];
     const lastDriveHours = lastPt ? lastPt.fracAlong * leg.driveHours : leg.driveHours;
     const totalTripHours = lastDriveHours + STOP_BUFFER_HOURS;
