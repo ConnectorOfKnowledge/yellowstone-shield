@@ -2408,10 +2408,9 @@ async function fetchWeather() {
     if (locEl) locEl.textContent = `📍 ${fromLabel}`;
   }
 
-  // Estimated drive hours per leg (more accurate than flat 6.5)
-  const legDistances = [350, 480, 430, 350, 175]; // approx miles per leg (last leg is Billings to Gardiner)
-  const estDriveHours = Math.round(((legDistances[nextLegIndex] || 400) / 60) * 10) / 10 + 0.5; // buffer
-  // Last leg: she must arrive at Gardiner by 8 AM, not 5 PM
+  // Get the next leg's data for departure time calculation
+  const nextLeg = RW_LEGS[nextLegIndex];
+  const estDriveHours = nextLeg ? nextLeg.driveHours : 6;
   const isFinalLeg = nextLegIndex === HOTELS.length - 1 || nextLegIndex >= 4;
 
   try {
@@ -2449,16 +2448,31 @@ async function fetchWeather() {
         }
       }
 
-      // Calculate departure time based on actual leg distance
-      // Final leg to Gardiner: must arrive by 8 AM. All other legs: arrive by 5 PM
-      const arriveBy = isFinalLeg ? 8 : 17;
-      const leaveByHour = arriveBy - estDriveHours;
-      const leaveHour = Math.floor(leaveByHour);
-      const leaveMin = Math.round((leaveByHour - leaveHour) * 60);
-      const ampm = leaveHour >= 12 ? 'PM' : 'AM';
-      const displayHour = leaveHour % 12 || 12;
-      document.getElementById('weather-depart').textContent =
-        `Leave by: ${displayHour}:${String(leaveMin).padStart(2, '0')} ${ampm}`;
+      // Show ideal departure time from route weather analysis
+      // Uses the same calcIdealDeparture() as the weather leg cards
+      const departEl = document.getElementById('weather-depart');
+      if (rwCache && nextLeg) {
+        const ideal = calcIdealDeparture(nextLeg, nextLegIndex, rwCache.points, rwCache.forecasts);
+        if (ideal) {
+          // Also calculate the latest safe departure (arrive before sunset with stop buffer)
+          const destSun = getSunTimes(nextLeg.endLat, nextLeg.endLng, nextLeg.date);
+          const STOP_BUFFER = 1.5; // hours for gas, food, breaks
+          const latestLeaveDecimal = destSun.sunset - nextLeg.driveHours - STOP_BUFFER;
+          const latestH = Math.floor(latestLeaveDecimal);
+          const latestM = Math.round((latestLeaveDecimal - latestH) * 60);
+          const latestDisplay = `${latestH % 12 || 12}:${String(latestM).padStart(2, '0')} ${latestH >= 12 ? 'PM' : 'AM'}`;
+
+          const idealColor = ideal.severity === 'green' ? '#34d399' : ideal.severity === 'yellow' ? '#fbbf24' : '#f59e0b';
+          departEl.innerHTML = `<span style="color:${idealColor};"><strong>${ideal.display}</strong></span> <span style="color:#6b7280;font-size:10px;">(latest ${latestDisplay})</span>`;
+        } else {
+          departEl.textContent = `Depart: ${rwDepartureTimes[nextLegIndex] || '8:00 AM'}`;
+        }
+      } else {
+        // Route weather not loaded yet -- show scheduled departure
+        const depTime = rwDepartureTimes[nextLegIndex] || '08:00';
+        const [dH, dM] = depTime.split(':').map(Number);
+        departEl.textContent = `Depart: ${dH % 12 || 12}:${String(dM).padStart(2, '0')} ${dH >= 12 ? 'PM' : 'AM'}`;
+      }
 
       // High wind warning from current location
       if (gusts > 50) {
@@ -3406,6 +3420,8 @@ async function fetchRouteWeatherData() {
     // Each element has .hourly with the forecast
     rwCache = { points: allPoints, forecasts: Array.isArray(data) ? data : [data] };
     renderRouteWeather();
+    // Update top bar departure time now that we have weather data
+    fetchWeather();
   } catch (err) {
     console.error('Route weather fetch error:', err);
     container.innerHTML = '<p class="text-center text-red-400 text-sm py-8">Failed to load weather data. Check your connection and try again.</p>';
@@ -3606,15 +3622,18 @@ function calcIdealDeparture(leg, legIdx, points, forecasts) {
       if (rank > worstRank) worstRank = rank;
     });
 
-    // Check if arriving after dark
+    // Check if arriving after dark, with buffer for stops along the way
+    // Add 1.5 hours to drive time to account for gas, food, bathroom, delays
     let nightPenalty = 0;
+    const STOP_BUFFER_HOURS = 1.5;
     const lastPt = legPoints[legPoints.length - 1];
     const lastDriveHours = lastPt ? lastPt.fracAlong * leg.driveHours : leg.driveHours;
-    const lastArrMin = testH * 60 + lastDriveHours * 60;
+    const totalTripHours = lastDriveHours + STOP_BUFFER_HOURS;
+    const lastArrMin = testH * 60 + totalTripHours * 60;
     const lastArrHr = (Math.floor(lastArrMin / 60) % 24) + Math.round(lastArrMin % 60) / 60;
     const destSun = getSunTimes(leg.endLat, leg.endLng, leg.date);
-    if (lastArrHr >= destSun.sunset) nightPenalty = 2;
-    else if (lastArrHr >= destSun.sunset - 0.75) nightPenalty = 1;
+    if (lastArrHr >= destSun.sunset) nightPenalty = 3; // arriving after dark even with buffer
+    else if (lastArrHr >= destSun.sunset - 0.5) nightPenalty = 1; // cutting it close
 
     // Departing before sunrise penalty
     let darkDepartPenalty = 0;
