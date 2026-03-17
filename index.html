@@ -1752,12 +1752,18 @@ function searchPOIsAlongRouteEssentials(type) {
   }
   poiMarkers[type] = [];
 
-  // Use ALL route waypoints (densely spaced ~12km apart along entire route)
-  const searchPoints = routeWaypoints;
-
-  // If no route waypoints available, fall back to viewport search
-  if (!searchPoints || searchPoints.length === 0) {
+  // Only search waypoints visible in the current map viewport (not the entire route)
+  if (!routeWaypoints || routeWaypoints.length === 0) {
     searchPOIsInView(type);
+    return;
+  }
+  const bounds = map.getBounds();
+  const searchPoints = bounds
+    ? routeWaypoints.filter(wp => bounds.contains(wp))
+    : routeWaypoints;
+
+  if (searchPoints.length === 0) {
+    showToast('🗺️ Pan to the route to search this area');
     return;
   }
 
@@ -1808,8 +1814,8 @@ function searchPOIsAlongRouteEssentials(type) {
   let totalFound = 0;
   let totalRejected = 0;
 
-  const distLabel = isSafeParking ? '3 miles' : '1 mile';
-  showToast(`🔍 Searching ${type.replace(/_/g, ' ')} within ${distLabel} of route...`);
+  const distLabel = isSafeParking ? '3 miles' : (isSightseeing ? '5 miles' : '1 mile');
+  showToast(`🔍 Searching ${type.replace(/_/g, ' ')} in this area (${searchPoints.length} points)...`);
 
   // Safe parking keyword queries (searched one at a time per batch point)
   const SAFE_PARKING_QUERIES = ['Walmart Supercenter', 'Pilot Flying J truck stop', "Love's Travel Stop", 'rest area welcome center', 'Cracker Barrel'];
