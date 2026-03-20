@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Yellowstone Shield - Road Trip Command Center</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,6 +52,11 @@ tailwind.config = {
 
   /* Map */
   #map { width: 100%; height: 100%; }
+  .leaflet-popup-content-wrapper { background: #1e1e2e; color: #e2e8f0; border-radius: 12px; }
+  .leaflet-popup-tip { background: #1e1e2e; }
+  .leaflet-popup-content { margin: 8px 12px; }
+  .leaflet-control-attribution { background: rgba(20,20,32,0.7) !important; color: #666 !important; font-size: 10px !important; }
+  .leaflet-control-attribution a { color: #888 !important; }
 
   /* Weather bar */
   #weather-bar-wrapper {
@@ -1543,7 +1550,16 @@ tailwind.config = {
 // ============================================================
 // CONFIGURATION
 // ============================================================
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBYc63ci8DlAbms_PCSifDNeUHlS391694';
+const GOOGLE_MAPS_API_KEY = ''; // Disabled - using Leaflet/OpenStreetMap (no API key needed)
+const USING_LEAFLET = true;
+
+// Catch any remaining google.maps references from features not yet converted
+window.addEventListener('error', function(e) {
+  if (e.message && (e.message.includes('google') || e.message.includes('Google'))) {
+    e.preventDefault();
+    console.warn('[Leaflet mode] Google Maps feature skipped:', e.message);
+  }
+});
 
 // Trip data
 const ORIGIN = 'Seven Valleys, PA 17360';
@@ -1680,6 +1696,7 @@ let customWaypoints = JSON.parse(localStorage.getItem('ys_custom_waypoints') || 
 
 // Open an InfoWindow, auto-closing whichever was open before
 function openSingleInfoWindow(infoWindow, mapObj, anchor) {
+  if (USING_LEAFLET) return; // Leaflet uses bindPopup instead
   if (activeInfoWindow) activeInfoWindow.close();
   activeInfoWindow = infoWindow;
   infoWindow.open(mapObj, anchor);
@@ -1690,11 +1707,8 @@ function openSingleInfoWindow(infoWindow, mapObj, anchor) {
 // INITIALIZATION
 // ============================================================
 function loadGoogleMaps() {
-  const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places,geometry&callback=initApp`;
-  script.async = true;
-  script.defer = true;
-  document.head.appendChild(script);
+  // Google Maps disabled -- using Leaflet/OpenStreetMap instead (free, no API key)
+  initApp();
 }
 
 function initApp() {
@@ -1853,37 +1867,12 @@ function initMap() {
   if (mapInitialized) return;
   mapInitialized = true;
 
-  map = new google.maps.Map(document.getElementById('map'), {
-    center: { lat: 41.5, lng: -90 },
-    zoom: 5,
-    mapTypeControl: false,
-    streetViewControl: false,
-    fullscreenControl: false,
-    zoomControl: false,
-    styles: [
-      { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: '#8a8ab0' }] },
-      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2e2e48' }] },
-      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1e1e2e' }] },
-      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a3a5c' }] },
-      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a2b' }] },
-      { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-      { featureType: 'transit', stylers: [{ visibility: 'off' }] }
-    ]
-  });
-
-  directionsService = new google.maps.DirectionsService();
-  directionsRenderer = new google.maps.DirectionsRenderer({
-    map: map,
-    suppressMarkers: true,
-    polylineOptions: {
-      strokeColor: '#f5a623',
-      strokeOpacity: 0.9,
-      strokeWeight: 4
-    }
-  });
-  placesService = new google.maps.places.PlacesService(map);
+  // Leaflet map with dark CartoDB tiles
+  map = L.map('map', { zoomControl: false }).setView([41.5, -90], 5);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
 
   drawRoute();
   addHotelMarkers();
@@ -1930,91 +1919,77 @@ function extractRouteData(result) {
 
 function drawRoute() {
   const orderedStops = getRouteStops();
-  const allWaypoints = orderedStops
-    .filter(s => s.lat && s.lng)
-    .map(s => ({
-      location: new google.maps.LatLng(s.lat, s.lng),
-      stopover: true
-    }));
+  // Build route points: origin -> stops -> destination
+  const routePoints = [
+    [ORIGIN_LATLNG.lat, ORIGIN_LATLNG.lng],
+    ...orderedStops.filter(s => s.lat && s.lng).map(s => [s.lat, s.lng]),
+    [DEST_LATLNG.lat, DEST_LATLNG.lng]
+  ];
 
-  directionsService.route(buildDirectionsRequest(ORIGIN, DESTINATION, allWaypoints), (result, status) => {
-    if (status === 'OK') {
-      directionsRenderer.setDirections(result);
-      extractRouteData(result);
+  // Draw route polyline
+  L.polyline(routePoints, {
+    color: '#f5a623', opacity: 0.9, weight: 4, smoothFactor: 1
+  }).addTo(map);
 
-      // Rebuild weather legs with actual Google drive times
-      rebuildRWLegsFromStops(orderedStops);
+  // Fit map to show entire route
+  map.fitBounds(routePoints, { padding: [40, 40] });
 
-      // Auto-enable crime zones on first load
-      if (!activePOIs.has('crime_zones')) {
-        activePOIs.add('crime_zones');
-        showCrimeZones();
-        const crimeBtn = document.querySelector('[data-poi="crime_zones"]');
-        if (crimeBtn) crimeBtn.classList.add('active');
-      }
-    }
-  });
+  // Rebuild weather legs
+  rebuildRWLegsFromStops(orderedStops);
+
+  // Auto-enable crime zones on first load
+  if (!activePOIs.has('crime_zones')) {
+    activePOIs.add('crime_zones');
+    showCrimeZones();
+    const crimeBtn = document.querySelector('[data-poi="crime_zones"]');
+    if (crimeBtn) crimeBtn.classList.add('active');
+  }
 }
 
 function addHotelMarkers() {
   HOTELS.forEach((hotel, i) => {
     if (!hotel.lat || !hotel.lng) return;
-    const marker = new google.maps.Marker({
-      position: { lat: hotel.lat, lng: hotel.lng },
-      map: map,
-      title: hotel.name,
-      label: {
-        text: String(hotel.night),
-        color: '#141420',
-        fontWeight: 'bold',
-        fontSize: '12px'
-      },
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 16,
-        fillColor: '#f5a623',
-        fillOpacity: 1,
-        strokeColor: '#141420',
-        strokeWeight: 3
-      }
-    });
-
     const hotelAddr = hotel.address.replace(/'/g, "\\'");
-    const infoWindow = new google.maps.InfoWindow({
-      content: `<div style="color:#141420;font-family:Inter,sans-serif;padding:4px;max-width:240px;">
-        <strong style="font-size:14px;">${hotel.name}</strong><br>
-        <span style="font-size:12px;color:#94a3b8;">${hotel.address}</span><br>
-        <span style="font-size:12px;color:#b0b8c8;">Night ${hotel.night} - ${hotel.date}</span>
-        ${hotel.confirmation !== '--' ? `<br><span style="font-size:11px;color:#0d9488;">Conf: ${hotel.confirmation}</span>` : ''}
-        <div style="display:flex;gap:6px;margin-top:8px;">
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${hotel.lat},${hotel.lng}" target="_blank"
-            style="flex:1;text-align:center;font-size:11px;color:#3b82f6;background:#eff6ff;padding:6px 4px;border-radius:6px;text-decoration:none;">📍 Directions</a>
-          <button onclick="navigator.clipboard.writeText('${hotelAddr}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='📋 Copy',1500);"
-            style="flex:1;text-align:center;font-size:11px;color:#0d9488;background:#f0fdfa;padding:6px 4px;border-radius:6px;border:none;cursor:pointer;">📋 Copy</button>
-        </div>
-      </div>`
-    });
-    marker.addListener('click', () => openSingleInfoWindow(infoWindow, map, marker));
+    const marker = L.circleMarker([hotel.lat, hotel.lng], {
+      radius: 14, fillColor: '#f5a623', fillOpacity: 1,
+      color: '#141420', weight: 3
+    }).addTo(map);
+
+    // Number label via divIcon overlay
+    L.marker([hotel.lat, hotel.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;color:#141420;">${hotel.night}</div>`,
+        iconSize: [28, 28], iconAnchor: [14, 14]
+      })
+    }).addTo(map);
+
+    const popupContent = `<div style="color:#141420;font-family:Inter,sans-serif;padding:4px;max-width:240px;">
+      <strong style="font-size:14px;">${hotel.name}</strong><br>
+      <span style="font-size:12px;color:#94a3b8;">${hotel.address}</span><br>
+      <span style="font-size:12px;color:#b0b8c8;">Night ${hotel.night} - ${hotel.date}</span>
+      ${hotel.confirmation !== '--' ? `<br><span style="font-size:11px;color:#0d9488;">Conf: ${hotel.confirmation}</span>` : ''}
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <a href="https://www.google.com/maps/dir/?api=1&destination=${hotel.lat},${hotel.lng}" target="_blank"
+          style="flex:1;text-align:center;font-size:11px;color:#3b82f6;background:#eff6ff;padding:6px 4px;border-radius:6px;text-decoration:none;">📍 Directions</a>
+        <button onclick="navigator.clipboard.writeText('${hotelAddr}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='📋 Copy',1500);"
+          style="flex:1;text-align:center;font-size:11px;color:#0d9488;background:#f0fdfa;padding:6px 4px;border-radius:6px;border:none;cursor:pointer;">📋 Copy</button>
+      </div>
+    </div>`;
+    marker.bindPopup(popupContent);
   });
 
   // Origin marker
-  new google.maps.Marker({
-    position: ORIGIN_LATLNG, map: map, title: 'Start: Seven Valleys, PA',
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE, scale: 12,
-      fillColor: '#22c55e', fillOpacity: 1, strokeColor: '#141420', strokeWeight: 3
-    }
-  });
+  L.circleMarker([ORIGIN_LATLNG.lat, ORIGIN_LATLNG.lng], {
+    radius: 10, fillColor: '#22c55e', fillOpacity: 1,
+    color: '#141420', weight: 3
+  }).addTo(map).bindPopup('Start: Seven Valleys, PA');
 
   // Destination marker
-  new google.maps.Marker({
-    position: DEST_LATLNG, map: map, title: 'Yellowstone National Park',
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE, scale: 14,
-      fillColor: '#dc2626', fillOpacity: 1, strokeColor: '#fca5a5', strokeWeight: 3
-    },
-    label: { text: '🏔️', fontSize: '18px' }
-  });
+  L.circleMarker([DEST_LATLNG.lat, DEST_LATLNG.lng], {
+    radius: 12, fillColor: '#dc2626', fillOpacity: 1,
+    color: '#fca5a5', weight: 3
+  }).addTo(map).bindPopup('🏔️ Yellowstone National Park');
 }
 
 // ============================================================
@@ -2031,22 +2006,12 @@ function startLocationWatch() {
       };
 
       if (!userMarker) {
-        userMarker = new google.maps.Marker({
-          position: userPosition,
-          map: map,
-          title: 'You are here',
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: '#3b82f6',
-            fillOpacity: 1,
-            strokeColor: '#bfdbfe',
-            strokeWeight: 3
-          },
-          zIndex: 999
-        });
+        userMarker = L.circleMarker([userPosition.lat, userPosition.lng], {
+          radius: 10, fillColor: '#3b82f6', fillOpacity: 1,
+          color: '#bfdbfe', weight: 3
+        }).addTo(map).bindPopup('You are here');
       } else {
-        userMarker.setPosition(userPosition);
+        userMarker.setLatLng([userPosition.lat, userPosition.lng]);
       }
 
       checkGPSOverride(userPosition);
@@ -2075,45 +2040,28 @@ function findMyLocation() {
       userPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
 
       if (!userMarker) {
-        userMarker = new google.maps.Marker({
-          position: userPosition,
-          map: map,
-          title: 'You are here',
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: '#3b82f6',
-            fillOpacity: 1,
-            strokeColor: '#bfdbfe',
-            strokeWeight: 3
-          },
-          zIndex: 999
-        });
+        userMarker = L.circleMarker([userPosition.lat, userPosition.lng], {
+          radius: 10, fillColor: '#3b82f6', fillOpacity: 1,
+          color: '#bfdbfe', weight: 3
+        }).addTo(map).bindPopup('You are here');
       } else {
-        userMarker.setPosition(userPosition);
+        userMarker.setLatLng([userPosition.lat, userPosition.lng]);
       }
 
-      map.setCenter(userPosition);
-      map.setZoom(13);
+      map.setView([userPosition.lat, userPosition.lng], 13);
 
       // Flash the user marker
       let flashCount = 0;
       const flashInterval = setInterval(() => {
         if (flashCount >= 6) {
           clearInterval(flashInterval);
-          userMarker.setOptions({ icon: { ...userMarker.getIcon(), fillOpacity: 1, strokeOpacity: 1 } });
+          userMarker.setStyle({ fillOpacity: 1 });
           return;
         }
         const visible = flashCount % 2 === 0;
-        userMarker.setOptions({
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: visible ? 14 : 10,
-            fillColor: '#3b82f6',
-            fillOpacity: visible ? 0.6 : 1,
-            strokeColor: '#bfdbfe',
-            strokeWeight: visible ? 4 : 3
-          }
+        userMarker.setStyle({
+          radius: visible ? 14 : 10,
+          fillOpacity: visible ? 0.6 : 1
         });
         flashCount++;
       }, 250);
@@ -2710,6 +2658,7 @@ function searchPOIsAlongRoute(type) {
 }
 
 function setupSearchAreaButton() {
+  if (USING_LEAFLET) return; // Requires Google Maps
   if (searchAreaBtn) {
     updateSearchButtonLabel();
     return;
@@ -2812,7 +2761,8 @@ function flashSearchRadius() {
 function clearPOIMarkers(type) {
   if (poiMarkers[type]) {
     poiMarkers[type].forEach(m => {
-      if (m.setMap) m.setMap(null);        // Markers
+      if (m.setMap) m.setMap(null);        // Google Markers (legacy)
+      if (m.remove) m.remove();            // Leaflet layers
       if (m.close) m.close();              // InfoWindows
     });
     poiMarkers[type] = [];
@@ -2823,7 +2773,6 @@ function clearPOIMarkers(type) {
 // CRIME AWARENESS ZONES (circle overlays + info windows)
 // ============================================================
 function showCrimeZones() {
-  // Clear any existing crime zone overlays
   clearPOIMarkers('crime_zones');
   poiMarkers['crime_zones'] = [];
 
@@ -2836,20 +2785,12 @@ function showCrimeZones() {
     const colors = CRIME_COLORS[zone.severity] || CRIME_COLORS.yellow;
 
     // Draw circle overlay
-    const circle = new google.maps.Circle({
-      map: map,
-      center: { lat: zone.lat, lng: zone.lng },
+    const circle = L.circle([zone.lat, zone.lng], {
       radius: zone.radiusM,
-      fillColor: colors.fill,
-      fillOpacity: 0.15,
-      strokeColor: colors.stroke,
-      strokeOpacity: 0.7,
-      strokeWeight: 2,
-      clickable: true,
-      zIndex: 5
-    });
+      fillColor: colors.fill, fillOpacity: 0.15,
+      color: colors.stroke, opacity: 0.7, weight: 2
+    }).addTo(map);
 
-    // Build info window content
     const sevLabel = zone.severity === 'red'
       ? '<span style="color:#ef4444;font-weight:700;">⛔ HIGH RISK</span>'
       : '<span style="color:#f59e0b;font-weight:700;">⚠️ CAUTION</span>';
@@ -2860,7 +2801,7 @@ function showCrimeZones() {
          </div>`
       : '';
 
-    const infoContent = `
+    const popupContent = `
       <div style="max-width:280px;font-family:Inter,system-ui,sans-serif;color:#e5e7eb;background:#1a1a2e;padding:12px;border-radius:8px;">
         <div style="font-size:14px;font-weight:700;margin-bottom:6px;">${sevLabel}</div>
         <div style="font-size:15px;font-weight:600;margin-bottom:4px;">${zone.name}</div>
@@ -2872,36 +2813,19 @@ function showCrimeZones() {
       </div>
     `;
 
-    const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+    // Shield marker
+    const marker = L.marker([zone.lat, zone.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:20px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">🛡️</div>`,
+        iconSize: [32, 32], iconAnchor: [16, 16]
+      })
+    }).addTo(map).bindPopup(popupContent, { maxWidth: 300 });
 
-    // Center marker with shield icon for tap target
-    const marker = new google.maps.Marker({
-      position: { lat: zone.lat, lng: zone.lng },
-      map: map,
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 14,
-        fillColor: colors.fill,
-        fillOpacity: 0.9,
-        strokeColor: '#fff',
-        strokeWeight: 2
-      },
-      label: { text: '🛡️', fontSize: '16px' },
-      title: zone.name,
-      zIndex: 10
-    });
-
-    // Both the circle and center marker open the info window
-    marker.addListener('click', () => {
-      openSingleInfoWindow(infoWindow, map, marker);
-    });
-    circle.addListener('click', () => {
-      openSingleInfoWindow(infoWindow, map, marker);
-    });
+    circle.bindPopup(popupContent, { maxWidth: 300 });
 
     poiMarkers['crime_zones'].push(circle);
     poiMarkers['crime_zones'].push(marker);
-    poiMarkers['crime_zones'].push(infoWindow);
   });
 
   showToast('🛡️ Crime awareness zones loaded. Tap shields for details.');
@@ -2919,6 +2843,7 @@ const WO_COLORS = {
 };
 
 async function showWeatherOverlay() {
+  if (USING_LEAFLET) { showToast('Weather overlay requires route data. Use Route Weather panel instead.'); return; }
   poiMarkers['weather_overlay'] = poiMarkers['weather_overlay'] || [];
 
   // Sample points along the route (use routeWaypoints if available)
@@ -4050,6 +3975,7 @@ function initMapSearch() {
   const input = document.getElementById('map-search-input');
   const clearBtn = document.getElementById('map-search-clear');
   if (!input) return;
+  if (USING_LEAFLET) return; // Places Autocomplete requires Google Maps
 
   // Use Google Places Autocomplete
   const autocomplete = new google.maps.places.Autocomplete(input, {
